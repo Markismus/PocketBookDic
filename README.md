@@ -6,7 +6,7 @@ Script to convert from cvs-, Stardict dict-, Stardict dictdz- and xdxf-format to
 
 _Dependencies:_
 - Perl - It's a Perl script: Install Perl to run it!
-- Perl modules - Sort::Key::Natural, Storable, Term::ANSIColor and Encode are used. Some are installed with Perl, others will have to be installed separately. They can be installed with from cpan. E.g. In Arch Linux the first module is installed by `cpan i Sort::Key::Natural`. Most modules can alse be installed from the AUR in Arch Linux: `yay -s perl-sort-naturally`.
+- Perl modules - Storable, Term::ANSIColor and Encode are used. Some are installed with Perl, others could have to be installed separately. They can be installed with from cpan. E.g. In Arch Linux the first module is installed by `cpanp i Term::ANSIColor`. 
 - converter.exe - Pocketbook's converter. Look on the mobileread site in the pocketbook subforum for the newest version.
 - language folders - converter.exe depends on the presence of a language folder in which the files collates.txt, keyboard.txt and  morphems.txt are located. The name of the language folder should be the same as the language_from which your dictionary translates. There are a lot of preformed language folders floating around the mobileread site in the pocketbook subforum.
 - Wine - Converter.exe is a windows binary, which can be runned with Wine. (If your running windows, you should remove wine from the last command in the script. E.g. `system("wine convert.exe \"$FileName\" $lang_from");` becomes `system("convert.exe \"$FileName\" $lang_from");` 
