@@ -1,7 +1,6 @@
 #! /bin/perl
 use strict;
 use autodie;
-use Sort::Key::Natural qw(natsort); # This should sort the keys of the pages whether they are roman or arabic.
 use Storable;       #To storage the hash %Warning_per_volume.
 use Term::ANSIColor;    #Color display on terminal
 use Encode 'encode';
@@ -33,11 +32,7 @@ $FileName = "dict/Duden/duden.ifo";
 $FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P1-2.4.2/Oxford English Dictionary 2nd Ed. P1.ifo";
 $FileName = "dict/latin-english.ifo";
 $FileName = "dict/LSJ-utf8.csv";
-my $XMLEntries = "XMLEntries.hash";
-# my $Definition_lengths = 'Definition_lengths.hash';
-my %XML;
-# my %Definition_lengths;
-# my $Longest_Definition_length = 0;
+
 my @xdxf_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 				'<xdxf lang_from="" lang_to="" format="visual">'."\n",
 				'<full_name></full_name>'."\n",
@@ -96,45 +91,6 @@ sub ArraytoFile {
     $FileName =~ s/.+\/(.+)/$1/;
     DebugV("Written $FileName. Exiting sub ArraytoFile\n");
     return ("File written");}
-sub RestoreHash{
-        # Re-/store hash
-        # Usage: %Hash=RestoreHash($FileName,%Hash);
-        # my $EndNoteFile = "$BaseDir/Data/$LDLVolume-Endnotes.hash";
-        my ( $FileName, %Hash ) = @_;
-        if(-e $FileName){
-            my $Hashref = retrieve($FileName);
-            my %SavedHash=%{$Hashref};
-            foreach(natsort keys %SavedHash){  
-                if( ! defined($Hash{$_}) ){
-
-                    $Hash{$_}=$SavedHash{$_};  
-                }   
-            }
-        }
-        store \%Hash, $FileName;
-        return(%Hash);}
-sub StoreHash{
-        # Store hash
-        # Usage: %Hash=RestoreHash($FileName,%Hash);
-        # my $EndNoteFile = "$BaseDir/Data/$LDLVolume-Endnotes.hash";
-        my ( $FileName, %Hash ) = @_;
-        # if(-e $FileName){
-        #     DebugVV("Hash filename exists: $FileName");
-        #     my $Hashref = retrieve($FileName);
-        #     my %SavedHash=%{$Hashref};
-        #     foreach(natsort keys %SavedHash){  
-        #         DebugVV("key $_ EXISTS in \%Hash")   if exists $Hash{$_} ;
-        #         DebugVV("key $_ DEFINED in \%Hash\n") if defined $Hash{$_} ;
-        #         DebugVV("key $_ TRUE in \%Hash\n")  if $Hash{$_} ;
-        #         if( ! defined($Hash{$_}) ){
-
-        #             DebugVV("Retrieved value $SavedHash{$_} from key $_ from saved hash at $FileName.");
-        #             $Hash{$_}=$SavedHash{$_};  
-        #         }   
-        #     }
-        # }
-        store \%Hash, $FileName;
-        return(%Hash);}
 sub CleanseAr{
 	my @Content = @_;
 	my $Content = join('',@Content) ;
@@ -355,15 +311,6 @@ sub ConvertCVStoXDXF{
 	}
 	push @xdxf, $lastline_xdxf;
 	return(@xdxf);}
-# The hash %XML stores the xml-tag to keep track of xml-version used in xdxf-files	
-%XML = RestoreHash( $XMLEntries, %XML);
-my $NumberofXMLtags = scalar ( keys %XML );
-# The hash %Definition_lengths stores lenghts of definitions to keep track of the longest definition found.
-# %Definition_lengths = RestoreHash( $Definition_lengths, %Definition_lengths);
-# foreach(keys %Definition_lengths){
-	# if ($Definition_lengths{$_} > $Longest_Definition_length){ $Longest_Definition_length = $Definition_lengths{$_};}
-# }
-# PrintCyan("The Longest_Definition_length retrieved is $Longest_Definition_length.");
 
 # Create the array @xdxf
 my @xdxf;
@@ -420,15 +367,6 @@ foreach my $entry (@xdxf){
 	# The criterion has rather diminished through the building of the script.
 	if($entry =~ m~^.*\n$~s){
 		# PrintYellow($entry);
-		# Finding of new XML tag
-		if( $entry =~ m~(<\?xml.+\?>)~ ){ 
-			$XML{$1}=1; 
-			if (scalar ( keys %XML ) > $NumberofXMLtags){
-				Debug("New XML tag found:\n$entry");
-				StoreHash ($XMLEntries, %XML);
-				die if $isRealDead;
-				} 
-		}
 		# Handling of xdxf tag
 		if ( $entry =~ m~^<xdxf(.+)>\n$~){
 			my $xdxf = $1;
@@ -514,15 +452,12 @@ foreach my $entry (@xdxf){
 			die if $isRealDead; }
 }
 
-# PrintGreen(@xdxf_constructed);
 PrintMagenta("Total number of lines processed \$i = ",$i,".\n");
 PrintMagenta("Total number of ar processed \$ar = ",$ar,".\n");
 
 my $dict_xdxf=$FileName;
 $dict_xdxf =~ s~\.xdxf~_reconstructed\.xdxf~;
 ArraytoFile($dict_xdxf, @xdxf_constructed);
-# StoreHash($Definition_lengths,%Definition_lengths);
-# Debug("The Longest_Definition_lenght was $Longest_Definition_length bytes.");
 my $ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$dict_xdxf\" $lang_from";
 Debug($ConvertCommand);
 system($ConvertCommand);
