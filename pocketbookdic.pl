@@ -23,7 +23,8 @@ my $ar_chosen = 410; # Ar singled out when no_test = 0;
 my $ar_per_dot = 300; # A green dot is printed achter $ar_per_dot ar's have been processed.
 my $i_limit = 27000000000000000000; # Hard limit to the number of lines that are processed.
 my $remove_color_tags = 0; # Color tags seem less desirable with greyscale screens. It reduces the article size considerably.
-
+my $isDebug = 1; # Turns off all debug messages
+my $isDebugVerbose = 0; # Turns off all verbose debug messages
 
 # $BaseDir is the directory where converter.exe and the language folders reside. 
 # In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
@@ -43,8 +44,10 @@ $FileName = "dict/Duden/duden.ifo";
 $FileName = "dict/latin-english.ifo";
 $FileName = "dict/LSJ-utf8.csv";
 $FileName = "dict/test/Oxford\ English\ Dictionary\ 2nd\ Ed.\ P1_lines_951058-951205.xdxf";
-$FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P1-2.4.2/Oxford English Dictionary 2nd Ed. P1.ifo";
+$FileName = "dict/test/Oxford\ English\ Dictionary\ 2nd\ Ed.\ P2_article_ending_at_381236reconstructed.xdxf";
 $FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P2-2.4.2/Oxford English Dictionary 2nd Ed. P2.ifo";
+$FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P1-2.4.2/Oxford English Dictionary 2nd Ed. P1.ifo";
+$FileName = "dict/Oxford_English_Dictionary_2nd_Ed.xdxf";
 
 my @xdxf_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 				'<xdxf lang_from="" lang_to="" format="visual">'."\n",
@@ -55,8 +58,8 @@ my @xdxf_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 				'</description>'."\n");
 my $lastline_xdxf = "</xdxf>\n";
 	
-sub Debug { PrintRed( @_, "\n" );}
-sub DebugV { PrintBlue( @_, "\n" );}
+sub Debug { $isDebug and PrintRed( @_, "\n" );}
+sub DebugV { $isDebugVerbose and PrintBlue( @_, "\n" );}
 sub DebugFindings {
     DebugV();
     if ( defined $1 )  { DebugV("\$1 is: \"$1\"\n"); }
@@ -116,35 +119,78 @@ sub CleanseAr{
 		
 		# Special characters in $head and $def should be converted to
 		#  &lt; (<), &amp; (&), &gt; (>), &quot; ("), and &apos; (')
-		$head =~ s~(?<lt><)(?!/?key>)~&lt;~gs;
+		$head =~ s~(?<lt><)(?!/?(key>|k>))~&lt;~gs;
 		$head =~ s~(?<amp>&)(?!(lt;|amp;|gt;|quot;|apos;))~&amp;~gs;
-		$def =~ s~(?<lt><)(?!/?(c>|c c="|block|quote|b>|i>|abr>|ex>|kref>|sup>|sub>|dtrn>))~&lt;~gs;
+		$def =~ s~(?<lt><)(?!/?(c>|c c="|block|quote|b>|i>|abr>|ex>|kref>|sup>|sub>|dtrn>|k>|key>))~&lt;~gs;
 		$def =~ s~(?<amp>&)(?!(lt;|amp;|gt;|quot;|apos;))~&amp;~gs;
 		
 		# Splits complex blockquote blocks from each other. Small impact on layout.
 		$def =~ s~</blockquote><blockquote>~</blockquote>\n<blockquote>~gs;
 		# Splits blockquote from next heading </blockquote><b><c c=
 		$def =~ s~</blockquote><b><c c=~</blockquote>\n<b><c c=~gs;
+		# Splits the too long lines.
+		my @def = split(/\n/,$def);
+		my $def_line_counter = 0;
+		foreach my $line (@def){
+		 	$def_line_counter++;
+		 	# Finetuning of cut location
+		 	if (length(encode('UTF-8', $line)) > $max_line_length){
+			 	# So I would like to cut the line at say 3500 chars not in the middle of a tag, so before a tag.
+			 	# index STR,SUBSTR,POSITION
+			 	my $cut_location = index $line, "<", int($max_line_length * 0.85);
+			 	if($cut_location == -1 or $cut_location > $max_line_length){
+			 		# Saw this with definition without tags a lot a greek characters. Word count <3500, bytes>7500.
+			 		# New cut location is from half the line.
+			 		$cut_location = index $line, "<", int(length($line)/2);
+			 		# But sometimes there are no tags
+			 		if($cut_location == -1 or $cut_location > $max_line_length){ 
+			 			$cut_location = index $line, ".", int($max_line_length * 0.85);
+			 			if($cut_location == -1 or $cut_location > $max_line_length){ 
+			 				$cut_location = index $line, ".", int(length($line)/2);
+			 			}
+			 		}
+
+
+			 	}
+		 		DebugV("Definition line $def_line_counter is ",length($line)," characters and ",length(encode('UTF-8', $line))," bytes. Cut location is $cut_location.");
+		 		my $cutline_begin = substr($line, 0, $cut_location);
+		 		my $cutline_end = substr($line, $cut_location);
+		 		Debug ("Line taken to be cut:") and PrintYellow("$line\n") and 
+		 		Debug("First part of the cut line is:") and PrintYellow("$cutline_begin\n") and
+		 		Debug("Last part of the cut line is:") and PrintYellow("$cutline_end\n") and
+		 		die if $cut_location > $max_line_length;
+		 		# splice array, offset, length, list
+		 		splice @def, $def_line_counter, 0, ($cutline_end);
+		 		$line = $cutline_begin;
+		 	}
+		}
+		$def = join("\n",@def);
+		# Debug($def);
+
+		# Creates multiple articles if the article is too long.
 		my $def_bytes = length(encode('UTF-8', $def));
-		# $Definition_lengths{$head} = $def_bytes;
-		
 		if( $def_bytes > $max_article_length ){ 
-			Debug("The length of the definition of \"$head\" is $def_bytes bytes.");
+			DebugV("The length of the definition of \"$head\" is $def_bytes bytes.");
 			#It should be split in chunks < $max_article_length , e.g. 64kB
 			my @def=split("\n", $def);
-			my @defs=();
+			my @definitions=();
 			my $counter = 0;
+			my $loops = 0;
+			my $concatenation = "";
 			# Split the lines of the definition in separate chunks smaller than 90kB
 			foreach my $line(@def){
-				$defs[$counter].=$line."\n";
-				# Debug($defs[$counter]);
-				if( length(encode('UTF-8', $defs[$counter])) > $max_article_length ){
-					Debug("Chunk is larger than ",$max_article_length,". Creating another chunk.");
-					chomp $defs[$counter];
+				$loops++;
+				# Debug("\$loops is $loops. \$counter at $counter" );
+				$concatenation = $definitions[$counter]."\n".$line;
+				if( length(encode('UTF-8', $concatenation)) > $max_article_length ){
+					DebugV("Chunk is larger than ",$max_article_length,". Creating another chunk.");
+					chomp $definitions[$counter];
 					$counter++;
+					
 				}
+				$definitions[$counter] .= "\n".$line;
 			}
-			chomp $defs[$counter];
+			chomp $definitions[$counter];
 			# Join the chunks with the relevant extra tags to form multiple ar entries.
 			# $Content is between <ar> and </ar> tags. It consists of <head>$head</head><def>$def_old</def>
 			# So if $def is going to replace $def_old in the later substitution: $Content =~ s~\Q$def_old\E~$def~s; ,
@@ -158,57 +204,15 @@ sub CleanseAr{
 			# Debug("Counter reached $counter.");
 			$def="";
 			for(my $a = 0; $a < $counter; $a = $a + 1 ){
-					Debug("\$a is $a");
-					$def.=$defs[$a]."</def>\n</ar>\n<ar>\n<head>$newhead$Symbols[$a]</k></head><def>";
-					Debug("Added chunk ",($a+1)," to \$def together with \"</def></ar>\n<ar><head>$newhead$Symbols[$a]</k></head><def>\".");
+					# Debug("\$a is $a");
+					$def.=$definitions[$a]."</def>\n</ar>\n<ar>\n<head>$newhead$Symbols[$a]</k></head><def>\n";
+					DebugV("Added chunk ",($a+1)," to \$def together with \"</def></ar>\n<ar><head>$newhead$Symbols[$a]</k></head><def>\".");
 			}
-			$def .= $defs[$counter];
+			$def .= $definitions[$counter];
 			
 		}
 		
-		# Deletes the too long lines.
-		my @def = split(/\n/,$def);
-		my $def_line_counter = 0;
-		 foreach my $line (@def){
-		 	$def_line_counter++;
-		 	if (length(encode('UTF-8', $line)) > $max_line_length){
-		 	# So I would like to cut the line at say 3500 chars not in the middle of a tag, so before a tag.
-		 	# index STR,SUBSTR,POSITION
-		 	my $cut_location = index $line, "<", int($max_line_length * 0.85);
-		 	if($cut_location == -1 or $cut_location > $max_line_length){
-		 		# Saw this with definition without tags a lot a greek characters. Word count <3500, bytes>7500.
-		 		# New cut location is from half the line.
-		 		$cut_location = index $line, "<", int(length($line)/2);
-		 		# But sometimes there are no tags
-		 		if($cut_location == -1 or $cut_location > $max_line_length){ 
-		 			$cut_location = index $line, ".", int($max_line_length * 0.85);
-		 			if($cut_location == -1 or $cut_location > $max_line_length){ 
-		 				$cut_location = index $line, ".", int(length($line)/2);
-		 			}
-		 		}
-
-
-		 	}
-		 	Debug("Definition line $def_line_counter is ",
-		 		length($line),
-		 		" characters and ",
-		 		length(encode('UTF-8', $line)),
-		 		" bytes. Cut location is $cut_location.");
-		 	my $cutline_begin = substr($line, 0, $cut_location);
-		 	my $cutline_end = substr($line, $cut_location);
-		 	Debug ("Line taken to be cut:") and PrintYellow("$line\n") and 
-		 	Debug("First part of the cut line is:") and PrintYellow("$cutline_begin\n") and
-		 	Debug("Last part of the cut line is:") and PrintYellow("$cutline_end\n") and
-		 	die if $cut_location > $max_line_length;
-		 	# splice array, offset, length, list
-		 	splice @def, $def_line_counter, 0, ($cutline_end);
-		 	$line = $cutline_begin;
-		 	}
-			
-		 }
-		 $def = join("\n",@def);
-		# Debug($def);
-
+		
 		if($remove_color_tags){
 			# Removes all color from lemma description. 
 			# <c c="darkslategray"><c>Derived:</c></c> <c c="darkmagenta">
@@ -465,12 +469,12 @@ foreach my $entry (@xdxf){
 			die if $isRealDead; }
 }
 
-PrintMagenta("Total number of lines processed \$i = ",$i,".\n");
-PrintMagenta("Total number of ar processed \$ar = ",$ar,".\n");
+PrintMagenta("Total number of lines processed \$i = ",$i+1,".\n");
+PrintMagenta("Total number of articles processed \$ar = ",$ar+1,".\n");
 
 my $dict_xdxf=$FileName;
 $dict_xdxf =~ s~\.xdxf~_reconstructed\.xdxf~;
 ArraytoFile($dict_xdxf, @xdxf_constructed);
 my $ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$dict_xdxf\" $lang_from";
-Debug($ConvertCommand);
+PrintGreen($ConvertCommand."\n");
 system($ConvertCommand);
