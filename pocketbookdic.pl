@@ -6,14 +6,25 @@ use Term::ANSIColor;    #Color display on terminal
 use Encode 'encode';
 
 my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
+
 my $reformat_xdxf=1; # Demands manual input for xdxf tag.
 my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
 my $reformat_full_name = 1; # Demands manual input for full_name tag. 
+
+# This controls the maximum article length. 
+# If set too large, the old converter will crash and the new will truncate the entry.
+my $max_article_length = 64000;
+# This controls the maximum line length. 
+# If set too large, the converter wil complain about bad XML syntax and exit.
+my $max_line_length = 4000;
+
 my $no_test=1; # Testing singles out a single ar and generates a xdxf-file containing only that ar.
 my $ar_chosen = 410; # Ar singled out when no_test = 0;
 my $ar_per_dot = 300; # A green dot is printed achter $ar_per_dot ar's have been processed.
 my $i_limit = 27000000000000000000; # Hard limit to the number of lines that are processed.
 my $remove_color_tags = 0; # Color tags seem less desirable with greyscale screens. It reduces the article size considerably.
+
+
 # $BaseDir is the directory where converter.exe and the language folders reside. 
 # In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
 my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109"; 
@@ -29,9 +40,11 @@ $FileName = "Oxford_English_Dictionary_2nd_Ed._P1-2.4.2.xdxf";
 $FileName = "dict/Liddell Scott Jones.ifo";
 $FileName = "dict/Oxford Advanced Learner's Dictionary/Oxford Advanced Learner's Dictionary.ifo";
 $FileName = "dict/Duden/duden.ifo";
-$FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P1-2.4.2/Oxford English Dictionary 2nd Ed. P1.ifo";
 $FileName = "dict/latin-english.ifo";
 $FileName = "dict/LSJ-utf8.csv";
+$FileName = "dict/test/Oxford\ English\ Dictionary\ 2nd\ Ed.\ P1_lines_951058-951205.xdxf";
+$FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P1-2.4.2/Oxford English Dictionary 2nd Ed. P1.ifo";
+$FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P2-2.4.2/Oxford English Dictionary 2nd Ed. P2.ifo";
 
 my @xdxf_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 				'<xdxf lang_from="" lang_to="" format="visual">'."\n",
@@ -115,9 +128,9 @@ sub CleanseAr{
 		my $def_bytes = length(encode('UTF-8', $def));
 		# $Definition_lengths{$head} = $def_bytes;
 		
-		if( $def_bytes > 100000 ){ 
+		if( $def_bytes > $max_article_length ){ 
 			Debug("The length of the definition of \"$head\" is $def_bytes bytes.");
-			#It should be split in chunks < 100kB
+			#It should be split in chunks < $max_article_length , e.g. 64kB
 			my @def=split("\n", $def);
 			my @defs=();
 			my $counter = 0;
@@ -125,8 +138,8 @@ sub CleanseAr{
 			foreach my $line(@def){
 				$defs[$counter].=$line."\n";
 				# Debug($defs[$counter]);
-				if( length(encode('UTF-8', $defs[$counter])) > 90000 ){
-					Debug("Chunk is larger than 90kB. Creating another chunk.");
+				if( length(encode('UTF-8', $defs[$counter])) > $max_article_length ){
+					Debug("Chunk is larger than ",$max_article_length,". Creating another chunk.");
 					chomp $defs[$counter];
 					$counter++;
 				}
@@ -142,7 +155,7 @@ sub CleanseAr{
 			# my @Symbols = (".",":","⁝","⁞");
 			# my @Symbols = ("a","aa","aaa","aaaa");
 			my @Symbols = ("","","","");
-			Debug("Counter reached $counter.");
+			# Debug("Counter reached $counter.");
 			$def="";
 			for(my $a = 0; $a < $counter; $a = $a + 1 ){
 					Debug("\$a is $a");
@@ -158,18 +171,18 @@ sub CleanseAr{
 		my $def_line_counter = 0;
 		 foreach my $line (@def){
 		 	$def_line_counter++;
-		 	if (length(encode('UTF-8', $line)) > 4096){
+		 	if (length(encode('UTF-8', $line)) > $max_line_length){
 		 	# So I would like to cut the line at say 3500 chars not in the middle of a tag, so before a tag.
 		 	# index STR,SUBSTR,POSITION
-		 	my $cut_location = index $line, "<", 3500;
-		 	if($cut_location == -1 or $cut_location > 4000){
+		 	my $cut_location = index $line, "<", int($max_line_length * 0.85);
+		 	if($cut_location == -1 or $cut_location > $max_line_length){
 		 		# Saw this with definition without tags a lot a greek characters. Word count <3500, bytes>7500.
 		 		# New cut location is from half the line.
 		 		$cut_location = index $line, "<", int(length($line)/2);
 		 		# But sometimes there are no tags
-		 		if($cut_location == -1 or $cut_location > 4000){ 
-		 			$cut_location = index $line, ".", 3500;
-		 			if($cut_location == -1 or $cut_location > 4000){ 
+		 		if($cut_location == -1 or $cut_location > $max_line_length){ 
+		 			$cut_location = index $line, ".", int($max_line_length * 0.85);
+		 			if($cut_location == -1 or $cut_location > $max_line_length){ 
 		 				$cut_location = index $line, ".", int(length($line)/2);
 		 			}
 		 		}
@@ -186,7 +199,7 @@ sub CleanseAr{
 		 	Debug ("Line taken to be cut:") and PrintYellow("$line\n") and 
 		 	Debug("First part of the cut line is:") and PrintYellow("$cutline_begin\n") and
 		 	Debug("Last part of the cut line is:") and PrintYellow("$cutline_end\n") and
-		 	die if $cut_location > 4000;
+		 	die if $cut_location > $max_line_length;
 		 	# splice array, offset, length, list
 		 	splice @def, $def_line_counter, 0, ($cutline_end);
 		 	$line = $cutline_begin;
