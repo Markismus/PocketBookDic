@@ -31,7 +31,7 @@ my $isDebugVerbose = 1; # Turns off all verbose debug messages
 my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109"; 
 
 my $OperatingSystem = "$^O\n";
-if ($OperatingSystem == "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
+if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
 else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";} 
 
 chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
