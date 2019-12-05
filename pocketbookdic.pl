@@ -6,6 +6,10 @@ use Term::ANSIColor;    #Color display on terminal
 use Encode 'encode';
 
 my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
+my $OperatingSystem = "$^O";
+if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
+else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";} 
+
 
 my $reformat_xdxf=1; # Demands manual input for xdxf tag.
 my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
@@ -28,13 +32,9 @@ my $isDebugVerbose = 1; # Turns off all verbose debug messages
 
 # $BaseDir is the directory where converter.exe and the language folders reside. 
 # In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
-my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109"; 
-
-my $OperatingSystem = "$^O\n";
-if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
-else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";} 
-
+my $BaseDir="C:/Users/Debiel/Downloads/PocketbookDic"; 
 chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
+
 # Last filename will be used
 my $FileName;
 $FileName = "Oxford_English_Dictionary_2nd_Ed._P2-2.4.2.xdxf";
@@ -91,19 +91,19 @@ sub DebugFindings {
     if ( defined $16 ) { DebugV("16 is:\n $16\n"); }
     if ( defined $17 ) { DebugV("17 is:\n $17\n"); }
     if ( defined $18 ) { DebugV("18 is:\n $18\n"); }}
-sub PrintGreen   { print color('green');   print @_; print color('reset'); }
-sub PrintBlue    { print color('blue');    print @_; print color('reset'); }
-sub PrintRed     { print color('red');     print @_; print color('reset'); }
-sub PrintYellow  { print color('yellow');  print @_; print color('reset'); }
-sub PrintMagenta { print color('magenta'); print @_; print color('reset'); }
-sub PrintCyan    { print color('cyan');    print @_; print color('reset'); }
+sub PrintGreen   { print color('green') if $OperatingSystem eq "linux";   print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub PrintBlue    { print color('blue') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub PrintRed     { print color('red') if $OperatingSystem eq "linux";     print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub PrintYellow  { print color('yellow') if $OperatingSystem eq "linux";  print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub PrintMagenta { print color('magenta') if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub PrintCyan    { print color('cyan') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub FiletoArray {
 
     #This subroutine expects a path-and-filename in one and returns an array
     my $FileName = $_[0];
     if(!defined $FileName){Debug("File name in FiletoArray is not defined. Quitting!");die if $isRealDead;}
     open( FILE, "$FileName" )
-      || (warn "Cannot open $FileName: $!\n" and Die() );
+      || (warn "Cannot open $FileName: $!\n" and die);
     my @ArrayLines = <FILE>;
     close(FILE);
     PrintBlue("Read $FileName, returning array. Exiting FiletoArray\n");
@@ -169,7 +169,7 @@ sub CleanseAr{
 		 		Debug ("Line taken to be cut:") and PrintYellow("$line\n") and 
 		 		Debug("First part of the cut line is:") and PrintYellow("$cutline_begin\n") and
 		 		Debug("Last part of the cut line is:") and PrintYellow("$cutline_end\n") and
-		 		die if $cut_location > $max_line_length;
+		 		die if ($cut_location > $max_line_length) and $isRealDead;
 		 		# splice array, offset, length, list
 		 		splice @def, $def_line_counter, 0, ($cutline_end);
 		 		$line = $cutline_begin;
@@ -304,7 +304,7 @@ sub ConvertStardictXMLtoXDXF{
 			($key, $def, $article) = ("","",0);  
 			Debug("Article stop tag found at line $counter.\n") if $test_loop;
 		}
-		die if $counter==$max_counter and $test_loop;
+		die if $counter==$max_counter and $test_loop and $isRealDead;
 	}
 
 	# while( $StardictXML =~ s~<article>[\n\s]*<key>(?<key>((?!</key>).)+)</key>[\n\s]*<definition type="m">[\n\s]*<!\[CDATA\[(?<def>((?!\]\]>).)+)\]\]>[\n\s]*</definition>[\n\s]*</article>~~s){
@@ -487,7 +487,7 @@ $dict_xdxf =~ s~\.xdxf~_reconstructed\.xdxf~;
 ArraytoFile($dict_xdxf, @xdxf_constructed);
 my $ConvertCommand;
 if( defined($ARGV[1]) ){ $lang_from = $ARGV[1] ;}
-if( $OperatingSystem == "linux"){$ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$dict_xdxf\" $lang_from";}
+if( $OperatingSystem eq "linux"){$ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$dict_xdxf\" $lang_from";}
 else{ $ConvertCommand = "converter.exe \"$dict_xdxf\" $lang_from"; }
 PrintGreen($ConvertCommand."\n");
 system($ConvertCommand);
