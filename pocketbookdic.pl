@@ -1,7 +1,6 @@
 #! /bin/perl
 use strict;
 use autodie;
-use Storable;       #To storage the hash %Warning_per_volume.
 use Term::ANSIColor;    #Color display on terminal
 use Encode 'encode';
 
@@ -32,7 +31,9 @@ my $isDebugVerbose = 1; # Turns off all verbose debug messages
 
 # $BaseDir is the directory where converter.exe and the language folders reside. 
 # In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
-my $BaseDir="C:/Users/Debiel/Downloads/PocketbookDic"; 
+# my $BaseDir="C:/Users/Debiel/Downloads/PocketbookDic"; 
+my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109"; 
+
 chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
 
 # Last filename will be used
