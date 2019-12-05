@@ -269,7 +269,7 @@ sub ConvertStardictXMLtoXDXF{
 		# Match key within article outside of definition
 		if($article and !$definition and m~<key>(?<key>((?!</key>).)+)</key>~){ $key = $+{key}; Debug("Key \"$key\" found at line $counter.") if $test_loop;}
 		# change state to definition
-		if(m~<definition type="x">~){ $definition = 1; Debug("Definition start tag found at line $counter.") if $test_loop;}
+		if(m~<definition type="\w">~){ $definition = 1; Debug("Definition start tag found at line $counter.") if $test_loop;}
 		# Fails for multiline definitions such as:
 			# <definition type="x">
 			# <![CDATA[<k>&apos;Arry</k>
@@ -279,7 +279,7 @@ sub ConvertStardictXMLtoXDXF{
 			# <blockquote><blockquote>Used humorously for: A low-bred fellow (who ‘drops his <i>h&apos;</i>s’) of lively temper and manners. Hence <b>&apos;Arryish</b> <i>a.</i>, vulgarly jovial.</blockquote></blockquote>
 			# <blockquote><blockquote><blockquote><blockquote><blockquote><blockquote><ex><b>1874</b> <i>Punch&apos;s Almanac</i>, <c c="darkmagenta">&apos;Arry on &apos;Orseback.</c> <b>1881</b> <i><abr>Sat.</abr> <abr>Rev.</abr></i> <abr>No.</abr> 1318. 148 <c c="darkmagenta">The local &apos;Arry has torn down the famous tapestries of the great hall.</c> <b>1880</b> W. Wallace in <i>Academy</i> 28 Feb. 156/1 <c c="darkmagenta">He has a fair stock of somewhat &apos;Arryish animal spirits, but no real humour.</c></ex></blockquote></blockquote></blockquote></blockquote></blockquote></blockquote>]]>
 			# </definition>
-		s~<definition type="x">~~;
+		s~<definition type="\w">~~;
 		s~<\!\[CDATA\[~~;
 		s~<k>\Q$key\E</k>~~;
 		s~<b>\Q$key\E</b>~~;
