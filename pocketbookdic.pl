@@ -24,7 +24,7 @@ my $ar_per_dot = 300; # A green dot is printed achter $ar_per_dot ar's have been
 my $i_limit = 27000000000000000000; # Hard limit to the number of lines that are processed.
 my $remove_color_tags = 0; # Color tags seem less desirable with greyscale screens. It reduces the article size considerably.
 my $isDebug = 1; # Turns off all debug messages
-my $isDebugVerbose = 0; # Turns off all verbose debug messages
+my $isDebugVerbose = 1; # Turns off all verbose debug messages
 
 # $BaseDir is the directory where converter.exe and the language folders reside. 
 # In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
@@ -39,15 +39,15 @@ $FileName = "dict/OxfordAdvancedLearnersDictionary_en-en/OxfordAdvancedLearnersD
 $FileName = "Oxford_English_Dictionary_2nd_Ed._P1-2.4.2_reconstructed_copy_reconstructed.xdxf";
 $FileName = "Oxford_English_Dictionary_2nd_Ed._P1-2.4.2.xdxf";
 $FileName = "dict/Liddell Scott Jones.ifo";
-$FileName = "dict/Oxford Advanced Learner's Dictionary/Oxford Advanced Learner's Dictionary.ifo";
-$FileName = "dict/Duden/duden.ifo";
-$FileName = "dict/latin-english.ifo";
 $FileName = "dict/LSJ-utf8.csv";
 $FileName = "dict/test/Oxford\ English\ Dictionary\ 2nd\ Ed.\ P1_lines_951058-951205.xdxf";
 $FileName = "dict/test/Oxford\ English\ Dictionary\ 2nd\ Ed.\ P2_article_ending_at_381236reconstructed.xdxf";
 $FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P2-2.4.2/Oxford English Dictionary 2nd Ed. P2.ifo";
 $FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P1-2.4.2/Oxford English Dictionary 2nd Ed. P1.ifo";
 $FileName = "dict/Oxford_English_Dictionary_2nd_Ed.xdxf";
+$FileName = "dict/latin-english.ifo";
+$FileName = "dict/Duden/duden.ifo";
+$FileName = "dict/Oxford Advanced Learner's Dictionary/Oxford Advanced Learner's Dictionary.ifo";
 
 my @xdxf_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 				'<xdxf lang_from="" lang_to="" format="visual">'."\n",
@@ -58,8 +58,8 @@ my @xdxf_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 				'</description>'."\n");
 my $lastline_xdxf = "</xdxf>\n";
 	
-sub Debug { $isDebug and PrintRed( @_, "\n" );}
-sub DebugV { $isDebugVerbose and PrintBlue( @_, "\n" );}
+sub Debug { $isDebug and PrintRed( @_, "\n" ); return(1);}
+sub DebugV { $isDebugVerbose and PrintBlue( @_, "\n" ); return(1);}
 sub DebugFindings {
     DebugV();
     if ( defined $1 )  { DebugV("\$1 is: \"$1\"\n"); }
@@ -121,7 +121,7 @@ sub CleanseAr{
 		#  &lt; (<), &amp; (&), &gt; (>), &quot; ("), and &apos; (')
 		$head =~ s~(?<lt><)(?!/?(key>|k>))~&lt;~gs;
 		$head =~ s~(?<amp>&)(?!(lt;|amp;|gt;|quot;|apos;))~&amp;~gs;
-		$def =~ s~(?<lt><)(?!/?(c>|c c="|block|quote|b>|i>|abr>|ex>|kref>|sup>|sub>|dtrn>|k>|key>))~&lt;~gs;
+		$def =~ s~(?<lt><)(?!/?(c>|c c="|block|quote|b>|i>|abr>|ex>|kref>|sup>|sub>|dtrn>|k>|key>|rref))~&lt;~gs;
 		$def =~ s~(?<amp>&)(?!(lt;|amp;|gt;|quot;|apos;))~&amp;~gs;
 		
 		# Splits complex blockquote blocks from each other. Small impact on layout.
@@ -220,34 +220,27 @@ sub CleanseAr{
 			$def =~ s~<c c=[^>]+>~~gs;
 		}
 		
-		# $def =~ s~</blockquote>~</blockquote>\n~gs;
-		# $def =~ s~</?blockquote>~~gs;
-		# $def =~ s~▸~~;
-		# Debug("IAMHERE");
 		$Content =~ s~\Q$def_old\E~$def~s;
 	}
 	else{Debug("Not well formed ar content!!\n$Content");}
-	# @Content = split(/\n/, $Content);
-	# foreach my $line(@Content){ 
-	# 	if (length(encode('UTF-8', $line)) > 4096){
-	# 		Debug("This line is ",length($_)," characters and ",length(encode('UTF-8', $_))," bytes:\n",$line); 
-	# 		while( $line =~ s~(</?[^>]+>)(?!\n)~$1\n~s ){ PrintYellow("$1\n");}
-	# 		PrintGreen($line);
-	# 		die;
-	# 	}
-	# }
-	# $Content =~ s~(</?[^>]+>)(?!\n)~$1\n~gs;
+	
 	# remove wav-files displaying
 	# Example:
 	# <rref>
 	#z_epee_1_gb_2.wav</rref>
 	$Content =~ s~<rref>((?!\.wav</rref>).)+\.wav</rref>~~gs;
+	
 	return( $Content );}
 sub ConvertStardictXMLtoXDXF{
 	my $StardictXML = join('',@_);
 	my @xdxf = @xdxf_start;
 	if( $StardictXML =~ m~<bookname>(?<bookname>((?!</book).)+)</bookname>~s ){
-		substr($xdxf[2], 11, 0) = $+{bookname};
+		my $bookname = $+{bookname};
+		# xml special symbols are not recognized by converter in the dictionary title.
+		$bookname =~ s~&lt;~<~;
+		$bookname =~ s~&amp;~&~;
+		$bookname =~ s~&apos;~'~;
+		substr($xdxf[2], 11, 0) = $bookname;
 	}
 	if( $StardictXML =~ m~<date>(?<date>((?!</date>).)+)</date>~s ){
 		substr($xdxf[4], 6, 0) = $+{date};
@@ -338,10 +331,11 @@ elsif( -e substr($FileName, 0, (length($FileName)-4)).".xdxf"){
 	$FileName = substr($FileName, 0, (length($FileName)-4)).".xdxf";
 }
 ## Load from ifo-, dict- and idx-files
-elsif( $FileName =~ m~^(?<filename>((?!\.ifo).)+)\.ifo$~){ 
+elsif( $FileName =~ m~^(?<filename>((?!\.ifo).)+)\.(ifo|xml)$~){ 
 	# Check wheter a converted xml-file already exists or create one.
 	if(! -e $+{filename}.".xml"){ 
 		# Convert the ifo/dict using stardict-bin2text $FileName $FileName.".xml";
+		PrintCyan("Convert the ifo/dict using stardict-bin2text $FileName $FileName.xml\n");
 		system("stardict-bin2text \"$FileName\" \"$+{filename}.xml\"");
 	}
 	# Create an array from the stardict xml-dictionary.
