@@ -6,7 +6,7 @@ Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict 
 
 _Dependencies:_
 - Perl - It's a Perl script: Install Perl to run it! 
-- Perl modules - Storable, Term::ANSIColor and Encode are used. Some are installed with Perl, others could have to be installed separately. They can be installed with from cpan. E.g. In Arch Linux the first module is installed by `cpanp i Term::ANSIColor`. On Windows 10 I only installed 'Strawberry Perl' and no modules and it still ran, so go figure.
+- Perl modules - Storable, Term::ANSIColor and Encode are used. Some are installed with Perl, others could have to be installed separately. They can be installed with from cpan. E.g. In Arch Linux the first module is installed by `cpanp i Term::ANSIColor`. On Windows 10 I only installed 'Strawberry Perl' and no modules and it still ran, so go figure!
 - converter.exe - Pocketbook's converter. Look on the mobileread site in the pocketbook subforum for the newest version. (Currently it is converter3.exe posted by ezdiy. Please rename it to converter.exe.)
 - language folders - converter.exe depends on the presence of a language folder in which the files collates.txt, keyboard.txt and  morphems.txt are located. The name of the language folder should be the same as the language_from which your dictionary translates. There are a lot of preformed language folders floating around the mobileread site in the pocketbook subforum.
 - Wine - Converter.exe is a windows binary, which can be runned with Wine. (If your running windows, you of course do not need wine.
