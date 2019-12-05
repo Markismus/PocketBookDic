@@ -1,7 +1,7 @@
 # PocketBookDic
 Scripts to convert to pocketbook dictionary dic-format
 
-pocketbookdic.pl 
+_pocketbookdic.pl_ 
 Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml- and xdxf-format to pocketbook dic-format. (The csv-file should be comma separated.)
 
 _Dependencies:_
