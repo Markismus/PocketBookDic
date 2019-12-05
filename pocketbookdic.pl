@@ -30,6 +30,9 @@ my $isDebugVerbose = 1; # Turns off all verbose debug messages
 # In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
 my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109"; 
 
+my $OperatingSystem = "$^O\n";
+if ($OperatingSystem == "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
+else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";} 
 
 chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
 # Last filename will be used
@@ -45,9 +48,17 @@ $FileName = "dict/test/Oxford\ English\ Dictionary\ 2nd\ Ed.\ P2_article_ending_
 $FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P2-2.4.2/Oxford English Dictionary 2nd Ed. P2.ifo";
 $FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P1-2.4.2/Oxford English Dictionary 2nd Ed. P1.ifo";
 $FileName = "dict/Oxford_English_Dictionary_2nd_Ed.xdxf";
-$FileName = "dict/latin-english.ifo";
 $FileName = "dict/Duden/duden.ifo";
 $FileName = "dict/Oxford Advanced Learner's Dictionary/Oxford Advanced Learner's Dictionary.ifo";
+$FileName = "dict/latin-english.ifo";
+
+if( defined($ARGV[0]) ){
+	PrintYellow("Found command line argument: $ARGV[0].\nAssuming it is meant as the dictionary file name.\n");
+	$FileName = $ARGV[0];
+}
+if( defined($ARGV[1]) ){
+	PrintYellow("Found command line argument: $ARGV[1].\nAssuming it is meant as language directory.\n");
+}
 
 my @xdxf_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 				'<xdxf lang_from="" lang_to="" format="visual">'."\n",
@@ -336,7 +347,12 @@ elsif( $FileName =~ m~^(?<filename>((?!\.ifo).)+)\.(ifo|xml)$~){
 	if(! -e $+{filename}.".xml"){ 
 		# Convert the ifo/dict using stardict-bin2text $FileName $FileName.".xml";
 		PrintCyan("Convert the ifo/dict using stardict-bin2text $FileName $FileName.xml\n");
-		system("stardict-bin2text \"$FileName\" \"$+{filename}.xml\"");
+		if ( $OperatingSystem == "linux"){		
+			system("stardict-bin2text \"$FileName\" \"$+{filename}.xml\""); 
+		}
+		else{ Debug("Not linux, so you can't use the script directly on ifo-files, sorry!\n",
+			"First decompile your dictionary with stardict-editor to xml-format (Textual Stardict dictionary),\n",
+			"than either use the ifo- or xml-file as your dictioanry name for conversion.")}
 	}
 	# Create an array from the stardict xml-dictionary.
 	my @StardictXML = FiletoArray("$+{filename}.xml");
@@ -469,6 +485,9 @@ PrintMagenta("Total number of articles processed \$ar = ",$ar+1,".\n");
 my $dict_xdxf=$FileName;
 $dict_xdxf =~ s~\.xdxf~_reconstructed\.xdxf~;
 ArraytoFile($dict_xdxf, @xdxf_constructed);
-my $ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$dict_xdxf\" $lang_from";
+my $ConvertCommand;
+if( defined($ARGV[1]) ){ $lang_from = $ARGV[1] ;}
+if( $OperatingSystem == "linux"){$ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$dict_xdxf\" $lang_from";}
+else{ $ConvertCommand = "converter.exe \"$dict_xdxf\" $lang_from"; }
 PrintGreen($ConvertCommand."\n");
 system($ConvertCommand);
