@@ -418,9 +418,10 @@ foreach my $entry (@xdxf){
 			if ( $entry !~ m~^<full_name>.*</full_name>\n$~){ Debug("full_name tag is not on one line. Investigate!\n"); die if $isRealDead;}
 			elsif( $reformat_full_name and $entry =~ m~^<full_name>(.*)</full_name>\n$~ ){ 
 				my $full_name = $1;
+				my $old_name = $full_name;
 				print("Full_name is \"$1\".\nWould you like to change it? (press enter to keep default \[$1\] ");
 				my $one = <STDIN>; chomp $one; if( $one ne ""){ $full_name = $one ; };
-				
+				$entry =~ s~\Q$old_name\E~$full_name~;
 			}
 		}
 		# Handling of Description
