@@ -20,6 +20,8 @@ my $max_article_length = 64000;
 # This controls the maximum line length. 
 # If set too large, the converter wil complain about bad XML syntax and exit.
 my $max_line_length = 4000;
+# Deliminator for CSV files, usually ",",";" or "\t"(tab).
+my $CommaSeparatedValuesSymbol = ","; 
 
 my $no_test=1; # Testing singles out a single ar and generates a xdxf-file containing only that ar.
 my $ar_chosen = 410; # Ar singled out when no_test = 0;
@@ -54,11 +56,29 @@ $FileName = "dict/Oxford Advanced Learner's Dictionary/Oxford Advanced Learner's
 $FileName = "dict/latin-english.ifo";
 
 if( defined($ARGV[0]) ){
+	PrintYellow("Command line arguments provided:\n");
+	foreach(@ARGV){ PrintYellow("\'$_\'\n"); }
 	PrintYellow("Found command line argument: $ARGV[0].\nAssuming it is meant as the dictionary file name.\n");
 	$FileName = $ARGV[0];
 }
-if( defined($ARGV[1]) ){
+else{ 
+	PrintYellow("No commandline arguments provided. Remember to either use those or define \$FileName in the script.\n");
+	PrintYellow("First argument is the dictionary name to be converted. E.g dict/dictionary.ifo (Remember to slash forward!)\n");
+	PrintYellow("Second is the language directory name or the CSV deliminator. E.g. eng\nThird is the CVS deliminator. E.g \",\", \";\", \"\\t\"(for tab)\n");
+}
+my $language_dir = "";
+if( defined($ARGV[1]) and $ARGV[1] !~ m~^.$~ ){
 	PrintYellow("Found command line argument: $ARGV[1].\nAssuming it is meant as language directory.\n");
+	$language_dir = $ARGV[1];
+}
+if ( defined($ARGV[1]) and $ARGV[1] =~ m~^(.)$~){
+	PrintYellow("Found a command line argument consisting of one character.\n Assuming \"$1\" is the CVS deliminator.\n");
+	$CommaSeparatedValuesSymbol = $ARGV[1];
+}
+
+if( defined($ARGV[2]) and $ARGV[2] =~ m~^(.)$~){
+	PrintYellow("Found a command line argument consisting of one character.\n Assuming \"$1\" is the CVS deliminator.\n");
+	$CommaSeparatedValuesSymbol = $ARGV[2];
 }
 
 my @xdxf_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
@@ -320,7 +340,7 @@ sub ConvertCVStoXDXF{
 	my $number= 0;
 	foreach(@cvs){
 		$number++;
-		my $comma_is_at = index $_, ",", 0;
+		my $comma_is_at = index $_, $CommaSeparatedValuesSymbol, 0;
 		my $key = substr $_, 0, $comma_is_at - 1;
 		my $def = substr $_, $comma_is_at + 1;
 		# Remove whitespaces at the beginning of the definition and EOL at the end.
@@ -417,10 +437,10 @@ foreach my $entry (@xdxf){
 		# Handling of full_name tag
 		if ( $entry =~ m~^<full_name>~){
 			if ( $entry !~ m~^<full_name>.*</full_name>\n$~){ Debug("full_name tag is not on one line. Investigate!\n"); die if $isRealDead;}
-			elsif( $reformat_full_name and $entry =~ m~^<full_name>(.*)</full_name>\n$~ ){ 
-				my $full_name = $1;
+			elsif( $reformat_full_name and $entry =~ m~^<full_name>(?<fullname>((?!</full).)*)</full_name>\n$~ ){ 
+				my $full_name = $+{fullname};
 				my $old_name = $full_name;
-				print("Full_name is \"$1\".\nWould you like to change it? (press enter to keep default \[$1\] ");
+				print("Full_name is \"$full_name\".\nWould you like to change it? (press enter to keep default \[$full_name\] ");
 				my $one = <STDIN>; chomp $one; if( $one ne ""){ $full_name = $one ; };
 				$entry =~ s~\Q$old_name\E~$full_name~;
 			}
@@ -488,7 +508,7 @@ my $dict_xdxf=$FileName;
 $dict_xdxf =~ s~\.xdxf~_reconstructed\.xdxf~;
 ArraytoFile($dict_xdxf, @xdxf_constructed);
 my $ConvertCommand;
-if( defined($ARGV[1]) ){ $lang_from = $ARGV[1] ;}
+if( $language_dir ne "" ){ $lang_from = $language_dir ;}
 if( $OperatingSystem eq "linux"){$ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$dict_xdxf\" $lang_from";}
 else{ $ConvertCommand = "converter.exe \"$dict_xdxf\" $lang_from"; }
 PrintGreen($ConvertCommand."\n");
