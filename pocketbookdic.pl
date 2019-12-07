@@ -21,15 +21,15 @@ my $max_article_length = 64000;
 # If set too large, the converter wil complain about bad XML syntax and exit.
 my $max_line_length = 4000;
 # Deliminator for CSV files, usually ",",";" or "\t"(tab).
-my $CommaSeparatedValuesSymbol = ","; 
+my $CVSDeliminator = ","; 
 
 my $no_test=1; # Testing singles out a single ar and generates a xdxf-file containing only that ar.
 my $ar_chosen = 410; # Ar singled out when no_test = 0;
 my $ar_per_dot = 300; # A green dot is printed achter $ar_per_dot ar's have been processed.
 my $i_limit = 27000000000000000000; # Hard limit to the number of lines that are processed.
 my $remove_color_tags = 0; # Color tags seem less desirable with greyscale screens. It reduces the article size considerably.
-my $isDebug = 1; # Turns off all debug messages
-my $isDebugVerbose = 1; # Turns off all verbose debug messages
+my $isDebug = 0; # Turns off all debug messages
+my $isDebugVerbose = 0; # Turns off all verbose debug messages
 
 # $BaseDir is the directory where converter.exe and the language folders reside. 
 # In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
@@ -67,18 +67,19 @@ else{
 	PrintYellow("Second is the language directory name or the CSV deliminator. E.g. eng\nThird is the CVS deliminator. E.g \",\", \";\", \"\\t\"(for tab)\n");
 }
 my $language_dir = "";
-if( defined($ARGV[1]) and $ARGV[1] !~ m~^.$~ ){
+if( defined($ARGV[1]) and $ARGV[1] !~ m~^.$|^~ and $ARGV[1] !~ m~^\\t$~ ){
 	PrintYellow("Found command line argument: $ARGV[1].\nAssuming it is meant as language directory.\n");
 	$language_dir = $ARGV[1];
 }
-if ( defined($ARGV[1]) and $ARGV[1] =~ m~^(.)$~){
+if ( defined($ARGV[1]) and ($ARGV[1] =~ m~^(\\t)$~ or $ARGV[1] =~ m~^(.)$~ )){
+	DebugFindings();
 	PrintYellow("Found a command line argument consisting of one character.\n Assuming \"$1\" is the CVS deliminator.\n");
-	$CommaSeparatedValuesSymbol = $ARGV[1];
+	$CVSDeliminator = $ARGV[1];
 }
 
-if( defined($ARGV[2]) and $ARGV[2] =~ m~^(.)$~){
+if( defined($ARGV[2]) and ($ARGV[2] =~ m~^(.t)$~ or $ARGV[2] =~ m~^(.)$~) ){ 
 	PrintYellow("Found a command line argument consisting of one character.\n Assuming \"$1\" is the CVS deliminator.\n");
-	$CommaSeparatedValuesSymbol = $ARGV[2];
+	$CVSDeliminator = $ARGV[2];
 }
 
 my @xdxf_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
@@ -340,16 +341,23 @@ sub ConvertCVStoXDXF{
 	my $number= 0;
 	foreach(@cvs){
 		$number++;
-		my $comma_is_at = index $_, $CommaSeparatedValuesSymbol, 0;
-		my $key = substr $_, 0, $comma_is_at - 1;
-		my $def = substr $_, $comma_is_at + 1;
+		DebugV("\$CVSDeliminator is \'$CVSDeliminator\'.") if $number<10;
+		DebugV("CVS line is: $_") if $number<10;
+		m~(?<key>((?!$CVSDeliminator).)+)$CVSDeliminator(?<def>.+)~;
+		# my $comma_is_at = index $_, $CVSDeliminator, 0;
+		# Debug("The deliminator is at: $comma_is_at") if $number<10;
+		# my $key = substr $_, 0, $comma_is_at - 1;
+		# my $def = substr $_, $comma_is_at + length($CVSDeliminator);
+		my $key = $+{key};
+		my $def = $+{def};
+		
+		DebugV("key found: $key") if $number<10;
+		DebugV("def found: $def") if $number<10;
 		# Remove whitespaces at the beginning of the definition and EOL at the end.
 		$def =~ s~^\s+~~;
 		$def =~ s~\n$~~;
-		# Debug("Key is:\n \'$key\'");
-		# Debug("Definition is:\n \'$def\'");
 		push @xdxf, "<ar><head><k>$key</k></head><def>$def</def></ar>\n";
-		Debug("Pushed <ar><head><k>$key</k></head><def>$def</def></ar>") if $number<20;
+		DebugV("Pushed <ar><head><k>$key</k></head><def>$def</def></ar>") if $number<10;
 	}
 	push @xdxf, $lastline_xdxf;
 	return(@xdxf);}
@@ -390,7 +398,7 @@ elsif( $FileName =~ m~^(?<filename>((?!\.csv).)+)\.csv$~){
 	@xdxf = ConvertCVStoXDXF(@cvs);
 	# Write it to disk so it hasn't have to be done again.
 	ArraytoFile($+{filename}.".xdxf", @xdxf);
-	Debug(@xdxf); # Check generated @xdxf
+	# Debug(@xdxf); # Check generated @xdxf
 	$FileName=$+{filename}.".xdxf";
 }
 else{Debug("Not a known extension for the given filename. Quitting!");die;}
@@ -442,7 +450,9 @@ foreach my $entry (@xdxf){
 				my $old_name = $full_name;
 				print("Full_name is \"$full_name\".\nWould you like to change it? (press enter to keep default \[$full_name\] ");
 				my $one = <STDIN>; chomp $one; if( $one ne ""){ $full_name = $one ; };
-				$entry =~ s~\Q$old_name\E~$full_name~;
+				Debug("\$entry is: $entry");
+				$entry = "<full_name>$full_name</full_name>\n";
+				Debug("Fullname tag entry is now:$entry");
 			}
 		}
 		# Handling of Description
