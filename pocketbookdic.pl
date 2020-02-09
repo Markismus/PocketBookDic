@@ -194,9 +194,7 @@ sub writeSameTypeSequence{
 			printGreen("Sametypesequence in file $FileName was \"$+{sametypesequence}.SameTypeSequence\".\n");
 			printGreen("Changed to \"$SameTypeSequence\".\n");
 			array2File($FileName, split(/$/,$ifo) );
-		}
-	}
-}
+		}	}	}
 sub cleanseAr{
 	my @Content = @_;
 	my $Content = join('',@Content) ;
@@ -685,7 +683,7 @@ sub printRed     { print color('red') if $OperatingSystem eq "linux";     print 
 sub printYellow  { print color('yellow') if $OperatingSystem eq "linux";  print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printMagenta { print color('magenta') if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printCyan    { print color('cyan') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
-sub reconstructXDXF{
+sub oldReconstructXDXF{
 	# Construct a new xdxf array to prevent converter.exe from crashing.
 	## Initial values
 	my @xdxf = @_;
@@ -796,6 +794,76 @@ sub reconstructXDXF{
 
 	printMagenta("\nTotal number of lines processed \$i = ",$i+1,".\n");
 	printMagenta("Total number of articles processed \$ar = ",$ar+1,".\n");
+	printCyan("Done at ",getLoggingTime,"\n");
+	return( @xdxf_reconstructed );}
+sub reconstructXDXF{
+	# Construct a new xdxf array to prevent converter.exe from crashing.
+	## Initial values
+	my @xdxf = @_;
+	my @xdxf_reconstructed = ();
+	my $xdxf_closing = "</xdxf>\n";
+	
+	printCyan("Reconstructing xdxf array. This will take some time. ", getLoggingTime(),"\n");
+	## Step through the array line by line until the articles start.
+	## Then push (altered) entry to array.
+	foreach my $entry (@xdxf){
+		# Handling of xdxf tag
+		if ( $entry =~ m~^<xdxf(?<xdxf>.+)>\n$~){
+			my $xdxf = $+{xdxf};
+			if( $reformat_xdxf and $xdxf =~ m~ lang_from="(.*)" lang_to="(.*)" format="(.*)"~){
+				$lang_from = $1 if defined $1 and $1 ne "";
+				$lang_to = $2 if defined $2 and $2 ne "";
+				$format = $3 if defined $3 and $3 ne "";
+				print(" lang_from is \"$1\". Would you like to change it? (press enter to keep default \[$lang_from\] ");
+				my $one = <STDIN>; chomp $one; if( $one ne ""){ $lang_from = $one ; }
+				print(" lang_to is \"$2\". Would you like to change it? (press enter to keep default \[$lang_to\] ");
+				my $one = <STDIN>; chomp $one; if( $one ne ""){ $lang_to = $one ; }
+				print(" format is \"$3\". Would you like to change it? (press enter to keep default \[$format\] ");
+				my $one = <STDIN>; chomp $one; if( $one ne ""){ $format = $one ; }
+				$xdxf= 'lang_from="'.$lang_from.'" lang_to="'.$lang_to.'" format="'.$format.'"';
+			}
+			$entry = "<xdxf ".$xdxf.">\n";
+			printMagenta($entry);
+		}
+		# Handling of full_name tag
+		elsif ( $entry =~ m~^<full_name>~){
+			if ( $entry !~ m~^<full_name>.*</full_name>\n$~){ debug("full_name tag is not on one line. Investigate!\n"); die if $isRealDead;}
+			elsif( $reformat_full_name and $entry =~ m~^<full_name>(?<fullname>((?!</full).)*)</full_name>\n$~ ){
+				my $full_name = $+{fullname};
+				my $old_name = $full_name;
+				print("Full_name is \"$full_name\".\nWould you like to change it? (press enter to keep default \[$full_name\] ");
+				my $one = <STDIN>; chomp $one; if( $one ne ""){ $full_name = $one ; };
+				debug("\$entry is: $entry");
+				$entry = "<full_name>$full_name</full_name>\n";
+				debug("Fullname tag entry is now: ");
+			}
+			printMagenta($entry);
+		}
+		# Handling of Description. Turns one line into multiple.
+		elsif( $entry =~ m~^(?<des><description>)?(?<cont>((?!</desc).)*)(?<closetag></description>)\n$~ ){
+			my $Description_content .= $+{cont} ; 
+			chomp $Description_content;
+			$entry = @xdxf_reconstructed, $+{des}."\n".$Description_content."\n".$+{closetag}."\n";
+		}
+		# Handling of an ar-tag
+		elsif ( $entry =~ m~^<ar>~){last;}  #Start of ar block
+		
+		push @xdxf_reconstructed, $entry;
+	}
+
+	# Push cleaned articles to array
+	my $xdxf = join( '', @xdxf);
+	my @articles = $xdxf =~ m~<ar>((?:(?!</ar).)+)</ar>~sg ;
+	my ($ar, $ar_count) = ( 0, 0);
+	foreach my $article (@articles){
+		$ar_count++; $cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
+		cleanseAr($article);
+		chomp $article;
+		push @xdxf_reconstructed, "<ar>\n$article\n</ar>\n";
+	}
+	
+	push @xdxf_reconstructed, $xdxf_closing;
+	printMagenta("\nTotal number of articles processed \$ar = ",scalar @articles,".\n");
 	printCyan("Done at ",getLoggingTime,"\n");
 	return( @xdxf_reconstructed );}
 sub testSub{
