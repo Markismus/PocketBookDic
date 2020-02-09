@@ -10,16 +10,16 @@ my $isRealDead=1; # Some errors should kill the program. However, somtimes you j
 
 my $reformat_xdxf=0; # Demands manual input for xdxf tag.
 my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
-my $reformat_full_name = 0; # Demands manual input for full_name tag. 
+my $reformat_full_name = 0; # Demands manual input for full_name tag.
 
-# This controls the maximum article length. 
+# This controls the maximum article length.
 # If set too large, the old converter will crash and the new will truncate the entry.
 my $max_article_length = 64000;
-# This controls the maximum line length. 
+# This controls the maximum line length.
 # If set too large, the converter wil complain about bad XML syntax and exit.
 my $max_line_length = 4000;
 # Deliminator for CSV files, usually ",",";" or "\t"(tab).
-my $CVSDeliminator = ","; 
+my $CVSDeliminator = ",";
 
 my $no_test=1; # Testing singles out a single ar and generates a xdxf-file containing only that ar.
 my $ar_chosen = 410; # Ar singled out when no_test = 0;
@@ -29,18 +29,18 @@ my $remove_color_tags = 0; # Color tags seem less desirable with greyscale scree
 my $isdebug = 1; # Turns off all debug messages
 my $isdebugVerbose = 0; # Turns off all verbose debug messages
 my $isStardictCreationReallyTrue = 1; # Turns on Stardict text and binary dictionary creation.
-my $isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format 
+my $isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format
 my $isTestingOn = 1; # Turns tests on
 my $isRemoveWaveReferences = 1; # Removes a the references to wav-files
 # Same Type Seqence is the initial value of the Stardict variable set in the ifo-file.
 # "h" means html-dictionary. "m" means text.
 # The xdxf-file will be filtered for &#xDDDD; values and converted to unicode if set at "m"
-my $SameTypeSequence = "h"; # Either "h" or "m" or "x". 
+my $SameTypeSequence = "h"; # Either "h" or "m" or "x".
 my $updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
-# $BaseDir is the directory where converter.exe and the language folders reside. 
+# $BaseDir is the directory where converter.exe and the language folders reside.
 # In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
-# my $BaseDir="C:/Users/Debiel/Downloads/PocketbookDic"; 
-my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109"; 
+# my $BaseDir="C:/Users/Debiel/Downloads/PocketbookDic";
+my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109";
 
 chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
 
@@ -69,7 +69,7 @@ if( defined($ARGV[0]) ){
 	printYellow("Found command line argument: $ARGV[0].\nAssuming it is meant as the dictionary file name.\n");
 	$FileName = $ARGV[0];
 }
-else{ 
+else{
 	printYellow("No commandline arguments provided. Remember to either use those or define \$FileName in the script.\n");
 	printYellow("First argument is the dictionary name to be converted. E.g dict/dictionary.ifo (Remember to slash forward!)\n");
 	printYellow("Second is the language directory name or the CSV deliminator. E.g. eng\nThird is the CVS deliminator. E.g \",\", \";\", \"\\t\"(for tab)\n");
@@ -77,7 +77,7 @@ else{
 
 
 # As NouveauLittre showed a rather big problem with named entities, I decided to write a special filter
-# Here is the place to insert your DOCTYPE string. 
+# Here is the place to insert your DOCTYPE string.
 # Remember to place it between quotes '..' and finish the line with a semicolon ;
 # Last Doctype will be used. To omit the filter place an empty DocType string at the end:
 # $DocType = '';
@@ -98,7 +98,7 @@ if ( defined($ARGV[1]) and ($ARGV[1] =~ m~^(\\t)$~ or $ARGV[1] =~ m~^(.)$~ )){
 	$CVSDeliminator = $ARGV[1];
 }
 
-if( defined($ARGV[2]) and ($ARGV[2] =~ m~^(.t)$~ or $ARGV[2] =~ m~^(.)$~) ){ 
+if( defined($ARGV[2]) and ($ARGV[2] =~ m~^(.t)$~ or $ARGV[2] =~ m~^(.)$~) ){
 	printYellow("Found a command line argument consisting of one character.\n Assuming \"$1\" is the CVS deliminator.\n");
 	$CVSDeliminator = $ARGV[2];
 }
@@ -128,8 +128,8 @@ my $definition_xml = '<definition type="'.$SameTypeSequence.'">'."\n";
 # Determine operating system.
 my $OperatingSystem = "$^O";
 if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
-else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";} 
-	
+else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";}
+
 sub array2File {
     my ( $FileName, @Array ) = @_;
     # debugV("Array to be written:\n",@Array);
@@ -165,15 +165,15 @@ sub debugFindings {
 sub checkSameTypeSequence{
 	my $FileName = $_[0];
 	if(! $updateSameTypeSequence ){return;}
-	elsif( -e substr($FileName, 0, (length($FileName)-4)).".ifo"){ 
+	elsif( -e substr($FileName, 0, (length($FileName)-4)).".ifo"){
 		my $ifo = join( '',  file2Array(substr($FileName, 0, (length($FileName)-4)).".ifo") ) ;
 		if($ifo =~ m~sametypesequence=(?<sametypesequence>\w)~s){
 			printGreen("Initial sametypesequence was \"$SameTypeSequence\".");
 			$SameTypeSequence = $+{sametypesequence};
-			printGreen(" Updated to \"$SameTypeSequence\".\n");	
+			printGreen(" Updated to \"$SameTypeSequence\".\n");
 		}
 	}
-	elsif( -e substr($FileName, 0, (length($FileName)-4)).".xml"){ 
+	elsif( -e substr($FileName, 0, (length($FileName)-4)).".xml"){
 		my $xml = join( '',  file2Array(substr($FileName, 0, (length($FileName)-4)).".xml") );
 		# Extract sametypesequence from Stardict XML
 		if( $xml =~ m~<definition type="(?<sametypesequence>\w)">~s){
@@ -183,6 +183,20 @@ sub checkSameTypeSequence{
 		}
 	}
 	return;}
+sub writeSameTypeSequence{
+	# Because stardict-text2bin always chooses sametypesequence=h,
+	# it will have to be adapted to the found $SameTypeSequence
+	my $FileName = $_[0];
+	if(! $updateSameTypeSequence ){return;}
+	elsif( -e $FileName){
+		my $ifo = join('', file2Array($FileName ) );
+		if($ifo =~ s~sametypesequence=(?<sametypesequence>\w)~sametypesequence=$SameTypeSequence~s){
+			printGreen("Sametypesequence in file $FileName was \"$+{sametypesequence}.SameTypeSequence\".\n");
+			printGreen("Changed to \"$SameTypeSequence\".\n");
+			array2File($FileName, split(/$/,$ifo) );
+		}
+	}
+}
 sub cleanseAr{
 	my @Content = @_;
 	my $Content = join('',@Content) ;
@@ -192,7 +206,7 @@ sub cleanseAr{
 		my $head = $+{head};
 		my $def_old = $+{def};
 		my $def = $def_old;
-		
+
 		# Special characters in $head and $def should be converted to
 		#  &lt; (<), &amp; (&), &gt; (>), &quot; ("), and &apos; (')
 		$head =~ s~(?<lt><)(?!/?(key>|k>))~&lt;~gs;
@@ -200,13 +214,14 @@ sub cleanseAr{
 		$def =~ s~(?<lt><)(?!/?(c>|c c="|block|quote|b>|i>|abr>|ex>|kref>|sup>|sub>|dtrn>|k>|key>|rref|f>))~&lt;~gs;
 		$def =~ s~(?<amp>&)(?!(lt;|amp;|gt;|quot;|apos;|\#x?[0-9A-Fa-f]{1,6}))~&amp;~gs;
 		# $def =~ s~(?<amp>&)(?!([^;]{1,6};))~&amp;~gs; # This excludes the removal of & before &#01234;
-		
-		# Splits complex blockquote blocks from each other. Small impact on layout.
-		$def =~ s~</blockquote><blockquote>~</blockquote>\n<blockquote>~gs if $isCreatePocketbookDictionary;
-		# Splits blockquote from next heading </blockquote><b><c c=
-		$def =~ s~</blockquote><b><c c=~</blockquote>\n<b><c c=~gs if $isCreatePocketbookDictionary;
-		
+
 		if( $isCreatePocketbookDictionary){
+			# Splits complex blockquote blocks from each other. Small impact on layout.
+			$def =~ s~</blockquote><blockquote>~</blockquote>\n<blockquote>~gs;
+			# Splits blockquote from next heading </blockquote><b><c c=
+			$def =~ s~</blockquote><b><c c=~</blockquote>\n<b><c c=~gs;
+
+
 			# Splits the too long lines.
 			my @def = split(/\n/,$def);
 			my $def_line_counter = 0;
@@ -222,9 +237,9 @@ sub cleanseAr{
 				 		# New cut location is from half the line.
 				 		$cut_location = index $line, "<", int(length($line)/2);
 				 		# But sometimes there are no tags
-				 		if($cut_location == -1 or $cut_location > $max_line_length){ 
+				 		if($cut_location == -1 or $cut_location > $max_line_length){
 				 			$cut_location = index $line, ".", int($max_line_length * 0.85);
-				 			if($cut_location == -1 or $cut_location > $max_line_length){ 
+				 			if($cut_location == -1 or $cut_location > $max_line_length){
 				 				$cut_location = index $line, ".", int(length($line)/2);
 				 			}
 				 		}
@@ -234,7 +249,7 @@ sub cleanseAr{
 			 		debugV("Definition line $def_line_counter is ",length($line)," characters and ",length(encode('UTF-8', $line))," bytes. Cut location is $cut_location.");
 			 		my $cutline_begin = substr($line, 0, $cut_location);
 			 		my $cutline_end = substr($line, $cut_location);
-			 		debug ("Line taken to be cut:") and printYellow("$line\n") and 
+			 		debug ("Line taken to be cut:") and printYellow("$line\n") and
 			 		debug("First part of the cut line is:") and printYellow("$cutline_begin\n") and
 			 		debug("Last part of the cut line is:") and printYellow("$cutline_end\n") and
 			 		die if ($cut_location > $max_line_length) and $isRealDead;
@@ -245,72 +260,75 @@ sub cleanseAr{
 			}
 			$def = join("\n",@def);
 			# debug($def);
+			# Creates multiple articles if the article is too long.
+
+			my $def_bytes = length(encode('UTF-8', $def));
+			if( $def_bytes > $max_article_length ){
+				debugV("The length of the definition of \"$head\" is $def_bytes bytes.");
+				#It should be split in chunks < $max_article_length , e.g. 64kB
+				my @def=split("\n", $def);
+				my @definitions=();
+				my $counter = 0;
+				my $loops = 0;
+				my $concatenation = "";
+				# Split the lines of the definition in separate chunks smaller than 90kB
+				foreach my $line(@def){
+					$loops++;
+					# debug("\$loops is $loops. \$counter at $counter" );
+					$concatenation = $definitions[$counter]."\n".$line;
+					if( length(encode('UTF-8', $concatenation)) > $max_article_length ){
+						debugV("Chunk is larger than ",$max_article_length,". Creating another chunk.");
+						chomp $definitions[$counter];
+						$counter++;
+
+					}
+					$definitions[$counter] .= "\n".$line;
+				}
+				chomp $definitions[$counter];
+				# Join the chunks with the relevant extra tags to form multiple ar entries.
+				# $Content is between <ar> and </ar> tags. It consists of <head>$head</head><def>$def_old</def>
+				# So if $def is going to replace $def_old in the later substitution: $Content =~ s~\Q$def_old\E~$def~s; ,
+				# how should the chunks be assembled?
+				# $defs[0]."</def></ar><ar><head>$head</head><def>".$defs[1]."...".$def[2]
+				my $newhead = $head;
+				$newhead =~ s~</k>~~;
+				# my @Symbols = (".",":","⁝","⁞");
+				# my @Symbols = ("a","aa","aaa","aaaa");
+				my @Symbols = ("","","","");
+				# debug("Counter reached $counter.");
+				$def="";
+				for(my $a = 0; $a < $counter; $a = $a + 1 ){
+						# debug("\$a is $a");
+						$def.=$definitions[$a]."</def>\n</ar>\n<ar>\n<head>$newhead$Symbols[$a]</k></head><def>\n";
+						debugV("Added chunk ",($a+1)," to \$def together with \"</def></ar>\n<ar><head>$newhead$Symbols[$a]</k></head><def>\".");
+				}
+				$def .= $definitions[$counter];
+
+			}
+
 		}
 
-		# Creates multiple articles if the article is too long.
-		
-		my $def_bytes = length(encode('UTF-8', $def));
-		if( $isCreatePocketbookDictionary and $def_bytes > $max_article_length ){ 
-			debugV("The length of the definition of \"$head\" is $def_bytes bytes.");
-			#It should be split in chunks < $max_article_length , e.g. 64kB
-			my @def=split("\n", $def);
-			my @definitions=();
-			my $counter = 0;
-			my $loops = 0;
-			my $concatenation = "";
-			# Split the lines of the definition in separate chunks smaller than 90kB
-			foreach my $line(@def){
-				$loops++;
-				# debug("\$loops is $loops. \$counter at $counter" );
-				$concatenation = $definitions[$counter]."\n".$line;
-				if( length(encode('UTF-8', $concatenation)) > $max_article_length ){
-					debugV("Chunk is larger than ",$max_article_length,". Creating another chunk.");
-					chomp $definitions[$counter];
-					$counter++;
-					
-				}
-				$definitions[$counter] .= "\n".$line;
-			}
-			chomp $definitions[$counter];
-			# Join the chunks with the relevant extra tags to form multiple ar entries.
-			# $Content is between <ar> and </ar> tags. It consists of <head>$head</head><def>$def_old</def>
-			# So if $def is going to replace $def_old in the later substitution: $Content =~ s~\Q$def_old\E~$def~s; ,
-			# how should the chunks be assembled?
-			# $defs[0]."</def></ar><ar><head>$head</head><def>".$defs[1]."...".$def[2]
-			my $newhead = $head;
-			$newhead =~ s~</k>~~;
-			# my @Symbols = (".",":","⁝","⁞");
-			# my @Symbols = ("a","aa","aaa","aaaa");
-			my @Symbols = ("","","","");
-			# debug("Counter reached $counter.");
-			$def="";
-			for(my $a = 0; $a < $counter; $a = $a + 1 ){
-					# debug("\$a is $a");
-					$def.=$definitions[$a]."</def>\n</ar>\n<ar>\n<head>$newhead$Symbols[$a]</k></head><def>\n";
-					debugV("Added chunk ",($a+1)," to \$def together with \"</def></ar>\n<ar><head>$newhead$Symbols[$a]</k></head><def>\".");
-			}
-			$def .= $definitions[$counter];
-			
-		}
-		
-		
+
+
 		if($remove_color_tags){
-			# Removes all color from lemma description. 
+			# Removes all color from lemma description.
 			# <c c="darkslategray"><c>Derived:</c></c> <c c="darkmagenta">
 			$def =~ s~<\?c>~~gs;
 			$def =~ s~<c c=[^>]+>~~gs;
 		}
-		
+
 		$Content =~ s~\Q$def_old\E~$def~s;
 	}
 	else{debug("Not well formed ar content!!\n$Content");}
-	
-	# remove wav-files displaying
-	# Example:
-	# <rref>
-	#z_epee_1_gb_2.wav</rref>
-	$Content =~ s~<rref>((?!\.wav</rref>).)+\.wav</rref>~~gs if $isRemoveWaveReferences;
-	
+
+	if ($isRemoveWaveReferences){
+		# remove wav-files displaying
+		# Example:
+		# <rref>
+		#z_epee_1_gb_2.wav</rref>
+		$Content =~ s~<rref>((?!\.wav</rref>).)+\.wav</rref>~~gs;
+	}
+
 	return( $Content );}
 sub convertCVStoXDXF{
 	my @cvs = @_;
@@ -327,7 +345,7 @@ sub convertCVStoXDXF{
 		# my $def = substr $_, $comma_is_at + length($CVSDeliminator);
 		my $key = $+{key};
 		my $def = $+{def};
-		
+
 		debugV("key found: $key") if $number<10;
 		debugV("def found: $def") if $number<10;
 		# Remove whitespaces at the beginning of the definition and EOL at the end.
@@ -355,8 +373,8 @@ sub convertNumberedSequencesToChar{
 	# 	debug($+{number});
 	# 	debugFindings();
 	# 	debug("'",chr($+{number}),"'");
-	# 	$UnConverted =~ s~$match~$replace~s; 
-		
+	# 	$UnConverted =~ s~$match~$replace~s;
+
 	# }
 	return( split(/(\n)/, $UnConverted) );}
 sub convertStardictXMLtoXDXF{
@@ -379,7 +397,7 @@ sub convertStardictXMLtoXDXF{
 	if( $updateSameTypeSequence and $StardictXML =~ m~<definition type="(?<sametypesequence>\w)">~s){
 		$SameTypeSequence = $+{sametypesequence};
 	}
-	
+
 	printCyan("Converting stardict xml to xdxf xml. This will take some time. ",getLoggingTime(),"\n");
 	# Initialize variables for collection
 	my ($key, $def, $article, $definition) = ("","", 0, 0);
@@ -408,24 +426,24 @@ sub convertStardictXMLtoXDXF{
 		s~<k>\Q$key\E</k>~~;
 		s~<b>\Q$key\E</b>~~;
 		s~^[\n\s]+$~~;
-		if($definition and m~(?<def>((?!\]\]>).)+)(\]\]>)?~s){ 
+		if($definition and m~(?<def>((?!\]\]>).)+)(\]\]>)?~s){
 			my $fund = $+{def};
 			$fund =~ s~</definition>\n?~~;
-			$def .= $fund if $fund!~m~^[\n\s]+$~; 
+			$def .= $fund if $fund!~m~^[\n\s]+$~;
 			debug("Added definition \"$fund\" at line $counter.") if $test_loop and $fund ne "" and $fund!~m~^[\n\s]+$~;
 		}
-		if(  m~</definition>~ ){ 
-			$definition = 0; 
-			debug("Definition stop tag found at line $counter.") if $test_loop; 
+		if(  m~</definition>~ ){
+			$definition = 0;
+			debug("Definition stop tag found at line $counter.") if $test_loop;
 		}
 		if(  !$definition and $key ne "" and $def ne ""){
 			debug("Found key \'$key\' and definition \'$def\'") if $test_loop;
-			push @xdxf, "<ar><head><k>$key</k></head><def>$def</def></ar>\n";	
+			push @xdxf, "<ar><head><k>$key</k></head><def>$def</def></ar>\n";
 			($key, $def, $definition) = ("","",0);
 		}
 		# reset on end of article
-		if(m~</article>~ ){ 
-			($key, $def, $article) = ("","",0);  
+		if(m~</article>~ ){
+			($key, $def, $article) = ("","",0);
 			debug("Article stop tag found at line $counter.\n") if $test_loop;
 		}
 		die if $counter==$max_counter and $test_loop and $isRealDead;
@@ -439,7 +457,7 @@ sub convertStardictXMLtoXDXF{
 	return(@xdxf);}
 sub convertXDXFtoStardictXML{
 	my $xdxf = join('',@_);
-	my @xml = @xml_start; 
+	my @xml = @xml_start;
 	if( $xdxf =~ m~<full_name>(?<bookname>((?!</full_name).)+)</full_name>~s ){
 		my $bookname = $+{bookname};
 		# xml special symbols are not recognized by converter in the dictionary title.
@@ -456,7 +474,7 @@ sub convertXDXFtoStardictXML{
 	}
 	printCyan("Converting xdxf-xml to Stardict-xml. This will take some time.", getLoggingTime(),"\n" );
 	$cycle_dotprinter = 0;
-	# The compilation of this string: while($xdxf =~ s~<ar>(?<article>((?!</ar).)+)</ar>~~s){...} 
+	# The compilation of this string: while($xdxf =~ s~<ar>(?<article>((?!</ar).)+)</ar>~~s){...}
 	# is that the regex is recompiled for every iteration. This takes 45m for a dict with 70k entries.
 	while($xdxf =~ s~<ar>(?<article>((?!</ar).)+)</ar>~~s){
 		$cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
@@ -480,7 +498,7 @@ sub convertXDXFtoStardictXML{
 	return(@xml);}
 sub newConvertXDXFtoStardictXML{
 	my $xdxf = join('',@_);
-	my @xml = @xml_start; 
+	my @xml = @xml_start;
 	if( $xdxf =~ m~<full_name>(?<bookname>((?!</full_name).)+)</full_name>~s ){
 		my $bookname = $+{bookname};
 		# xml special symbols are not recognized by converter in the dictionary title.
@@ -522,13 +540,13 @@ sub newConvertXDXFtoStardictXML{
 	return(@xml);}
 sub altConvertXDXFtoStardictXML{
 	my @xdxf = @_;
-	my @xml = @xml_start; 
+	my @xml = @xml_start;
 	printCyan("Converting xdxf-xml to Stardict-xml. This will take some time.", getLoggingTime(),"\n" );
 	$cycle_dotprinter = 0;
 	my ($article, $concat) = ("", 0);
 	foreach my $line (@xdxf){
 		debug("\$article pos(1): $article");
-		$cycle_dotprinter++; 
+		$cycle_dotprinter++;
 		if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
 		if( $line =~ m~<full_name>(?<bookname>((?!</full_name).)+)</full_name>~s ){
 			my $bookname = $+{bookname};
@@ -548,8 +566,8 @@ sub altConvertXDXFtoStardictXML{
 			next;
 		}
 		if( $line =~ m~<ar>((?!</ar).*$)~s){ $article = $article.$1 ; $concat = 1 ; debug("\$article pos(2): $article"); next;}
-		if( $line =~ m~^(.*)</ar>~s){ 
-			$article = $article.$1 ; 
+		if( $line =~ m~^(.*)</ar>~s){
+			$article = $article.$1 ;
 			debug("\$article pos(3): $article");
 			$article =~ s~</?ar>\n?~~sg;
 			push @xml, "<article>\n";
@@ -563,7 +581,7 @@ sub altConvertXDXFtoStardictXML{
 			push @xml, "</article>\n";
 			push @xml, "\n";
 			$article = "";
-			$concat = 0; 
+			$concat = 0;
 			next;
 		}
 		if( $concat == 1 ){ $article = $article.$line; next;}
@@ -587,7 +605,7 @@ sub file2Array {
 sub filterXDXFforEntitites{
 	my( @xdxf ) = @_;
 	my @Filteredxdxf;
-	if( scalar keys %EntityConversion == 0 ){ 
+	if( scalar keys %EntityConversion == 0 ){
 		debugV("No \%EntityConversion hash defined");
 		return(@xdxf);
 	}
@@ -625,21 +643,21 @@ sub loadXDXF{
 
 	## Load from xdxffile
 	if( $FileName =~ m~\.xdxf$~){@xdxf = file2Array($FileName);}
-	elsif( -e substr($FileName, 0, (length($FileName)-4)).".xdxf"){ 
+	elsif( -e substr($FileName, 0, (length($FileName)-4)).".xdxf"){
 		@xdxf = file2Array(substr($FileName, 0, (length($FileName)-4)).".xdxf") ;
 		# Check SameTypeSequence
-		checkSameTypeSequence($FileName);	
+		checkSameTypeSequence($FileName);
 		# Change FileName to xdxf-extension
 		$FileName = substr($FileName, 0, (length($FileName)-4)).".xdxf";
 	}
 	## Load from ifo-, dict- and idx-files
-	elsif( $FileName =~ m~^(?<filename>((?!\.ifo).)+)\.(ifo|xml)$~){ 
+	elsif( $FileName =~ m~^(?<filename>((?!\.ifo).)+)\.(ifo|xml)$~){
 		# Check wheter a converted xml-file already exists or create one.
-		if(! -e $+{filename}.".xml"){ 
+		if(! -e $+{filename}.".xml"){
 			# Convert the ifo/dict using stardict-bin2text $FileName $FileName.".xml";
-			if ( $OperatingSystem == "linux"){		
+			if ( $OperatingSystem == "linux"){
 				printCyan("Convert the ifo/dict using system command: \"stardict-bin2text $FileName $FileName.xml\"\n");
-				system("stardict-bin2text \"$FileName\" \"$+{filename}.xml\""); 
+				system("stardict-bin2text \"$FileName\" \"$+{filename}.xml\"");
 			}
 			else{ debug("Not linux, so you can't use the script directly on ifo-files, sorry!\n",
 				"First decompile your dictionary with stardict-editor to xml-format (Textual Stardict dictionary),\n",
@@ -653,9 +671,9 @@ sub loadXDXF{
 		# debug(@xdxf); # Check generated @xdxf
 		$FileName=$+{filename}.".xdxf";
 	}
-	## Load from comma separated values cvs-file. 
+	## Load from comma separated values cvs-file.
 	## It is assumed that every line has a key followed by a comma followed by the definition.
-	elsif( $FileName =~ m~^(?<filename>((?!\.csv).)+)\.csv$~){ 
+	elsif( $FileName =~ m~^(?<filename>((?!\.csv).)+)\.csv$~){
 		my @cvs = file2Array($FileName);
 		@xdxf = convertCVStoXDXF(@cvs);
 		# Write it to disk so it hasn't have to be done again.
@@ -664,7 +682,7 @@ sub loadXDXF{
 		$FileName=$+{filename}.".xdxf";
 	}
 	else{debug("Not a known extension for the given filename. Quitting!");die;}
-	return (@xdxf);}
+	return ($FileName, @xdxf);}
 sub printGreen   { print color('green') if $OperatingSystem eq "linux";   print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printBlue    { print color('blue') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printRed     { print color('red') if $OperatingSystem eq "linux";     print @_; print color('reset') if $OperatingSystem eq "linux"; }
@@ -675,7 +693,7 @@ sub reconstructXDXF{
 	# Construct a new xdxf array to prevent converter.exe from crashing.
 	## Initial values
 	my @xdxf = @_;
-	my @xdxf_constructed = ();
+	my @xdxf_reconstructed = ();
 	my $i = 0;
 	my ($Description, $Description_content) = ( 0 , "" );
 	my ($ar, $ar_content, $ar_count) = ( 0, "", 0);
@@ -683,13 +701,13 @@ sub reconstructXDXF{
 	## Step through the array line by line.
 	printCyan("Reconstructing xdxf array. This will take some time. ", getLoggingTime(),"\n");
 	foreach my $entry (@xdxf){
-		$i++; 	
+		$i++;
 		# Handling of dxdf end tag
 		if ( $entry =~ m~$xdxf_closing~ or $i_limit < $i or ($ar_count == ($ar_chosen + 1) and $no_test == 0) ){
-			push @xdxf_constructed, $xdxf_closing;
+			push @xdxf_reconstructed, $xdxf_closing;
 			last;
 		}
-		# Check whether every line ends with an EOL. 
+		# Check whether every line ends with an EOL.
 		# The criterion has rather diminished through the building of the script.
 		if($entry =~ m~^.*\n$~s){
 			# Handling of xdxf tag
@@ -708,13 +726,13 @@ sub reconstructXDXF{
 					$xdxf= 'lang_from="'.$lang_from.'" lang_to="'.$lang_to.'" format="'.$format.'"';
 				}
 				printMagenta("<xdxf ".$xdxf.">\n");
-				push @xdxf_constructed, "<xdxf ".$xdxf.">\n";
+				push @xdxf_reconstructed, "<xdxf ".$xdxf.">\n";
 				next;
 			}
 			# Handling of full_name tag
 			if ( $entry =~ m~^<full_name>~){
 				if ( $entry !~ m~^<full_name>.*</full_name>\n$~){ debug("full_name tag is not on one line. Investigate!\n"); die if $isRealDead;}
-				elsif( $reformat_full_name and $entry =~ m~^<full_name>(?<fullname>((?!</full).)*)</full_name>\n$~ ){ 
+				elsif( $reformat_full_name and $entry =~ m~^<full_name>(?<fullname>((?!</full).)*)</full_name>\n$~ ){
 					my $full_name = $+{fullname};
 					my $old_name = $full_name;
 					print("Full_name is \"$full_name\".\nWould you like to change it? (press enter to keep default \[$full_name\] ");
@@ -725,22 +743,22 @@ sub reconstructXDXF{
 				}
 			}
 			# Handling of Description
-			if ( $entry =~ m~^(?<des><description>)~){  push @xdxf_constructed, $+{des}."\n"; $Description = 1;} #Start of description block
+			if ( $entry =~ m~^(?<des><description>)~){  push @xdxf_reconstructed, $+{des}."\n"; $Description = 1;} #Start of description block
 			if($Description){
 				if( $entry =~ m~^(?<des><description>)?(?<cont>((?!</desc).)*)(?<closetag></description>)?\n$~ ){
-					
+
 					#debugFindings();
 					#debug("?<des> is $+{des}\n?<cont> is $+{cont}\n?<closetag> is $+{closetag}\n");
 					$Description_content .= $+{cont} ; # debug($Description_content);
-					
-					if( $+{closetag} eq "</description>"){ 
-						# debug("Matched description closing tag!\n"); 
-						chomp $Description_content; 
-						push @xdxf_constructed, $Description_content."\n".$+{closetag}."\n"; 
+
+					if( $+{closetag} eq "</description>"){
+						# debug("Matched description closing tag!\n");
+						chomp $Description_content;
+						push @xdxf_reconstructed, $Description_content."\n".$+{closetag}."\n";
 						$Description = 0;
 					}
 
-					# print("Regex working!\n"); 
+					# print("Regex working!\n");
 				}
 				next;
 			}
@@ -748,7 +766,7 @@ sub reconstructXDXF{
 			if ( $entry =~ m~^(?<ar><ar>)~){  #Start of ar block
 				$ar_count++; $cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
 
-				push @xdxf_constructed, $+{ar}."\n"  if ( $no_test or $ar_count==$ar_chosen); 
+				push @xdxf_reconstructed, $+{ar}."\n"  if ( $no_test or $ar_count==$ar_chosen);
 				$ar = 1;
 			}
 			if( $ar ){
@@ -757,18 +775,18 @@ sub reconstructXDXF{
 					# debug("?<ar> is $+{ar}\n?<cont> is $+{cont}\n?<closetag> is $+{closetag}\n");
 					$ar_content .= $+{cont} ; # debug($ar_content);
 
-					if( $+{closetag} eq "</ar>"){ 
-						# debug("Matched ar closing tag!\n"); 
-						my $cleansedcontent = cleanseAr($ar_content); 
-						push @xdxf_constructed, $cleansedcontent."\n".$+{closetag}."\n" if ($no_test or $ar_count==$ar_chosen); 
-						$ar = 0; 
-						$ar_content = "";	
+					if( $+{closetag} eq "</ar>"){
+						# debug("Matched ar closing tag!\n");
+						my $cleansedcontent = cleanseAr($ar_content);
+						push @xdxf_reconstructed, $cleansedcontent."\n".$+{closetag}."\n" if ($no_test or $ar_count==$ar_chosen);
+						$ar = 0;
+						$ar_content = "";
 					}
 				}
 				next;
 			}
 
-			push @xdxf_constructed, $entry;
+			push @xdxf_reconstructed, $entry;
 			next;
 		}
 		else{ 	debug("Line without a EOL: $i");
@@ -783,7 +801,7 @@ sub reconstructXDXF{
 	printMagenta("\nTotal number of lines processed \$i = ",$i+1,".\n");
 	printMagenta("Total number of articles processed \$ar = ",$ar+1,".\n");
 	printCyan("Done at ",getLoggingTime,"\n");
-	return( @xdxf_constructed );}
+	return( @xdxf_reconstructed );}
 sub testSub{
 	my $TestFileName = "test_newConvert.xdxf";
 	if( $isTestingOn == 0){return;}
@@ -809,44 +827,47 @@ sub testUnicode{
 # Generate entity hash defined in DOCTYPE
 %EntityConversion = generateEntityHashFromDocType($DocType);
 
-# Some testing 
+# Some testing
 testSub() if $isTestingOn;
 # Result test is that it is imperative to use:
-# use feature 'unicode_strings'; 
+# use feature 'unicode_strings';
 testUnicode() if $isTestingOn;
 
 # Fill array from file.
-my @xdxf = loadXDXF( $FileName, $OperatingSystem );
+my @xdxf;
+($FileName, @xdxf) = loadXDXF( $FileName, $OperatingSystem );
 array2File("testLoadedDVDX.xml", @xdxf) if $isTestingOn;
 # filterXDXFforEntitites
 @xdxf = filterXDXFforEntitites(@xdxf);
 array2File("testFilteredDVDX.xml", @xdxf) if $isTestingOn;
-my @xdxf_constructed = reconstructXDXF( @xdxf );
-array2File("test_Constructed.xml", @xdxf_constructed) if $isTestingOn;
+my @xdxf_reconstructed = reconstructXDXF( @xdxf );
+array2File("test_Constructed.xml", @xdxf_reconstructed) if $isTestingOn;
 # If SameTypeSequence is not "h", remove &#xDDDD; sequences and replace them with characters.
-if ( $SameTypeSequence ne "h" ){ 
-	@xdxf_constructed = convertNumberedSequencesToChar( 
-							convertNonBreakableSpacetoNumberedSequence( @xdxf_constructed ) 
-								) ; 
+if ( $SameTypeSequence ne "h" ){
+	@xdxf_reconstructed = convertNumberedSequencesToChar(
+							convertNonBreakableSpacetoNumberedSequence( @xdxf_reconstructed )
+								) ;
 }
 # Save reconstructed XDXF-file
 my $dict_xdxf=$FileName;
-$dict_xdxf =~ s~\.xdxf~_reconstructed\.xdxf~;
-array2File($dict_xdxf, @xdxf_constructed);
+if( $dict_xdxf !~ s~\.xdxf~_reconstructed\.xdxf~ ){ debug("Filename substitution did not work for : \"$dict_xdxf\""); die; }
+array2File($dict_xdxf, @xdxf_reconstructed);
 
 # Save reconstructed XML-file
-my @StardictXMLreconstructed = newConvertXDXFtoStardictXML(@xdxf_constructed);
-# my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_constructed);
+my @StardictXMLreconstructed = newConvertXDXFtoStardictXML(@xdxf_reconstructed);
+# my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_reconstructed);
 my $dict_xml = $FileName;
-$dict_xml =~ s~\.xdxf~_reconstructed\.xml~;
+if( $dict_xml !~ s~\.xdxf~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); die; }
 array2File($dict_xml, @StardictXMLreconstructed);
-# Convert reconstructed XML-file to binary 
-if ( $OperatingSystem == "linux"){		
+
+# Convert reconstructed XML-file to binary
+if ( $OperatingSystem == "linux"){
 	my $dict_bin = $dict_xml;
 	$dict_bin =~ s~\.xml~\.ifo~;
 	my $command = "stardict-text2bin \"$dict_xml\" \"$dict_bin\" ";
 	printYellow("Running system command:\"$command\"\n");
-	system($command); 
+	system($command);
+	writeSameTypeSequence($dict_bin);
 }
 else{ debug("Not linux, so you can't use the script to create Stardict dictionaries.")}
 
