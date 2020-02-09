@@ -124,7 +124,6 @@ my @xml_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 					'<dicttype></dicttype>'."\n",
 					'</info>'."\n");
 my $lastline_xml = "</stardict>\n";
-my $definition_xml = '<definition type="'.$SameTypeSequence.'">'."\n";
 # Determine operating system.
 my $OperatingSystem = "$^O";
 if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
@@ -183,18 +182,6 @@ sub checkSameTypeSequence{
 		}
 	}
 	return;}
-sub writeSameTypeSequence{
-	# Because stardict-text2bin always chooses sametypesequence=h,
-	# it will have to be adapted to the found $SameTypeSequence
-	my $FileName = $_[0];
-	if(! $updateSameTypeSequence ){return;}
-	elsif( -e $FileName){
-		my $ifo = join('', file2Array($FileName ) );
-		if($ifo =~ s~sametypesequence=(?<sametypesequence>\w)~sametypesequence=$SameTypeSequence~s){
-			printGreen("Sametypesequence in file $FileName was \"$+{sametypesequence}.SameTypeSequence\".\n");
-			printGreen("Changed to \"$SameTypeSequence\".\n");
-			array2File($FileName, split(/$/,$ifo) );
-		}	}	}
 sub cleanseAr{
 	my @Content = @_;
 	my $Content = join('',@Content) ;
@@ -476,14 +463,12 @@ sub convertXDXFtoStardictXML{
 		push @xml, "<article>\n";
 		# <head><k>a</k></head>
 		$article =~ m~<head><k>(?<key>((?!</k).)+)</k>~s;
-		push @xml, "<key>".$+{key}."</key>\n";
-		push @xml, "\n";
+		push @xml, "<key>".$+{key}."</key>\n\n";
 		$article =~ m~<def>(?<definition>((?!</def).)+)</def>~s;
-		push @xml, $definition_xml;
+		push @xml, '<definition type="'.$SameTypeSequence.'">'."\n";
 		push @xml, '<![CDATA['.$+{definition}.']]>'."\n";
 		push @xml, "</definition>\n";
-		push @xml, "</article>\n";
-		push @xml, "\n";
+		push @xml, "</article>\n\n";
 	}
 	push @xml, "\n";
 	push @xml, $lastline_xml;
@@ -518,14 +503,12 @@ sub newConvertXDXFtoStardictXML{
 		push @xml, "<article>\n";
 		# <head><k>a</k></head>
 		$article =~ m~<head><k>(?<key>((?!</k).)+)</k>~s;
-		push @xml, "<key>".$+{key}."</key>\n";
-		push @xml, "\n";
+		push @xml, "<key>".$+{key}."</key>\n\n";
 		$article =~ m~<def>(?<definition>((?!</def).)+)</def>~s;
-		push @xml, $definition_xml;
+		push @xml, '<definition type="'.$SameTypeSequence.'">'."\n";
 		push @xml, '<![CDATA['.$+{definition}.']]>'."\n";
 		push @xml, "</definition>\n";
-		push @xml, "</article>\n";
-		push @xml, "\n";
+		push @xml, "</article>\n\n";
 	}
 	push @xml, "\n";
 	push @xml, $lastline_xml;
@@ -567,13 +550,12 @@ sub altConvertXDXFtoStardictXML{
 			push @xml, "<article>\n";
 			# <head><k>a</k></head>
 			$article =~ m~<head><k>(?<key>((?!</k).)+)</k>~s;
-			push @xml, "<key>".$+{key}."</key>\n";
+			push @xml, "<key>".$+{key}."</key>\n\n";
 			$article =~ m~<def>(?<definition>((?!</def).)+)</def>~s;
-			push @xml, $definition_xml;
+			push @xml, '<definition type="'.$SameTypeSequence.'">'."\n";
 			push @xml, '<![CDATA['.$+{definition}.']]>'."\n";
 			push @xml, "</definition>\n";
-			push @xml, "</article>\n";
-			push @xml, "\n";
+			push @xml, "</article>\n\n";
 			$article = "";
 			$concat = 0;
 			next;
@@ -890,7 +872,6 @@ sub testUnicode{
 
 # Generate entity hash defined in DOCTYPE
 %EntityConversion = generateEntityHashFromDocType($DocType);
-
 # Some testing
 testSub() if $isTestingOn;
 # Result test is that it is imperative to use:
@@ -931,7 +912,6 @@ if ( $OperatingSystem == "linux"){
 	my $command = "stardict-text2bin \"$dict_xml\" \"$dict_bin\" ";
 	printYellow("Running system command:\"$command\"\n");
 	system($command);
-	writeSameTypeSequence($dict_bin);
 }
 else{ debug("Not linux, so you can't use the script to create Stardict dictionaries.")}
 
