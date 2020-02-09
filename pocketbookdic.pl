@@ -449,10 +449,6 @@ sub convertStardictXMLtoXDXF{
 		die if $counter==$max_counter and $test_loop and $isRealDead;
 	}
 	printCyan("\nDone at ", getLoggingTime(),"\n");
-	# while( $StardictXML =~ s~<article>[\n\s]*<key>(?<key>((?!</key>).)+)</key>[\n\s]*<definition type="m">[\n\s]*<!\[CDATA\[(?<def>((?!\]\]>).)+)\]\]>[\n\s]*</definition>[\n\s]*</article>~~s){
-	# 	# debug("Found key \'$+{key}\' and definition \'$+{def}\'");
-	# 	push @xdxf, "<ar><head><k>$+{key}</k></head><def>$+{def}</def></ar>\n";
-	# }
 	push @xdxf, $lastline_xdxf;
 	return(@xdxf);}
 sub convertXDXFtoStardictXML{
