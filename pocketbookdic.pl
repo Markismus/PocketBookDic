@@ -28,7 +28,7 @@ my $i_limit = 27000000000000000000; # Hard limit to the number of lines that are
 my $remove_color_tags = 0; # Color tags seem less desirable with greyscale screens. It reduces the article size considerably.
 my $isdebug = 1; # Turns off all debug messages
 my $isdebugVerbose = 0; # Turns off all verbose debug messages
-my $isStardictCreationReallyTrue = 1; # Turns on Stardict text and binary dictionary creation.
+my $isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
 my $isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format
 my $isTestingOn = 1; # Turns tests on
 my $isRemoveWaveReferences = 1; # Removes a the references to wav-files
@@ -898,27 +898,34 @@ my $dict_xdxf=$FileName;
 if( $dict_xdxf !~ s~\.xdxf~_reconstructed\.xdxf~ ){ debug("Filename substitution did not work for : \"$dict_xdxf\""); die; }
 array2File($dict_xdxf, @xdxf_reconstructed);
 
-# Save reconstructed XML-file
-my @StardictXMLreconstructed = newConvertXDXFtoStardictXML(@xdxf_reconstructed);
-# my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_reconstructed);
-my $dict_xml = $FileName;
-if( $dict_xml !~ s~\.xdxf~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); die; }
-array2File($dict_xml, @StardictXMLreconstructed);
+# Create Stardict dictionary
+if( $isCreateStardictDictionary ){
+	# Save reconstructed XML-file
+	my @StardictXMLreconstructed = newConvertXDXFtoStardictXML(@xdxf_reconstructed);
+	# my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_reconstructed);
+	my $dict_xml = $FileName;
+	if( $dict_xml !~ s~\.xdxf~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); die; }
+	array2File($dict_xml, @StardictXMLreconstructed);
 
-# Convert reconstructed XML-file to binary
-if ( $OperatingSystem == "linux"){
-	my $dict_bin = $dict_xml;
-	$dict_bin =~ s~\.xml~\.ifo~;
-	my $command = "stardict-text2bin \"$dict_xml\" \"$dict_bin\" ";
-	printYellow("Running system command:\"$command\"\n");
-	system($command);
+	# Convert reconstructed XML-file to binary
+	if ( $OperatingSystem == "linux"){
+		my $dict_bin = $dict_xml;
+		$dict_bin =~ s~\.xml~\.ifo~;
+		my $command = "stardict-text2bin \"$dict_xml\" \"$dict_bin\" ";
+		printYellow("Running system command:\"$command\"\n");
+		system($command);
+	}
+	else{ 
+		debug("Not linux, so you the script created an xml Stardict dictionary.");
+		debug("You'll have to convert it to binary manually using Stardict editor.")
+	}
+
 }
-else{ debug("Not linux, so you can't use the script to create Stardict dictionaries.")}
 
-
-my $ConvertCommand;
-if( $language_dir ne "" ){ $lang_from = $language_dir ;}
+# Create Pocketbook dictionary
 if( $isCreatePocketbookDictionary ){
+	my $ConvertCommand;
+	if( $language_dir ne "" ){ $lang_from = $language_dir ;}
 	if( $OperatingSystem eq "linux"){ $ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$dict_xdxf\" $lang_from"; }
 	else{ $ConvertCommand = "converter.exe \"$dict_xdxf\" $lang_from"; }
 	printYellow("Running system command:\"$ConvertCommand\"\n");
