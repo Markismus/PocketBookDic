@@ -828,119 +828,6 @@ sub printRed     { print color('red') if $OperatingSystem eq "linux";     print 
 sub printYellow  { print color('yellow') if $OperatingSystem eq "linux";  print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printMagenta { print color('magenta') if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printCyan    { print color('cyan') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
-sub oldReconstructXDXF{
-	# Construct a new xdxf array to prevent converter.exe from crashing.
-	## Initial values
-	my @xdxf = @_;
-	my @xdxf_reconstructed = ();
-	my $i = 0;
-	my ($Description, $Description_content) = ( 0 , "" );
-	my ($ar, $ar_content, $ar_count) = ( 0, "", 0);
-	my $xdxf_closing = "</xdxf>\n";
-	## Step through the array line by line.
-	printCyan("Reconstructing xdxf array. This will take some time. ", getLoggingTime(),"\n");
-	foreach my $entry (@xdxf){
-		$i++;
-		# Handling of dxdf end tag
-		if ( $entry =~ m~$xdxf_closing~ or $i_limit < $i or ($ar_count == ($ar_chosen + 1) and $no_test == 0) ){
-			push @xdxf_reconstructed, $xdxf_closing;
-			last;
-		}
-		# Check whether every line ends with an EOL.
-		# The criterion has rather diminished through the building of the script.
-		if($entry =~ m~^.*\n$~s){
-			# Handling of xdxf tag
-			if ( $entry =~ m~^<xdxf(.+)>\n$~){
-				my $xdxf = $1;
-				if( $reformat_xdxf and $xdxf =~ m~ lang_from="(.*)" lang_to="(.*)" format="(.*)"~){
-					$lang_from = $1 if defined $1 and $1 ne "";
-					$lang_to = $2 if defined $2 and $2 ne "";
-					$format = $3 if defined $3 and $3 ne "";
-					print(" lang_from is \"$1\". Would you like to change it? (press enter to keep default \[$lang_from\] ");
-					my $one = <STDIN>; chomp $one; if( $one ne ""){ $lang_from = $one ; }
-					print(" lang_to is \"$2\". Would you like to change it? (press enter to keep default \[$lang_to\] ");
-					my $one = <STDIN>; chomp $one; if( $one ne ""){ $lang_to = $one ; }
-					print(" format is \"$3\". Would you like to change it? (press enter to keep default \[$format\] ");
-					my $one = <STDIN>; chomp $one; if( $one ne ""){ $format = $one ; }
-					$xdxf= 'lang_from="'.$lang_from.'" lang_to="'.$lang_to.'" format="'.$format.'"';
-				}
-				printMagenta("<xdxf ".$xdxf.">\n");
-				push @xdxf_reconstructed, "<xdxf ".$xdxf.">\n";
-				next;
-			}
-			# Handling of full_name tag
-			if ( $entry =~ m~^<full_name>~){
-				if ( $entry !~ m~^<full_name>.*</full_name>\n$~){ debug("full_name tag is not on one line. Investigate!\n"); die if $isRealDead;}
-				elsif( $reformat_full_name and $entry =~ m~^<full_name>(?<fullname>((?!</full).)*)</full_name>\n$~ ){
-					my $full_name = $+{fullname};
-					my $old_name = $full_name;
-					print("Full_name is \"$full_name\".\nWould you like to change it? (press enter to keep default \[$full_name\] ");
-					my $one = <STDIN>; chomp $one; if( $one ne ""){ $full_name = $one ; };
-					debug("\$entry is: $entry");
-					$entry = "<full_name>$full_name</full_name>\n";
-					debug("Fullname tag entry is now:$entry");
-				}
-			}
-			# Handling of Description
-			if ( $entry =~ m~^(?<des><description>)~){  push @xdxf_reconstructed, $+{des}."\n"; $Description = 1;} #Start of description block
-			if($Description){
-				if( $entry =~ m~^(?<des><description>)?(?<cont>((?!</desc).)*)(?<closetag></description>)?\n$~ ){
-
-					#debugFindings();
-					#debug("?<des> is $+{des}\n?<cont> is $+{cont}\n?<closetag> is $+{closetag}\n");
-					$Description_content .= $+{cont} ; # debug($Description_content);
-
-					if( $+{closetag} eq "</description>"){
-						# debug("Matched description closing tag!\n");
-						chomp $Description_content;
-						push @xdxf_reconstructed, $Description_content."\n".$+{closetag}."\n";
-						$Description = 0;
-					}
-
-					# print("Regex working!\n");
-				}
-				next;
-			}
-			# Handling of an ar-tag
-			if ( $entry =~ m~^(?<ar><ar>)~){  #Start of ar block
-				$ar_count++; $cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
-
-				push @xdxf_reconstructed, $+{ar}."\n"  if ( $no_test or $ar_count==$ar_chosen);
-				$ar = 1;
-			}
-			if( $ar ){
-				if( $entry =~ m~^(?<ar><ar>)?(?<cont>((?!</ar).)*)(?<closetag></ar>)?\n$~ ){
-					# debugFindings();
-					# debug("?<ar> is $+{ar}\n?<cont> is $+{cont}\n?<closetag> is $+{closetag}\n");
-					$ar_content .= $+{cont} ; # debug($ar_content);
-
-					if( $+{closetag} eq "</ar>"){
-						# debug("Matched ar closing tag!\n");
-						my $cleansedcontent = cleanseAr($ar_content);
-						push @xdxf_reconstructed, $cleansedcontent."\n".$+{closetag}."\n" if ($no_test or $ar_count==$ar_chosen);
-						$ar = 0;
-						$ar_content = "";
-					}
-				}
-				next;
-			}
-
-			push @xdxf_reconstructed, $entry;
-			next;
-		}
-		else{ 	debug("Line without a EOL: $i");
-				debug("[",$i-3,"]: ",$xdxf[$i-3]);
-				debug("[",$i-2,"]: ",$xdxf[$i-2]);
-				debug("[",$i-1,"]: ",$xdxf[$i-1]);
-				debug("[",$i,"]: ",$xdxf[$i]);
-				debug("[",$i+1,"]: ",$xdxf[$i+1]);
-				die if $isRealDead; }
-	}
-
-	printMagenta("\nTotal number of lines processed \$i = ",$i+1,".\n");
-	printMagenta("Total number of articles processed \$ar = ",$ar+1,".\n");
-	printCyan("Done at ",getLoggingTime,"\n");
-	return( @xdxf_reconstructed );}
 sub reconstructXDXF{
 	# Construct a new xdxf array to prevent converter.exe from crashing.
 	## Initial values
@@ -991,7 +878,7 @@ sub reconstructXDXF{
 			$entry = $+{des}."\n".$Description_content."\n".$+{closetag}."\n";
 		}
 		# Handling of an ar-tag
-		elsif ( $entry =~ m~^<ar>~){debug(@xdxf_reconstructed);last;}  #Start of ar block
+		elsif ( $entry =~ m~^<ar>~){last;}  #Start of ar block
 		
 		push @xdxf_reconstructed, $entry;
 	}
