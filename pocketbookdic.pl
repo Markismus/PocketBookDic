@@ -468,10 +468,12 @@ sub convertColorName2HexValue{
 		whitesmoke #F5F5F5
 		yellow #FFFF00
 		yellowgreen #9ACD32);
+	waitForIt("Converting all color names to hex values.");
 	foreach my $Color(keys %ColorCoding){
 		$html =~ s~c="$Color">~c="$ColorCoding{$Color}">~isg;
 		$html =~ s~color:$Color>~c:$ColorCoding{$Color}>~isg;
 	}
+	doneWaiting();
 	return( split(/$/,$html) );}
 sub convertCVStoXDXF{
 	my @cvs = @_;
@@ -541,7 +543,7 @@ sub convertStardictXMLtoXDXF{
 		$SameTypeSequence = $+{sametypesequence};
 	}
 
-	printCyan("Converting stardict xml to xdxf xml. This will take some time. ",getLoggingTime(),"\n");
+	waitForIt("Converting stardict xml to xdxf xml.");
 	# Initialize variables for collection
 	my ($key, $def, $article, $definition) = ("","", 0, 0);
 	# Initialize variables for testing
@@ -591,7 +593,7 @@ sub convertStardictXMLtoXDXF{
 		}
 		die if $counter==$max_counter and $test_loop and $isRealDead;
 	}
-	printCyan("\nDone at ", getLoggingTime(),"\n");
+	doneWaiting();
 	push @xdxf, $lastline_xdxf;
 	return(@xdxf);}
 sub convertXDXFtoStardictXML{
@@ -611,7 +613,7 @@ sub convertXDXFtoStardictXML{
 	if( $xdxf =~ m~<xdxf (?<description>((?!>).)+)>~s ){
 		substr($xml[8], 13, 0) = $+{description};
 	}
-	printCyan("Converting xdxf-xml to Stardict-xml. This will take some time.", getLoggingTime(),"\n" );
+	waitForIt("Converting xdxf-xml to Stardict-xml." );
 	$cycle_dotprinter = 0;
 	# The compilation of this string: while($xdxf =~ s~<ar>(?<article>((?!</ar).)+)</ar>~~s){...}
 	# is that the regex is recompiled for every iteration. This takes 45m for a dict with 70k entries.
@@ -631,8 +633,9 @@ sub convertXDXFtoStardictXML{
 	push @xml, "\n";
 	push @xml, $lastline_xml;
 	push @xml, "\n";
-	printCyan("\nDone at ", getLoggingTime(),"\n" );
+	doneWaiting();
 	return(@xml);}
+sub doneWaiting{ printCyan("Done at ",getLoggingTime(),"\n");}
 sub newConvertXDXFtoStardictXML{
 	my $xdxf = join('',@_);
 	my @xml = @xml_start;
@@ -650,7 +653,7 @@ sub newConvertXDXFtoStardictXML{
 	if( $xdxf =~ m~<xdxf (?<description>((?!>).)+)>~s ){
 		substr($xml[8], 13, 0) = $+{description};
 	}
-	printCyan("Converting xdxf-xml to Stardict-xml. This will take some time.", getLoggingTime(),"\n" );
+	waitForIt("Converting xdxf-xml to Stardict-xml." );
 	my @articles = $xdxf =~ m~<ar>((?:(?!</ar).)+)</ar>~sg ;
 	printCyan("Finished getting articles at ", getLoggingTime(),"\n" );
 	array2File("testNewConvertArrayIn.xml",($xdxf)) if $isTestingOn;
@@ -671,12 +674,12 @@ sub newConvertXDXFtoStardictXML{
 	push @xml, "\n";
 	push @xml, $lastline_xml;
 	push @xml, "\n";
-	printCyan("\nDone at ", getLoggingTime(),"\n" );
+	doneWaiting();
 	return(@xml);}
 sub altConvertXDXFtoStardictXML{
 	my @xdxf = @_;
 	my @xml = @xml_start;
-	printCyan("Converting xdxf-xml to Stardict-xml. This will take some time.", getLoggingTime(),"\n" );
+	waitForIt("Converting xdxf-xml to Stardict-xml.");
 	$cycle_dotprinter = 0;
 	my ($article, $concat) = ("", 0);
 	foreach my $line (@xdxf){
@@ -723,7 +726,7 @@ sub altConvertXDXFtoStardictXML{
 	push @xml, "\n";
 	push @xml, $lastline_xml;
 	push @xml, "\n";
-	printCyan("\nDone at ", getLoggingTime(),"\n" );
+	doneWaiting();
 	return(@xml);}
 sub file2Array {
 
@@ -745,7 +748,7 @@ sub filterXDXFforEntitites{
 	}
 	else{debugV("These are the keys:", keys %EntityConversion);}
 	$cycle_dotprinter = 0 ;
-	printCyan("Filtering entities based on DOCTYPE. This will take some time. ", getLoggingTime(),"\n");
+	waitForIt("Filtering entities based on DOCTYPE.");
 	foreach my $line (@xdxf){
 		$cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
 		foreach my $EntityName(keys %EntityConversion){
@@ -753,7 +756,7 @@ sub filterXDXFforEntitites{
 		}
 		push @Filteredxdxf, $line;
 	}
-	printCyan("\nDone at ", getLoggingTime(), "\n");
+	doneWaiting();
 	return (@Filteredxdxf);}
 sub generateEntityHashFromDocType{
 	my $String = $_[0]; # MultiLine DocType string. Not Array!!!
@@ -819,8 +822,11 @@ sub loadXDXF{
 	return ($FileName, @xdxf);}
 sub makeKoreaderReady{
 	my $html = join('',@_);
-	$html =~ s~<(\?)c>~<$1span>~sg;
+	waitForIt("Making the dictionary Koreader ready.");
+	$html =~ s~<c>~<span>~sg;
 	$html =~ s~<c c="~<span style="color:~sg;
+	$html =~ s~</c>~</span>~sg;
+	doneWaiting();
 	return(split(/$/, $html));}
 sub printGreen   { print color('green') if $OperatingSystem eq "linux";   print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printBlue    { print color('blue') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
@@ -835,7 +841,7 @@ sub reconstructXDXF{
 	my @xdxf_reconstructed = ();
 	my $xdxf_closing = "</xdxf>\n";
 	
-	printCyan("Reconstructing xdxf array. This will take some time. ", getLoggingTime(),"\n");
+	waitForIt("Reconstructing xdxf array.");
 	## Step through the array line by line until the articles start.
 	## Then push (altered) entry to array.
 	foreach my $entry (@xdxf){
@@ -896,7 +902,7 @@ sub reconstructXDXF{
 	
 	push @xdxf_reconstructed, $xdxf_closing;
 	printMagenta("\nTotal number of articles processed \$ar = ",scalar @articles,".\n");
-	printCyan("Done at ",getLoggingTime,"\n");
+	doneWaiting();
 	return( @xdxf_reconstructed );}
 sub testSub{
 	my $TestFileName = "test_newConvert.xdxf";
@@ -919,6 +925,7 @@ sub testUnicode{
 	debugV(@test_Unicode,"\n");
 	array2File("test_Unicode_ConvertedSequences.xml", @test_Unicode);
 	return;}
+sub waitForIt{ printCyan("@_"," This will take some time. ", getLoggingTime(),"\n");}
 
 # Generate entity hash defined in DOCTYPE
 %EntityConversion = generateEntityHashFromDocType($DocType);
