@@ -11,8 +11,8 @@ my $isRealDead=1; # Some errors should kill the program. However, somtimes you j
 
 # Controls manual input: 0 disables.
 my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
-my $reformat_full_name = 1; # Demands manual input for full_name tag.
-my $reformat_xdxf=1; # Demands manual input for xdxf tag.
+my $reformat_full_name = 1 ; # Value 1 demands manual input for full_name tag.
+my $reformat_xdxf = 1 ; # Value 1 demands manual input for xdxf tag.
 
 # This controls the maximum article length.
 # If set too large, the old converter will crash and the new will truncate the entry.
@@ -27,14 +27,14 @@ my $no_test=1; # Testing singles out a single ar and generates a xdxf-file conta
 my $ar_chosen = 410; # Ar singled out when no_test = 0;
 my ($cycle_dotprinter, $cycles_per_dot) = (0 , 300); # A green dot is printed achter $cycles_per_dot ar's have been processed.
 my $i_limit = 27000000000000000000; # Hard limit to the number of lines that are processed.
-my $remove_color_tags = 0; # Color tags seem less desirable with greyscale screens. It reduces the article size considerably.
+my $remove_color_tags = 0; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably.
 my $isdebug = 1; # Turns off all debug messages
 my $isdebugVerbose = 0; # Turns off all verbose debug messages
 my $isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
 my $isMakeKoreaderReady = 1; # Sometimes koreader want something extra.
 my $isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format
 my $isTestingOn = 1; # Turns tests on
-my $isRemoveWaveReferences = 1; # Removes a the references to wav-files
+my $isRemoveWaveReferences = 1; # Removes all the references to wav-files
 # Same Type Seqence is the initial value of the Stardict variable set in the ifo-file.
 # "h" means html-dictionary. "m" means text.
 # The xdxf-file will be filtered for &#xDDDD; values and converted to unicode if set at "m"
@@ -314,6 +314,7 @@ sub cleanseAr{
 		# Example:
 		# <rref>
 		#z_epee_1_gb_2.wav</rref>
+		#<rref>z_a__gb_2.wav</rref> 
 		$Content =~ s~<rref>((?!\.wav</rref>).)+\.wav</rref>~~gs;
 	}
 
@@ -895,7 +896,7 @@ sub reconstructXDXF{
 	my ($ar, $ar_count) = ( 0, 0);
 	foreach my $article (@articles){
 		$ar_count++; $cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
-		cleanseAr($article);
+		$article = cleanseAr($article);
 		chomp $article;
 		push @xdxf_reconstructed, "<ar>\n$article\n</ar>\n";
 	}
