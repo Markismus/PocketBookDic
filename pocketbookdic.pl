@@ -6,11 +6,13 @@ use Encode 'encode';
 use utf8;
 use open ':std', ':encoding(UTF-8)';
 use feature 'unicode_strings'; # You get funky results with the sub convertNumberedSequencesToChar without this.
+
 my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
 
-my $reformat_xdxf=0; # Demands manual input for xdxf tag.
+# Controls manual input: 0 disables.
 my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
-my $reformat_full_name = 0; # Demands manual input for full_name tag.
+my $reformat_full_name = 1; # Demands manual input for full_name tag.
+my $reformat_xdxf=1; # Demands manual input for xdxf tag.
 
 # This controls the maximum article length.
 # If set too large, the old converter will crash and the new will truncate the entry.
@@ -61,7 +63,7 @@ $FileName = "dict/Oxford Advanced Learner's Dictionary/Oxford Advanced Learner's
 $FileName = "dict/latin-english.ifo";
 $FileName = "dict/NouveauLittre-Stardict/output.ifo";
 $FileName = "dict/Oxford_English_Dictionary_2nd_Ed.xdxf";
-$FileName = "dict/Oxford_English_Dictionary_2nd_Ed/Oxford_English_Dictionary_2nd_Ed_test.xdxf";
+$FileName = "dict/Oxford_English_Dictionary_2nd_Ed/testhtml/testhtml.xml";
 # However, when an argument is given, it will supercede the last filename
 if( defined($ARGV[0]) ){
 	printYellow("Command line arguments provided:\n");
@@ -895,7 +897,7 @@ if ( $SameTypeSequence ne "h" ){
 }
 # Save reconstructed XDXF-file
 my $dict_xdxf=$FileName;
-if( $dict_xdxf !~ s~\.xdxf~_reconstructed\.xdxf~ ){ debug("Filename substitution did not work for : \"$dict_xdxf\""); die; }
+if( $dict_xdxf !~ s~\.xdxf~_reconstructed\.xdxf~ ){ debug("Filename substitution did not work for : \"$dict_xdxf\""); die if $isRealDead; }
 array2File($dict_xdxf, @xdxf_reconstructed);
 
 # Create Stardict dictionary
@@ -904,7 +906,7 @@ if( $isCreateStardictDictionary ){
 	my @StardictXMLreconstructed = newConvertXDXFtoStardictXML(@xdxf_reconstructed);
 	# my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_reconstructed);
 	my $dict_xml = $FileName;
-	if( $dict_xml !~ s~\.xdxf~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); die; }
+	if( $dict_xml !~ s~\.xdxf~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); die if $isRealDead; }
 	array2File($dict_xml, @StardictXMLreconstructed);
 
 	# Convert reconstructed XML-file to binary
