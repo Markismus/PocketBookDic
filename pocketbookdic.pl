@@ -31,6 +31,7 @@ my $remove_color_tags = 0; # Color tags seem less desirable with greyscale scree
 my $isdebug = 1; # Turns off all debug messages
 my $isdebugVerbose = 0; # Turns off all verbose debug messages
 my $isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
+my $isMakeKoreaderReady = 1; # Sometimes koreader want something extra.
 my $isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format
 my $isTestingOn = 1; # Turns tests on
 my $isRemoveWaveReferences = 1; # Removes a the references to wav-files
@@ -816,6 +817,11 @@ sub loadXDXF{
 	}
 	else{debug("Not a known extension for the given filename. Quitting!");die;}
 	return ($FileName, @xdxf);}
+sub makeKoreaderReady{
+	my $html = join('',@_);
+	$html =~ s~<(\?)c>~<$1span>~sg;
+	$html =~ s~<c c="~<span style="color:~sg;
+	return(split(/$/, $html));}
 sub printGreen   { print color('green') if $OperatingSystem eq "linux";   print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printBlue    { print color('blue') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printRed     { print color('red') if $OperatingSystem eq "linux";     print @_; print color('reset') if $OperatingSystem eq "linux"; }
@@ -979,13 +985,13 @@ sub reconstructXDXF{
 			printMagenta($entry);
 		}
 		# Handling of Description. Turns one line into multiple.
-		elsif( $entry =~ m~^(?<des><description>)?(?<cont>((?!</desc).)*)(?<closetag></description>)\n$~ ){
+		elsif( $entry =~ m~^(?<des><description>)(?<cont>((?!</desc).)*)(?<closetag></description>)\n$~ ){
 			my $Description_content .= $+{cont} ; 
 			chomp $Description_content;
-			$entry = @xdxf_reconstructed, $+{des}."\n".$Description_content."\n".$+{closetag}."\n";
+			$entry = $+{des}."\n".$Description_content."\n".$+{closetag}."\n";
 		}
 		# Handling of an ar-tag
-		elsif ( $entry =~ m~^<ar>~){last;}  #Start of ar block
+		elsif ( $entry =~ m~^<ar>~){debug(@xdxf_reconstructed);last;}  #Start of ar block
 		
 		push @xdxf_reconstructed, $entry;
 	}
@@ -1059,6 +1065,9 @@ array2File($dict_xdxf, @xdxf_reconstructed);
 if( $isCreateStardictDictionary ){
 	# Convert colors to hexvalues
 	@xdxf_reconstructed = convertColorName2HexValue(@xdxf_reconstructed);
+	if ( $isMakeKoreaderReady ){
+		@xdxf_reconstructed = makeKoreaderReady(@xdxf_reconstructed);
+	}
 	# Save reconstructed XML-file
 	my @StardictXMLreconstructed = newConvertXDXFtoStardictXML(@xdxf_reconstructed);
 	# my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_reconstructed);
