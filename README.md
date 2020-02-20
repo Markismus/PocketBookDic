@@ -23,7 +23,7 @@ _Preparation:_
   - BaseDir = "absolute_path_to_your_map"; (In Windows remember to write your path with slashes, e.g. "C:/Users/DefaultUser/Downloads/PocketbookDic/".
   - FileName = "relative_to_your_$Basedir_path/name_of_your_dictionary", e.g. "dict/Latin-English\ dictionary.ifo".
   - isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
-  - isCreatePocketbookDictionary = 1; # Turns on Pocketbook Dictionary dic-format creation.
+  - isCreatePocketbookDictionary = 1; # Turns on Pocketbook Dictionary dic-format creation. (Stardict xml- and xdxf-format are created as intermediaries.) 
 
   
   
