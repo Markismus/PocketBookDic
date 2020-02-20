@@ -2,7 +2,7 @@
 Scripts to convert to pocketbook dictionary dic-format
 
 **pocketbookdic.pl** \
-Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml- and xdxf-format to pocketbook dic-format and Stardict dict/idx/ifo-format. (The csv-file should be comma separated.)
+Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml-, mobi- (via -html with KindleUnpack) and xdxf-format to pocketbook dic-format and Stardict dict/idx/ifo-format. (The csv-file should be comma separated.)
 
 _Dependencies:_
 - Perl - It's a Perl script: Install Perl to run it! 
@@ -13,6 +13,7 @@ _Dependencies:_
 - stardict-bin2text - The script uses a binary from the stardict-tools package to convert a triplet of ifo-, -idx and -dict (or -dict.dz) Stardict files to one xml-file. (That xml-file will then be converted to a xdxf-file, which will be reconstructed to fit through converter.exe. 
     - If you run Windows you should _manually_ generate the xml- or csv-file. E.g. You can use stardict-editor (included with the windows Stardict installation) and decompile a dictionary to Textual Stardict dictionary. This generates a xml-file that you can use as filename at the start of the script.
 - stardict-text2bin - The script has been expanded to generate Stardict binary files. 
+- KindleUnpack - If you want to convert mobi-dictionaries, you'll first have to convert it to html-format using KindleUnpack (https://github.com/kevinhendricks/KindleUnpack).
 - I've probably forgotten something. If you run into it, please open an issue.
 
 _Preparation:_
