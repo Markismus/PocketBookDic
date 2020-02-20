@@ -2,7 +2,7 @@
 Scripts to convert to pocketbook dictionary dic-format
 
 **pocketbookdic.pl** \
-Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml-, mobi- (via html- with KindleUnpack) and xdxf-format to pocketbook dic-format and Stardict dict/idx/ifo-format. (The csv-file should be comma separated.)
+Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml-, mobi- (via html- with KindleUnpack) and xdxf-format to pocketbook dic-, Stardict dict/idx/ifo-, xdxf- and Stardict xml-format. (The csv-file should be comma separated.)
 
 _Dependencies:_
 - Perl - It's a Perl script: Install Perl to run it! 
