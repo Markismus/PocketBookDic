@@ -1077,7 +1077,7 @@ sub testSub{
 		my @test_Unicode = file2Array("test_newConvert.xdxf");
 		array2File( "test_newConvert.xml", newConvertXDXFtoStardictXML(@test_Unicode) )  ;
 	}
-	else{ Debug("test_newConvert.xdxf not found")}
+	else{ debug("test_newConvert.xdxf not found")}
 	return;}
 sub testUnicode{
 	# Test unicode conversion
