@@ -34,7 +34,7 @@ my $isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictiona
 my $isMakeKoreaderReady = 1; # Sometimes koreader want something extra.
 my $isConvertColorNamestoHexCodePoints = 0; # Converting takes time.
 my $isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format
-my $isTestingOn = 1; # Turns tests on
+my $isTestingOn = 0; # Turns tests on
 my $isRemoveWaveReferences = 1; # Removes all the references to wav-files
 # Same Type Seqence is the initial value of the Stardict variable set in the ifo-file.
 # "h" means html-dictionary. "m" means text.
