@@ -5,6 +5,7 @@ use Term::ANSIColor;    #Color display on terminal
 use Encode;
 use utf8;
 use open IO => ':utf8';
+use open ':std', ':utf8';
 use feature 'unicode_strings'; # You get funky results with the sub convertNumberedSequencesToChar without this.
 use feature 'say';
 
@@ -44,7 +45,10 @@ my $isRemoveWaveReferences = 1; # Removes all the references to wav-files
 
 my $isCodeImageBase64 = 1; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
 my $isConvertGIF2PNG = 1; # Creates a dependency on Imagemagick "convert".
-if( $isCodeImageBase64 ){ use MIME::Base64; }
+if( $isCodeImageBase64 ){
+	use MIME::Base64;
+	use Storable;	#To storage the hash %ReplacementImageStrings.
+}
 
 # Same Type Seqence is the initial value of the Stardict variable set in the ifo-file.
 # "h" means html-dictionary. "m" means text.
@@ -560,6 +564,8 @@ sub convertHTML2XDXF{
 	my $number = 0;
 	my $lastkey = "";
 	my (%ConversionDebugStrings, %ReplacementImageStrings);
+	my $HashFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."hash";
+	if( -e $HashFileName ){ %ReplacementImageStrings = %{retrieve($HashFileName)}; }
 	waitForIt("Converting indexentries from HTML to XDXF.");
 	foreach (@indexentries){
 		$number++;
@@ -665,7 +671,8 @@ sub convertHTML2XDXF{
 		$def =~ s~<sup><span>([^<]*)</span></sup>~<span><sup>$1</sup></span>~sg;
 		$def =~ s~<sub><small>([^<]*)</small></sub>~<small><sub>$1</sub></small>~sg;
 		$def =~ s~<sub><span>([^<]*)</span></sub>~<span><sub>$1</sub></span>~sg;
-		
+		# Put space in front of ‹, e.g. ‹Adj.›, if it's lacking
+		$def =~ s~([^\s])‹~$1 ‹~sg;
 		if( $key eq $lastkey){
 			# Change the last entry to append current definition
 			$xdxf[-1] =~ s~</def></ar>\n~\n$def</def></ar>\n~s;
@@ -677,6 +684,8 @@ sub convertHTML2XDXF{
 		}
 		$lastkey = $key;
 	}
+	# Save hash for later use.
+	store(\%ReplacementImageStrings, $HashFileName);
 	foreach( sort keys %ConversionDebugStrings){ debug($ConversionDebugStrings{$_}); }
 	doneWaiting();
 	push @xdxf, $lastline_xdxf;
@@ -922,7 +931,7 @@ sub loadXDXF{
 			# Reopen with encoding cp-1252
 			debugV("Found encoding Windows-1252, a.k.a. cp1252");
 			$encoding = "cp1252";
-			my @html = file2Array($FileName,$encoding);
+			my @html = file2Array($FileName,$encoding,"quiet");
 
 		}
 		@xdxf = convertHTML2XDXF($encoding,@html);
