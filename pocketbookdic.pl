@@ -2,10 +2,11 @@
 use strict;
 use autodie;
 use Term::ANSIColor;    #Color display on terminal
-use Encode 'encode';
+use Encode;
 use utf8;
-use open ':std', ':encoding(UTF-8)';
+use open IO => ':utf8';
 use feature 'unicode_strings'; # You get funky results with the sub convertNumberedSequencesToChar without this.
+use feature 'say';
 
 my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
 
@@ -27,15 +28,24 @@ my $no_test=1; # Testing singles out a single ar and generates a xdxf-file conta
 my $ar_chosen = 410; # Ar singled out when no_test = 0;
 my ($cycle_dotprinter, $cycles_per_dot) = (0 , 300); # A green dot is printed achter $cycles_per_dot ar's have been processed.
 my $i_limit = 27000000000000000000; # Hard limit to the number of lines that are processed.
-my $remove_color_tags = 0; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably.
+
 my $isdebug = 1; # Turns off all debug messages
 my $isdebugVerbose = 0; # Turns off all verbose debug messages
+my $debug_entry = "früh"; # In convertHTML2XDXF only debug messages from this entry are shown.
+my $isTestingOn = 0; # Turns tests on
+
 my $isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
-my $isMakeKoreaderReady = 1; # Sometimes koreader want something extra.
-my $isConvertColorNamestoHexCodePoints = 0; # Converting takes time.
 my $isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format
-my $isTestingOn = 1; # Turns tests on
+
+my $remove_color_tags = 0; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably. Relevant for pocketbook dictionary.
+my $isConvertColorNamestoHexCodePoints = 1; # Converting takes time.
+my $isMakeKoreaderReady = 1; # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
 my $isRemoveWaveReferences = 1; # Removes all the references to wav-files
+
+my $isCodeImageBase64 = 1; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
+my $isConvertGIF2PNG = 1; # Creates a dependency on Imagemagick "convert".
+if( $isCodeImageBase64 ){ use MIME::Base64; }
+
 # Same Type Seqence is the initial value of the Stardict variable set in the ifo-file.
 # "h" means html-dictionary. "m" means text.
 # The xdxf-file will be filtered for &#xDDDD; values and converted to unicode if set at "m"
@@ -79,6 +89,9 @@ else{
 	printYellow("Second is the language directory name or the CSV deliminator. E.g. eng\nThird is the CVS deliminator. E.g \",\", \";\", \"\\t\"(for tab)\n");
 }
 
+my $LocalPath = join('', $FileName=~ m~^(.+?)[^/]+$~);
+my $FullPath = "$BaseDir/$LocalPath";
+$FullPath =~ s~//\Q$LocalPath\E~/$LocalPath~g;
 
 # As NouveauLittre showed a rather big problem with named entities, I decided to write a special filter
 # Here is the place to insert your DOCTYPE string.
@@ -136,7 +149,7 @@ else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming W
 sub array2File {
     my ( $FileName, @Array ) = @_;
     # debugV("Array to be written:\n",@Array);
-    open( FILE, ">$FileName" )
+    open( FILE, ">:encoding(UTF-8)", "$FileName" )
       || warn "Cannot open $FileName: $!\n";
     print FILE @Array;
     close(FILE);
@@ -200,7 +213,7 @@ sub cleanseAr{
 		#  &lt; (<), &amp; (&), &gt; (>), &quot; ("), and &apos; (')
 		$head =~ s~(?<lt><)(?!/?(key>|k>))~&lt;~gs;
 		$head =~ s~(?<amp>&)(?!(lt;|amp;|gt;|quot;|apos;))~&amp;~gs;
-		$def =~ s~(?<lt><)(?!/?(c>|c c="|block|quote|b>|i>|abr>|ex>|kref>|sup>|sub>|dtrn>|k>|key>|rref|f>|span>|small>|u>))~&lt;~gs;
+		$def =~ s~(?<lt><)(?!/?(c>|c c="|block|quote|b>|i>|abr>|ex>|kref>|sup>|sub>|dtrn>|k>|key>|rref|f>|span>|small>|u>|img))~&lt;~gs;
 		$def =~ s~(?<amp>&)(?!(lt;|amp;|gt;|quot;|apos;|\#x?[0-9A-Fa-f]{1,6}))~&amp;~gs;
 		# $def =~ s~(?<amp>&)(?!([^;]{1,6};))~&amp;~gs; # This excludes the removal of & before &#01234;
 
@@ -471,10 +484,16 @@ sub convertColorName2HexValue{
 		yellow #FFFF00
 		yellowgreen #9ACD32);
 	waitForIt("Converting all color names to hex values.");
-	foreach my $Color(keys %ColorCoding){
-		$html =~ s~c="$Color">~c="$ColorCoding{$Color}">~isg;
-		$html =~ s~color:$Color>~c:$ColorCoding{$Color}>~isg;
-	}
+	# This loop takes 1m26s for a dictionary with 132k entries and no color tags.
+	# foreach my $Color(keys %ColorCoding){
+	# 	$html =~ s~c="$Color">~c="$ColorCoding{$Color}">~isg;
+	# 	$html =~ s~color:$Color>~c:$ColorCoding{$Color}>~isg;
+	# }
+
+	# This takes 1s for a dictionary with 132k entries and no color tags
+	# Not tested with Oxford 2nd Ed. yet!!
+	$html =~ s~c="(\w+)">~c="$ColorCoding{lc($1)}">~isg;
+	$html =~ s~color:(\w+)>~c:$ColorCoding{lc($1)}>~isg;
 	doneWaiting();
 	return( split(/$/,$html) );}
 sub convertCVStoXDXF{
@@ -505,36 +524,9 @@ sub convertCVStoXDXF{
 	return(@xdxf);}
 sub convertHTML2XDXF{
 	# Converts html generated by KindleUnpack to xdxf
+	my $encoding = shift @_;
 	my $html = join('',@_);
 	my @xdxf = @xdxf_start;
-	# $rawml =~ s~<br/>(?!\n.)~<br/>\n~sg;
-	# array2File( "testrawml.xml", ($rawml) );
-	#</mbp:frameset> <mbp:pagebreak/><mbp:frameset>
-	# This match also removes <mbp:pagebreak> if is only between framesets.
-	my @framesets = $html =~ m~<mbp:frameset>((?:(?!</?mbp).)+)</mbp:frameset>~sg;
-	debugV("Number of frames is ",scalar @framesets);
-	my $longestframe = "";
-	for( my $x=0; $x<scalar @framesets ;$x++){
-		if( length($framesets[$x]) > length($longestframe) ){
-			$longestframe = $framesets[$x];
-		}
-		if( $isTestingOn ){ array2File( "testframeset_$x.html", ($framesets[$x]) ); }
-	}
-	if ( $isTestingOn ){
-		my @entries = split (/<br\/>/, $longestframe);
-		# $entries[0] =~ s~<div height="4"><div>~~;
-		# $entries[-1] =~ s~<br/></div>~</div>\n~;
-		debugV("Number of entries is ", scalar @entries);
-		if(scalar @entries == 0){
-			debug("No luck. Taking a piece of the file");
-			@entries = ( substr($html, 0, 10000) );
-		}
-		# my @savedrange = map qq/$_\n/, @entries[0..99];
-		my @savedrange = @entries[0..99];
-		debugV("Number of indices in \@savedrange is ", scalar @savedrange);
-		array2File("testentries00-100.html", @savedrange);
-	}
-	
 	# Content excerpt longestframe:
 		# <idx:entry scriptable="yes"><idx:orth value="a"></idx:orth><div height="4"><a id="filepos242708" /><a id="filepos242708" /><a id="filepos242708" /><div><sub> </sub><sup> </sup><b>a, </b><b>A </b><img hspace="0" align="middle" hisrc="Images/image15902.gif"/>das; - (UGS.: -s), - (UGS.: -s) [mhd., ahd. a]: <b>1.</b> erster Buchstabe des Alphabets: <i>ein kleines a, ein gro\xDFes A; </i> <i>eine Brosch\xFCre mit praktischen Hinweisen von A bis Z (unter alphabetisch angeordneten Stichw\xF6rtern); </i> <b>R </b>wer A sagt, muss auch B sagen (wer etwas beginnt, muss es fortsetzen u. auch unangenehme Folgen auf sich nehmen); <sup>*</sup><b>das A und O, </b>(SELTENER:) <b>das A und das O </b>(die Hauptsache, Quintessenz, das Wesentliche, Wichtigste, der Kernpunkt; urspr. = der Anfang und das Ende, nach dem ersten [Alpha] und dem letzten [Omega] Buchstaben des griech. Alphabets); <sup>*</sup><b>von A bis Z </b>(UGS.; von Anfang bis Ende, ganz und gar, ohne Ausnahme; nach dem ersten u. dem letzten Buchstaben des dt. Alphabets). <b>2.</b> &#139;das; -, -&#155; (MUSIK) sechster Ton der C-Dur-Tonleiter: <i>der Kammerton a, A.</i> </div></div></idx:entry><div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif"/></div> <idx:entry scriptable="yes"><idx:orth value="\xE4"></idx:orth><div height="4"><div><b>\xE4, </b><b>\xC4 </b><img hspace="0" align="middle" hisrc="Images/image15906.gif"/>das; - (ugs.: -s), - (ugs.: -s) [mhd. \xE6]: Buchstabe, der f\xFCr den Umlaut aus a steht.</div></div></idx:entry><div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif"/></div> <idx:entry scriptable="yes"><idx:orth value="a"></idx:orth><div height="4"><div><sup><font size="2">1&#8204;</font></sup><b>a</b><b> </b>= a-Moll; Ar.</div></div></idx:entry><div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif"/></div> 
 	#
@@ -564,76 +556,131 @@ sub convertHTML2XDXF{
 		# <div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif" /></div>
 	
 	my @indexentries = $html=~m~<idx:entry scriptable="yes">((?:(?!</idx:entry>).)+)</idx:entry>~gs;
-	if($ isTestingOn){ array2File("test_html_indexentries.html",map(qq/$_\n/,@indexentries[0..999])  ) ; }
+	if($isTestingOn or 1){ array2File("test_html_indexentries.html",map(qq/$_\n/,@indexentries)  ) ; }
 	my $number = 0;
-	my $fontnumber = 0;
 	my $lastkey = "";
+	my (%ConversionDebugStrings, %ReplacementImageStrings);
+	waitForIt("Converting indexentries from HTML to XDXF.");
 	foreach (@indexentries){
 		$number++;
-		debug($_) if $number<3;
-		# Convert e.g. \xE6 to html &#xE6.
-		s~\\x([0-9A-Fa-f][0-9A-Fa-f])~&#x$1;~sg;
+		debug($_) if m~<idx:orth value="$debug_entry"~;
 		# Remove <a /> tags
 		s~(</?a[^>]*>|<betonung/>)~~sg;
-		# Convert &#139; to &lt;
-		# s~&#139;~&#x8B;~sg;
-		s~&#139;~‹~sg;
-		# Convert &#155; to &lt;
-		# s~&#155;~&#x9B;~sg;
-		s~&#155;~›~sg;
-		# Change div-blocks to blockquotes
+		# Remove <mmc:fulltext-word ../>
+		s~<mmc:fulltext-word[^>]+>~~sg;
+		# Remove <img ../>, e.g. <img hspace="0" align="middle" hisrc="Images/image15907.gif" />
+		if( $isCodeImageBase64 and m~(<img[^>]+>)~s){
+			my @imagestrings = m~(<img[^>]+>)~sg;
+			debug("Number of imagestrings found is ", scalar @imagestrings) if m~<idx:orth value="$debug_entry"~;
+			my $replacement;
+			foreach my $imagestring(@imagestrings){
+				# debug('$ReplacementImageStrings{$imagestring}: ',$ReplacementImageStrings{$imagestring});
+				if ( exists $ReplacementImageStrings{$imagestring} ){
+					$replacement = $ReplacementImageStrings{$imagestring}
+				}
+				else{
+					# <img hspace="0" align="middle" hisrc="Images/image15907.gif"/>
+					$imagestring =~ m~"(?<image>[^"]*?\.(?<ext>gif|jpg|png|bmp))"~si;
+					debug("Found image named $+{image} with extension $+{ext}.") if m~<idx:orth value="$debug_entry"~;
+					my $imageName = $+{image};
+					my $imageformat = $+{ext};
+					if ( $isConvertGIF2PNG and $imageformat =~ m~gif~i){
+						# Convert gif to png
+						`convert "$FullPath$imageName" "$FullPath$imageName.png"`;
+						$imageName = "$imageName.png";
+						$imageformat = "png";
+					}
+					my $image = join('', file2Array($FullPath.$imageName, ":raw", "quiet") );
+					my $encoded = encode_base64($image);
+					$encoded =~ s~\n~~sg;
+					$replacement = '<img src="data:image/'.$imageformat.';base64,'.$encoded.'" alt="'.$imageName.'"/>';
+					$replacement =~ s~\\\"~"~sg;
+					debug($replacement) if m~<idx:orth value="$debug_entry"~;
+					$ReplacementImageStrings{$imagestring} = $replacement;
+				}
+				s~\Q$imagestring\E~$replacement~;
+			}
+		}
+		else{  s~<img[^>]+>~~sg; }
+		# Remove empty sup and sub-blocks
+		s~<sub>[\s]*</sub>~~sg;
+		s~<sup>[\s]*</sup>~~sg;
+		s~<b>[\s]*</b>~~sg;
+		# Include encoding conversion
+		while( $encoding eq "cp1252" and m~\&\#(\d+);~s ){
+			my $encoded = $1;
+			my $decoded = decode( $encoding, pack("N", $encoded) ); 
+			# The decode step generates four hex values: a triplet of <0x00> followed by the one that's wanted. This goes awry if 
+			while( ord( substr( $decoded, 0, 1) ) == 0 ){
+				$decoded = substr( $decoded, 1 );
+			}
+			# if character is NL, than replacement should be \n
+			if( length($decoded)>1 ){
+				# skip character because it cannot be handled by code, yet.
+				# Convert to hexadecimal value
+				my $hex = sprintf("%X", $encoded);  ## 
+				$decoded = "&#x$hex;";
+				m~^<idx:orth value="(?<key>[^"]+)"></idx:orth>~;
+				# debug("Relevant index key is $+{key}");
+			}
+			elsif( ord($decoded) == 12 ){ $decoded = "\n";}
+			my $DebugString = "Encoding is $encoding. Encoded is $encoded. Decoded is \'$decoded\' of length ".length($decoded).", numbered ".ord($decoded);
+			$ConversionDebugStrings{$encoded} = $DebugString;
+			s~\&\#$encoded;~$decoded~sg;				
+		}
+		# Change div-blocks to spans
+		s~(</?)div[^>]*>~$1span>~sg;
+
 		my $round = 0;
-		while( s~<div[^>]*>((?:(?!</div).)+)</div>~<blockquote>$1</blockquote>~sg ){ 
-			$round++;
-			debug("div-blocks substituted with blockquotes in round $round.") if $number<3;
-		}
 		# Change font- to spanblocks
-		# Maybe change font size=2 to small? <font size="2">1&#8204;</font>
-		$round = 0;
-		while( s~<font size="2">((?:(?!</font).)+)</font>~<small>$1</small>~sg ){ 
+		while( s~<font size="(?:2|-1)">((?:(?!</font).)+)</font>~<small>$1</small>~sg ){ 
 			$round++;
-			$fontnumber++;
-			debug("font-blocks substituted with small-blocks in round $round.") if $fontnumber<3;
+			debug("font-blocks substituted with small-blocks in round $round.") if m~<idx:orth value="$debug_entry"~;
 		}
-		
 		$round = 0;
-		while( s~<font[^>]*>((?:(?!</font).)+)</font>~<span>$1</span>~sg ){ 
+		while( s~<font[^>]*>((?:(?!</font).)*)</font>~<span>$1</span>~sg ){ 
 			$round++;
-			$fontnumber++;
-			debug("font-blocks substituted with span-blocks in round $round.") if $fontnumber<3;
+			debug("font-blocks substituted with span-blocks in round $round.") if m~<idx:orth value="$debug_entry"~;
 		}
 		# Change <mmc:no-fulltext> to <blockquote>
 		$round = 0;
-		while( s~<mmc:no-fulltext>((?:(?!</mmc:no-fulltext).)+)</mmc:no-fulltext>~<blockquote>$1</blockquote>~sg ){ 
+		while( s~<mmc:no-fulltext>((?:(?!</mmc:no-fulltext).)+)</mmc:no-fulltext>~<f> $1</f>~sg ){ 
 			$round++;
-			debug("<mmc:no-fulltext>-blocks substituted with blockquotes in round $round.") if $number<3;
+			debug("<mmc:no-fulltext>-blocks substituted with spans in round $round.") if $number<3;
 		}
-		# Remove <mmc:fulltext-word ../>
-		s~<mmc:fulltext-word[^>]+>~~;
-		# Remove <img ../>, e.g. <img hspace="0" align="middle" hisrc="Images/image15907.gif" />
-		s~<img[^>]+>~~;
 		# Create key&definition strings.
 		m~^<idx:orth value="(?<key>[^"]+)"></idx:orth>(?<def>.+)$~s;
 		my $key = $+{key};
-		my $def = $+{def};
+		my $def = "<blockquote>".$+{def}."</blockquote>";
 		debugV("key found: $key") if $number<10;
 		debugV("def found: $def") if $number<10;
 		# Remove whitespaces at the beginning of the definition and EOL at the end.
 		$def =~ s~^\s+~~;
 		$def =~ s~\n$~~;
+		# Switch position sup/span/small blocks
+		# <sup><small>1&#8204;</small></sup>
+		# $html =~ s~<sup><small>([^<]*)</small>~<sup>$1~sg;
+		$def =~ s~<sup><small>([^<]*)</small></sup>~<small><sup>$1</sup></small>~sg;
+		# $html =~ s~<sup><span>([^<]*)</span>~<sup>$1~sg;
+		$def =~ s~<sup><span>([^<]*)</span></sup>~<span><sup>$1</sup></span>~sg;
+		$def =~ s~<sub><small>([^<]*)</small></sub>~<small><sub>$1</sub></small>~sg;
+		$def =~ s~<sub><span>([^<]*)</span></sub>~<span><sub>$1</sub></span>~sg;
+		
 		if( $key eq $lastkey){
 			# Change the last entry to append current definition
 			$xdxf[-1] =~ s~</def></ar>\n~\n$def</def></ar>\n~s;
+			debug("Added to the last definition. It's now:\n$xdxf[-1]") if m~<idx:orth value="$debug_entry"~;
 		}
 		else{
 			push @xdxf, "<ar><head><k>$key</k></head><def>$def</def></ar>\n";
-			debug("Pushed <ar><head><k>$key</k></head><def>$def</def></ar>") if $number<10;
+			debug("Pushed <ar><head><k>$key</k></head><def>$def</def></ar>") if m~<idx:orth value="$debug_entry"~;
 		}
 		$lastkey = $key;
 	}
+	foreach( sort keys %ConversionDebugStrings){ debug($ConversionDebugStrings{$_}); }
+	doneWaiting();
 	push @xdxf, $lastline_xdxf;
-	return(@xdxf);
-}
+	return(@xdxf);}
 sub convertNonBreakableSpacetoNumberedSequence{
 	my $UnConverted = join('',@_);
 	debugV("Entered sub convertNonBreakableSpacetoNumberedSequence");
@@ -645,15 +692,6 @@ sub convertNumberedSequencesToChar{
 	debugV("Entered sub convertNumberedSequencesToChar");
 	$UnConverted =~ s~\&\#x([0-9A-Fa-f]{1,6});~chr("0x".$1)~seg ;
 	$UnConverted =~ s~\&\#([0-9]{1,6});~chr(int($1))~seg ;
-	# while(0 and $UnConverted =~ m~(?<match>\&\#(?<number>[0-9]{1,6});)~s){
-	# 	my $match = $+{match};
-	# 	my $replace = chr(int($+{number}));
-	# 	debug($+{number});
-	# 	debugFindings();
-	# 	debug("'",chr($+{number}),"'");
-	# 	$UnConverted =~ s~$match~$replace~s;
-
-	# }
 	return( split(/(\n)/, $UnConverted) );}
 sub convertStardictXMLtoXDXF{
 	my $StardictXML = join('',@_);
@@ -731,46 +769,6 @@ sub convertStardictXMLtoXDXF{
 	return(@xdxf);}
 sub convertXDXFtoStardictXML{
 	my $xdxf = join('',@_);
-	my @xml = @xml_start;
-	if( $xdxf =~ m~<full_name>(?<bookname>((?!</full_name).)+)</full_name>~s ){
-		my $bookname = $+{bookname};
-		# xml special symbols are not recognized by converter in the dictionary title.
-		$bookname =~ s~&lt;~<~;
-		$bookname =~ s~&amp;~&~;
-		$bookname =~ s~&apos;~'~;
-		substr($xml[4], 10, 0) = $bookname;
-	}
-	if( $xdxf =~ m~<date>(?<date>((?!</date>).)+)</date>~s ){
-		substr($xml[9], 6, 0) = $+{date};
-	}
-	if( $xdxf =~ m~<xdxf (?<description>((?!>).)+)>~s ){
-		substr($xml[8], 13, 0) = $+{description};
-	}
-	waitForIt("Converting xdxf-xml to Stardict-xml." );
-	$cycle_dotprinter = 0;
-	# The compilation of this string: while($xdxf =~ s~<ar>(?<article>((?!</ar).)+)</ar>~~s){...}
-	# is that the regex is recompiled for every iteration. This takes 45m for a dict with 70k entries.
-	while($xdxf =~ s~<ar>(?<article>((?!</ar).)+)</ar>~~s){
-		$cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
-		my $article = $+{article};
-		push @xml, "<article>\n";
-		# <head><k>a</k></head>
-		$article =~ m~<head><k>(?<key>((?!</k).)+)</k>~s;
-		push @xml, "<key>".$+{key}."</key>\n\n";
-		$article =~ m~<def>(?<definition>((?!</def).)+)</def>~s;
-		push @xml, '<definition type="'.$SameTypeSequence.'">'."\n";
-		push @xml, '<![CDATA['.$+{definition}.']]>'."\n";
-		push @xml, "</definition>\n";
-		push @xml, "</article>\n\n";
-	}
-	push @xml, "\n";
-	push @xml, $lastline_xml;
-	push @xml, "\n";
-	doneWaiting();
-	return(@xml);}
-sub doneWaiting{ printCyan("Done at ",getLoggingTime(),"\n");}
-sub newConvertXDXFtoStardictXML{
-	my $xdxf = join('',@_);
 	$xdxf = removeInvalidChars( $xdxf );
 	my @xml = @xml_start;
 	if( $xdxf =~ m~<full_name>(?<bookname>((?!</full_name).)+)</full_name>~s ){
@@ -810,68 +808,30 @@ sub newConvertXDXFtoStardictXML{
 	push @xml, "\n";
 	doneWaiting();
 	return(@xml);}
-sub altConvertXDXFtoStardictXML{
-	my @xdxf = @_;
-	my @xml = @xml_start;
-	waitForIt("Converting xdxf-xml to Stardict-xml.");
-	$cycle_dotprinter = 0;
-	my ($article, $concat) = ("", 0);
-	foreach my $line (@xdxf){
-		debug("\$article pos(1): $article");
-		$cycle_dotprinter++;
-		if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
-		if( $line =~ m~<full_name>(?<bookname>((?!</full_name).)+)</full_name>~s ){
-			my $bookname = $+{bookname};
-			# xml special symbols are not recognized by converter in the dictionary title.
-			$bookname =~ s~&lt;~<~;
-			$bookname =~ s~&amp;~&~;
-			$bookname =~ s~&apos;~'~;
-			substr($xml[4], 10, 0) = $bookname;
-			next;
-		}
-		if( $line =~ m~<date>(?<date>((?!</date>).)+)</date>~s ){
-			substr($xml[9], 6, 0) = $+{date};
-			next;
-		}
-		if( $line =~ m~<xdxf (?<description>((?!>).)+)>~s ){
-			substr($xml[8], 13, 0) = $+{description};
-			next;
-		}
-		if( $line =~ m~<ar>((?!</ar).*$)~s){ $article = $article.$1 ; $concat = 1 ; debug("\$article pos(2): $article"); next;}
-		if( $line =~ m~^(.*)</ar>~s){
-			$article = $article.$1 ;
-			debug("\$article pos(3): $article");
-			$article =~ s~</?ar>\n?~~sg;
-			push @xml, "<article>\n";
-			# <head><k>a</k></head>
-			$article =~ m~<head><k>(?<key>((?!</k).)+)</k>~s;
-			push @xml, "<key>".$+{key}."</key>\n\n";
-			$article =~ m~<def>(?<definition>((?!</def).)+)</def>~s;
-			push @xml, '<definition type="'.$SameTypeSequence.'">'."\n";
-			push @xml, '<![CDATA['.$+{definition}.']]>'."\n";
-			push @xml, "</definition>\n";
-			push @xml, "</article>\n\n";
-			$article = "";
-			$concat = 0;
-			next;
-		}
-		if( $concat == 1 ){ $article = $article.$line; next;}
-	}
-	push @xml, "\n";
-	push @xml, $lastline_xml;
-	push @xml, "\n";
-	doneWaiting();
-	return(@xml);}
+sub doneWaiting{ printCyan("Done at ",getLoggingTime(),"\n");}
 sub file2Array {
 
     #This subroutine expects a path-and-filename in one and returns an array
     my $FileName = $_[0];
+    my $encoding = $_[1];
+    my $verbosity = $_[2];
+    my $isBinMode = 0; 
+    if($encoding eq ":raw"){
+    	undef $encoding;
+    	$isBinMode = 1;
+    }
     if(!defined $FileName){debug("File name in file2Array is not defined. Quitting!");die if $isRealDead;}
-    open( FILE, "$FileName" )
+    if( defined $encoding){ open( FILE, "<:encoding($encoding)", $FileName )
+      || (warn "Cannot open $FileName: $!\n" and die);}
+	else{    open( FILE, "$FileName" )
       || (warn "Cannot open $FileName: $!\n" and die);
+  }
+  	if( $isBinMode ){
+  		binmode FILE;
+  	}
     my @ArrayLines = <FILE>;
     close(FILE);
-    printBlue("Read $FileName, returning array. Exiting file2Array\n");
+    printBlue("Read $FileName, returning array. Exiting file2Array\n") if $verbosity ne "quiet";
     return (@ArrayLines);}
 sub filterXDXFforEntitites{
 	my( @xdxf ) = @_;
@@ -911,15 +871,15 @@ sub loadXDXF{
 
 	# Create the array @xdxf
 	my @xdxf;
-
+	my $PseudoFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."xdxf";
 	## Load from xdxffile
 	if( $FileName =~ m~\.xdxf$~){@xdxf = file2Array($FileName);}
-	elsif( -e substr($FileName, 0, (length($FileName)-4)).".xdxf"){
-		@xdxf = file2Array(substr($FileName, 0, (length($FileName)-4)).".xdxf") ;
+	elsif( -e $PseudoFileName ){ 
+		@xdxf = file2Array($PseudoFileName); 
 		# Check SameTypeSequence
 		checkSameTypeSequence($FileName);
 		# Change FileName to xdxf-extension
-		$FileName = substr($FileName, 0, (length($FileName)-4)).".xdxf";
+		$FileName = $PseudoFileName;
 	}
 	## Load from ifo-, dict- and idx-files
 	elsif( $FileName =~ m~^(?<filename>((?!\.ifo).)+)\.(ifo|xml)$~){
@@ -954,29 +914,74 @@ sub loadXDXF{
 	}
 	# Output of KindleUnpack.pyw
 	elsif( $FileName =~ m~^(?<filename>((?!\.html).)+)\.html$~){
+		my $encoding = "UTF-8";
 		my @html = file2Array($FileName);
-		@xdxf = convertHTML2XDXF(@html);
+		my $FileNameWithoutExtention = $+{filename};
+		# <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
+		if( $html[0] =~ m~content="text/html; charset=windows-1252"~ ){
+			# Reopen with encoding cp-1252
+			debugV("Found encoding Windows-1252, a.k.a. cp1252");
+			$encoding = "cp1252";
+			my @html = file2Array($FileName,$encoding);
+
+		}
+		@xdxf = convertHTML2XDXF($encoding,@html);
 		# Check whether there is a saved reconstructed xdxf to get the language and name from.
-		if(-e $+{filename}."_reconstructed.xdxf"){
-			my @saved_xdxf = file2Array($+{filename}."_reconstructed.xdxf");
+		if(-e $FileNameWithoutExtention."_reconstructed.xdxf"){
+			my @saved_xdxf = file2Array($FileNameWithoutExtention."_reconstructed.xdxf");
 			@xdxf[0..2] = @saved_xdxf[0..2];
 		}
 		else{debug('No prior dictionary reconstructed.');}
+		$FileName=$FileNameWithoutExtention.".xdxf";
 		# Write it to disk so it hasn't have to be done again.
-		array2File($+{filename}.".xdxf", @xdxf);
+		array2File($FileName, @xdxf);
 		# debug(@xdxf); # Check generated @xdxf
-		$FileName=$+{filename}.".xdxf";
+		
+		
 	}
 	else{debug("Not a known extension for the given filename. Quitting!");die;}
 	return ($FileName, @xdxf);}
 sub makeKoreaderReady{
 	my $html = join('',@_);
 	waitForIt("Making the dictionary Koreader ready.");
+	# Not moving it to lua, because it also works with Goldendict.
 	$html =~ s~<c>~<span>~sg;
 	$html =~ s~<c c="~<span style="color:~sg;
 	$html =~ s~</c>~</span>~sg;
-	# <sup><small>1&#8204;</small></sup>
-	$html =~ s~<sup><small>([^<]*)</small>~<sup>$1~sg;
+	# Things done with css-file
+	my @css;
+	my $FileNameCSS = join('', $FileName=~m~^(.+?)\.[^.]+$~)."_reconstructed.css";
+	# Remove large blockquote margins
+	push @css, "blockquote { margin: 0 0 0 1em }\n";
+	# Remove images
+	# $html =~ s~<img[^>]+>~~sg;
+	# push @css, "img { display: none; }\n"; # Doesn't work. Placeholder [image] still appears in Koreader.
+	if(scalar @css>0){array2File($FileNameCSS,@css);}
+	# Things done with lua-file
+	my @lua;
+	my $FileNameLUA = join('', $FileName=~m~^(.+?)\.[^.]+$~)."_reconstructed.lua";
+	# Example
+	# return function(html)
+	# html = html:gsub('<c c=\"', '<span style="color:')
+	# html = html:gsub('</c>', '</span>')
+	# html = html:gsub('<c>', '<span>')
+	# return html
+	# end
+	# Example
+	# return function(html)
+	# -- html = html:gsub(' style=', ' zzztyle=')
+	# html = html:gsub(' [Ss][Tt][Yy][Ll][Ee]=', ' zzztyle=')
+	# return html
+	# end
+	my $lua_start = "return function(html)\n";
+	my $lua_end = "return html\nend\n";
+	# Remove images
+	push @lua, "html = html:gsub('<img[^>]+>', '')\n"; 
+	if(scalar @lua>0){
+		unshift @lua, $lua_start;
+		push @lua, $lua_end;
+		array2File($FileNameLUA,@lua);
+	}
 	doneWaiting();
 	return(split(/$/, $html));}
 sub printGreen   { print color('green') if $OperatingSystem eq "linux";   print @_; print color('reset') if $OperatingSystem eq "linux"; }
@@ -1022,7 +1027,7 @@ sub reconstructXDXF{
 				my $old_name = $full_name;
 				print("Full_name is \"$full_name\".\nWould you like to change it? (press enter to keep default \[$full_name\] ");
 				my $one = <STDIN>; chomp $one; if( $one ne ""){ $full_name = $one ; };
-				debug("\$entry is: $entry");
+				debug("\$entry was: $entry");
 				$entry = "<full_name>$full_name</full_name>\n";
 				debug("Fullname tag entry is now: ");
 			}
@@ -1070,36 +1075,9 @@ sub removeInvalidChars{
 	else{ debugV('Nothing removed. If \"parser error : PCDATA invalid Char value...\" remains, look at subroutine removeInvalidChars.');}
 	doneWaiting();
 	return($xdxf); }
-sub testSub{
-	my $TestFileName = "test_newConvert.xdxf";
-	if( $isTestingOn == 0){return;}
-	if( -e $TestFileName){
-		my @test_Unicode = file2Array("test_newConvert.xdxf");
-		array2File( "test_newConvert.xml", newConvertXDXFtoStardictXML(@test_Unicode) )  ;
-	}
-	else{ Debug("test_newConvert.xdxf not found")}
-	return;}
-sub testUnicode{
-	# Test unicode conversion
-	my @test_Unicode = file2Array("test_Unicode.xdxf");
-	array2File("test_Unicode.xml", @test_Unicode);
-	@test_Unicode = filterXDXFforEntitites( @test_Unicode );
-	array2File("test_Unicode_filtered.xml", @test_Unicode);
-	@test_Unicode = convertNonBreakableSpacetoNumberedSequence( @test_Unicode );
-	array2File("test_Unicode_nbsp.xml", @test_Unicode);
-	@test_Unicode = convertNumberedSequencesToChar( @test_Unicode );
-	debugV(@test_Unicode,"\n");
-	array2File("test_Unicode_ConvertedSequences.xml", @test_Unicode);
-	return;}
 sub waitForIt{ printCyan("@_"," This will take some time. ", getLoggingTime(),"\n");}
-
 # Generate entity hash defined in DOCTYPE
 %EntityConversion = generateEntityHashFromDocType($DocType);
-# Some testing
-testSub() if $isTestingOn;
-# Result test is that it is imperative to use:
-# use feature 'unicode_strings';
-testUnicode() if $isTestingOn;
 
 # Fill array from file.
 my @xdxf;
@@ -1127,8 +1105,7 @@ if( $isConvertColorNamestoHexCodePoints ){ @xdxf_reconstructed = convertColorNam
 if( $isCreateStardictDictionary ){
 	if ( $isMakeKoreaderReady ){ @xdxf_reconstructed = makeKoreaderReady(@xdxf_reconstructed); }
 	# Save reconstructed XML-file
-	my @StardictXMLreconstructed = newConvertXDXFtoStardictXML(@xdxf_reconstructed);
-	# my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_reconstructed);
+	my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_reconstructed);
 	my $dict_xml = $FileName;
 	if( $dict_xml !~ s~\.xdxf~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); die if $isRealDead; }
 	array2File($dict_xml, @StardictXMLreconstructed);
