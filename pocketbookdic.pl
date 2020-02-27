@@ -560,7 +560,7 @@ sub convertHTML2XDXF{
 		# <div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif" /></div>
 	
 	my @indexentries = $html=~m~<idx:entry scriptable="yes">((?:(?!</idx:entry>).)+)</idx:entry>~gs;
-	if($isTestingOn or 1){ array2File("test_html_indexentries.html",map(qq/$_\n/,@indexentries)  ) ; }
+	if($isTestingOn){ array2File("test_html_indexentries.html",map(qq/$_\n/,@indexentries)  ) ; }
 	my $number = 0;
 	my $lastkey = "";
 	my (%ConversionDebugStrings, %ReplacementImageStrings);
