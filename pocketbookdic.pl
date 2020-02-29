@@ -43,8 +43,8 @@ my $CVSDeliminator = ",";
 # Controls for debugging.
 my $isdebug = 1; # Turns off all debug messages
 my $isdebugVerbose = 0; # Turns off all verbose debug messages
-my $debug_entry = "früh"; # In convertHTML2XDXF only debug messages from this entry are shown.
-my $isTestingOn = 0; # Turns tests on
+my $debug_entry = "früh"; # In convertHTML2XDXF only debug messages from this entry are shown. 
+my $isTestingOn = 1; # Turns tests on
 if ( $isTestingOn ){ use warnings; }
 my $no_test=1; # Testing singles out a single ar and generates a xdxf-file containing only that ar.
 my $ar_chosen = 410; # Ar singled out when no_test = 0;
@@ -62,7 +62,7 @@ my $isConvertColorNamestoHexCodePoints = 1; # Converting takes time.
 my $isMakeKoreaderReady = 1; # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
 
 # Controls for Pocketbook conversion
-my $isCreatePocketbookDictionary = 1; # Controls conversion to Pocketbook Dictionary dic-format
+my $isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format
 my $remove_color_tags = 0; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably. Relevant for pocketbook dictionary.
 # This controls the maximum article length.
 # If set too large, the old converter will crash and the new will truncate the entry.
@@ -580,9 +580,9 @@ sub convertHTML2XDXF{
 	my $encoding = shift @_;
 	my $html = join('',@_);
 	my @xdxf = @xdxf_start;
-	# Content excerpt longestframe:
+	# Content excerpt Duden 7. Auflage 2011: 
 		# <idx:entry scriptable="yes"><idx:orth value="a"></idx:orth><div height="4"><a id="filepos242708" /><a id="filepos242708" /><a id="filepos242708" /><div><sub> </sub><sup> </sup><b>a, </b><b>A </b><img hspace="0" align="middle" hisrc="Images/image15902.gif"/>das; - (UGS.: -s), - (UGS.: -s) [mhd., ahd. a]: <b>1.</b> erster Buchstabe des Alphabets: <i>ein kleines a, ein gro\xDFes A; </i> <i>eine Brosch\xFCre mit praktischen Hinweisen von A bis Z (unter alphabetisch angeordneten Stichw\xF6rtern); </i> <b>R </b>wer A sagt, muss auch B sagen (wer etwas beginnt, muss es fortsetzen u. auch unangenehme Folgen auf sich nehmen); <sup>*</sup><b>das A und O, </b>(SELTENER:) <b>das A und das O </b>(die Hauptsache, Quintessenz, das Wesentliche, Wichtigste, der Kernpunkt; urspr. = der Anfang und das Ende, nach dem ersten [Alpha] und dem letzten [Omega] Buchstaben des griech. Alphabets); <sup>*</sup><b>von A bis Z </b>(UGS.; von Anfang bis Ende, ganz und gar, ohne Ausnahme; nach dem ersten u. dem letzten Buchstaben des dt. Alphabets). <b>2.</b> &#139;das; -, -&#155; (MUSIK) sechster Ton der C-Dur-Tonleiter: <i>der Kammerton a, A.</i> </div></div></idx:entry><div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif"/></div> <idx:entry scriptable="yes"><idx:orth value="\xE4"></idx:orth><div height="4"><div><b>\xE4, </b><b>\xC4 </b><img hspace="0" align="middle" hisrc="Images/image15906.gif"/>das; - (ugs.: -s), - (ugs.: -s) [mhd. \xE6]: Buchstabe, der f\xFCr den Umlaut aus a steht.</div></div></idx:entry><div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif"/></div> <idx:entry scriptable="yes"><idx:orth value="a"></idx:orth><div height="4"><div><sup><font size="2">1&#8204;</font></sup><b>a</b><b> </b>= a-Moll; Ar.</div></div></idx:entry><div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif"/></div> 
-	#
+	# (The /xE6 was due to Perl output encoding set to UTF-8.)
 	# Prettified:
 		# <idx:entry scriptable="yes">
 		#     <idx:orth value="a"></idx:orth>
@@ -607,23 +607,101 @@ sub convertHTML2XDXF{
 		#     </div>
 		# </idx:entry>
 		# <div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif" /></div>
-	
-	my @indexentries = $html=~m~<idx:entry scriptable="yes">((?:(?!</idx:entry>).)+)</idx:entry>~gs;
+	# Content excerpt Prettified:
+		# <idx:entry>
+		#     <idx:orth value="A">
+		# </idx:entry>
+		# <b>A N M</b>
+		# <blockquote>Aulus (Roman praenomen); (abb. A./Au.); [Absolvo, Antiquo => free, reject];</blockquote>
+		# <hr />
+		# <idx:entry>
+		#     <idx:orth value="Abba">
+		# </idx:entry>
+		# <b>Abba, undeclined N M</b>
+		# <blockquote>Father; (Aramaic); bishop of Syriac/Coptic church; (false read obba/decanter);</blockquote>
+		# <hr />
+		# <idx:entry>
+		#     <idx:orth value="Academia">
+		#         <idx:infl>
+		#             <idx:iform name="" value="Academia" />
+		#             <idx:iform name="" value="Academiabus" />
+		#             <idx:iform name="" value="Academiad" />
+		#             <idx:iform name="" value="Academiae" />
+		#             <idx:iform name="" value="Academiai" />
+		#             <idx:iform name="" value="Academiam" />
+		#             <idx:iform name="" value="Academiarum" />
+		#             <idx:iform name="" value="Academias" />
+		#             <idx:iform name="" value="Academiis" />
+		#             <idx:iform name="" value="Academium" />
+		#         </idx:infl>
+		#         <idx:infl>
+		#             <idx:iform name="" value="Academiaque" />
+		#             <idx:iform name="" value="Academiabusque" />
+		#             <idx:iform name="" value="Academiadque" />
+		#             <idx:iform name="" value="Academiaeque" />
+		#             <idx:iform name="" value="Academiaique" />
+		#             <idx:iform name="" value="Academiamque" />
+		#             <idx:iform name="" value="Academiarumque" />
+		#             <idx:iform name="" value="Academiasque" />
+		#             <idx:iform name="" value="Academiisque" />
+		#             <idx:iform name="" value="Academiumque" />
+		#         </idx:infl>
+		# </idx:entry>
+		# <b>Academia, Academiae N F</b>
+		# <blockquote>academy, university; gymnasium where Plato taught; school built by Cicero;</blockquote>
+		# <hr />
+		# <idx:entry>
+	# Duden entry around "früh"
+		# <idx:entry scriptable="yes">
+		#     <idx:orth value="früh"></idx:orth>
+		#     <div height="4"><a id="filepos17894522" /><a id="filepos17894522" />
+		#         <div><sub> </sub><sup> </sup><sup>
+		#                 <font size="2">1&#8204;</font>
+		#             </sup><b>fr</b><u><b><b>ü</b></b></u><b>h</b><b> </b>
+		#             <mmc:no-fulltext>&#139;Adj.&#155; [mhd. vrüe(je), ahd. fruoji, zu: fruo, </mmc:no-fulltext>
+		#             <mmc:fulltext-word value="‹Adj.› mhd. vrüeje, ahd. fruoji, zu: fruo, " /><a href="#filepos17896263">
+		#                 <font size="+1"><b><img hspace="0" align="middle" hisrc="Images/image15907.gif" /></b></font> <sup>
+		#                     <font size="-1">2</font>
+		#                 </sup>früh
+		#             </a>]: <b>1.</b> in der Zeit noch nicht weit fortgeschritten, am Anfang liegend, zeitig: <i>am -en Morgen; </i> <i>
+		#                 <mmc:no-fulltext>in -er, -[e]ster Kindheit; </mmc:no-fulltext>
+		#                 <mmc:fulltext-word value="in -er, -ester Kindheit; " />
+		#             </i> <i>es ist noch f. am Tage; </i> <i>f. blühende Tulpen; </i> Ü <i>der -e (junge) Nietzsche; </i> Ü <i>die -esten (ältesten) Kulturen; </i> <sup>*</sup><b>von f. auf </b>(von früher Kindheit, Jugend an: <i>sie ist von f. auf an Selbstständigkeit gewöhnt). </i> <b>2.</b> früher als erwartet, als normalerweise geschehend, eintretend; frühzeitig, vorzeitig: <i>ein -er Winter; </i> <i>ein -er Tod; </i> <i>eine -e (früh reifende) Sorte Äpfel; </i> <i>wir nehmen einen -eren Zug; </i> <i>Ostern ist, fällt dieses Jahr f.; </i> <i>er kam -er als erwartet; </i> <i>sie ist zu f., noch f. genug gekommen; </i> <i>ihre f. (in jungen Jahren) verstorbene Mutter; </i> <i>ein f. vollendeter (in seiner Kunst schon in jungen Jahren zu absoluter Meisterschaft gelangter [u. jung verstorbener]) Maler; </i> <i>sie hat f. geheiratet; </i> <i>-er oder später (zwangsläufig irgendwann einmal) wird sie doch umziehen müssen.</i>
+		#         </div>
+		#     </div>
+		# </idx:entry>
+		# <div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif" /><br /></div>
+		# <idx:entry scriptable="yes">
+		#     <idx:orth value="früh"></idx:orth>
+		#     <div height="4"><a id="filepos17896263" />
+		#         <div><sup>
+		#                 <font size="2">2&#8204;</font>
+		#             </sup><b>fr</b><u><b><b>ü</b></b></u><b>h</b><b> </b>&#139;Adv.&#155; [mhd. vruo, ahd. fruo, eigtl. = (zeitlich) vorn, voran]: morgens, am Morgen: <i>heute f., [am] Dienstag f.; </i> <i>kommst du morgen f.?; </i> <i>er arbeitet von f. bis spät [in die Nacht] (den ganzen Tag).</i> </div>
+		#     </div>
+		# </idx:entry>
+		# <div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif" /><br /></div>
+	# my @indexentries = $html=~m~<idx:entry scriptable="yes">((?:(?!</idx:entry>).)+)</idx:entry>~gs; # Only works for Duden
+	my @indexentries = $html=~m~<idx:entry[^>]*>((?:(?!<idx:entry).)+)~gs; # Collect from the start until the next starts.
 	if($isTestingOn){ array2File("test_html_indexentries.html",map(qq/$_\n/,@indexentries)  ) ; }
 	my $number = 0;
 	my $lastkey = "";
+	my $lastInflectionEntries="";
 	my (%ConversionDebugStrings, %ReplacementImageStrings);
 	my $HashFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."hash";
 	if( -e $HashFileName ){ %ReplacementImageStrings = %{retrieve($HashFileName)}; }
 	waitForIt("Converting indexentries from HTML to XDXF.");
 	foreach (@indexentries){
 		$number++;
-		debug($_) if m~<idx:orth value="$debug_entry"~;
-		# Remove <a /> tags
-		s~(</?a[^>]*>|<betonung/>)~~sg;
-		# Remove <mmc:fulltext-word ../>
-		s~<mmc:fulltext-word[^>]+>~~sg;
-		# Remove <img ../>, e.g. <img hspace="0" align="middle" hisrc="Images/image15907.gif" />
+		
+		my $isLoopDebugging = 0;
+		if(m~<idx:orth value="\Q$debug_entry\E"~ and $isTestingOn){ $isLoopDebugging = 1; }
+		debug($_) if $isLoopDebugging;
+		
+		# Remove <a />, </a>, </idx:entry>, <br/>, <hr />, <betonung/>, <mmc:fulltext-word ../> tags
+		s~</?a[^>]*>|<betonung\s*/>|</idx:entry>|<br\s*/>|<hr\s*/>|<mmc:fulltext-word[^>]+>~~sg;
+		# Remove empty sup and sub-blocks
+		s~<sub>[\s]*</sub>|<sup>[\s]*</sup>|<b>[\s]*</b>~~sg;
+		# Remove or convert <img ../>, e.g. <img hspace="0" align="middle" hisrc="Images/image15907.gif" />
 		if( $isCodeImageBase64 and m~(<img[^>]+>)~s){
 			my @imagestrings = m~(<img[^>]+>)~sg;
 			debug("Number of imagestrings found is ", scalar @imagestrings) if m~<idx:orth value="$debug_entry"~;
@@ -666,15 +744,11 @@ sub convertHTML2XDXF{
 			}
 		}
 		else{  s~<img[^>]+>~~sg; }
-		# Remove empty sup and sub-blocks
-		s~<sub>[\s]*</sub>~~sg;
-		s~<sup>[\s]*</sup>~~sg;
-		s~<b>[\s]*</b>~~sg;
 		# Include encoding conversion
 		while( $encoding eq "cp1252" and m~\&\#(\d+);~s ){
 			my $encoded = $1;
 			my $decoded = decode( $encoding, pack("N", $encoded) ); 
-			# The decode step generates four hex values: a triplet of <0x00> followed by the one that's wanted. This goes awry if 
+			# The decode step generates four hex values: a triplet of <0x00> followed by the one that's wanted. This goes awry if there are multiple non-zero octets.
 			while( ord( substr( $decoded, 0, 1) ) == 0 ){
 				$decoded = substr( $decoded, 1 );
 			}
@@ -690,9 +764,9 @@ sub convertHTML2XDXF{
 			$ConversionDebugStrings{$encoded} = $DebugString;
 			s~\&\#$encoded;~$decoded~sg;				
 		}
+		
 		# Change div-blocks to spans
 		s~(</?)div[^>]*>~$1span>~sg;
-
 		my $round = 0;
 		# Change font- to spanblocks
 		while( s~<font size="(?:2|-1)">((?:(?!</font).)+)</font>~<small>$1</small>~sg ){ 
@@ -704,16 +778,45 @@ sub convertHTML2XDXF{
 			$round++;
 			debug("font-blocks substituted with span-blocks in round $round.") if m~<idx:orth value="$debug_entry"~;
 		}
-		# Change <mmc:no-fulltext> to <blockquote>
+		# Change <mmc:no-fulltext> to <span>
 		$round = 0;
-		while( s~<mmc:no-fulltext>((?:(?!</mmc:no-fulltext).)+)</mmc:no-fulltext>~<f> $1</f>~sg ){ 
+		while( s~<mmc:no-fulltext>((?:(?!</mmc:no-fulltext).)+)</mmc:no-fulltext>~<span> $1</span>~sg ){ 
 			$round++;
 			debug("<mmc:no-fulltext>-blocks substituted with spans in round $round.") if $number<3;
 		}
 		# Create key&definition strings.
-		m~^<idx:orth value="(?<key>[^"]+)"></idx:orth>(?<def>.+)$~s;
+		# m~^<idx:orth value="(?<key>[^"]+)"></idx:orth>(?<def>.+)$~s; # Works only for Duden
+		s~<idx:orth value="(?<key>[^"]+)">~~s; # Remove idx-orth value.
 		my $key = $+{key};
-		my $def = "<blockquote>".$+{def}."</blockquote>";
+		if( defined $key and $key ne "" ){	debug("Found \$key $key.") if $isLoopDebugging; }
+		else{ debug("No key found! Dumping and Quitting:\n\n$_"); die;}
+		s~</idx:orth>~~sg; # Remove closing tag if present.
+
+		#Handle inflections block
+		# Remove inflections category tags
+		s~</?idx:infl>~~sg;
+		# <idx:iform name="" value="Academia" />
+		my @inflections = m~<idx:iform name="" value="(\w*)"/>~sg;
+		s~<idx:iform[^>]*>~~sg;
+		my $InflectionEntries="";
+		foreach my $inflection(@inflections){
+			# Create string to append after main definition.
+			if( defined $inflection and $inflection ne $key and $inflection ne "" ){ 
+				my $ExtraEntry = "<ar><head><k>$inflection</k></head><def><blockquote>↑".pack("U", 0x2009)."<i>$key</i></blockquote></def></ar>\n";
+				$InflectionEntries = $InflectionEntries.$ExtraEntry;
+			}
+		}
+		
+		# Remove leftover empty lines.
+		s~\s\s~ ~sg;
+		s~\t\t~\t~sg;
+		s~\n\n~\n~sg;
+		# Remove trailing and leading spaces and line endings
+		s~^[\n\s]+~~sg;
+		s~[\n\s]+$~~sg;
+
+		# Assign remaining entry to $def.
+		my $def = "<blockquote>".$_."</blockquote>";
 		debugV("key found: $key") if $number<10;
 		debugV("def found: $def") if $number<10;
 		# Remove whitespaces at the beginning of the definition and EOL at the end.
@@ -732,13 +835,21 @@ sub convertHTML2XDXF{
 		if( $key eq $lastkey){
 			# Change the last entry to append current definition
 			$xdxf[-1] =~ s~</def></ar>\n~\n$def</def></ar>\n~s;
-			debug("Added to the last definition. It's now:\n$xdxf[-1]") if m~<idx:orth value="$debug_entry"~;
+			debug("Added to the last definition. It's now:\n$xdxf[-1]") if $isLoopDebugging;
 		}
 		else{
+			# Because I want the inflections to follow in the index on the full definition.
+			if( $lastInflectionEntries ne "" ){ 
+				$xdxf[-1] =~ s~\n$~\n$lastInflectionEntries~s;
+				$lastInflectionEntries = "";
+			}
 			push @xdxf, "<ar><head><k>$key</k></head><def>$def</def></ar>\n";
-			debug("Pushed <ar><head><k>$key</k></head><def>$def</def></ar>") if m~<idx:orth value="$debug_entry"~;
+			debug("Pushed <ar><head><k>$key</k></head><def>$def</def></ar>") if $isLoopDebugging;
 		}
+		# To allow appending definitions of identical keys
 		$lastkey = $key;
+		# To allow inflection entries after the main entry
+		$lastInflectionEntries = $lastInflectionEntries.$InflectionEntries;
 	}
 	# Save hash for later use.
 	store(\%ReplacementImageStrings, $HashFileName);
@@ -1092,9 +1203,7 @@ sub makeKoreaderReady{
 		array2File($FileNameLUA,@lua);
 	}
 	doneWaiting();
-	# Remove oft-file from old dictionary
-	unlink join('', $FileName=~m~^(.+?)\.[^.]+$~)."_reconstructed.idx.oft";
-
+	
 	return(split(/$/, $html));}
 sub printGreen   { print color('green') if $OperatingSystem eq "linux";   print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printBlue    { print color('blue') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
@@ -1160,14 +1269,29 @@ sub reconstructXDXF{
 	# Push cleaned articles to array
 	my $xdxf = join( '', @xdxf);
 	my @articles = $xdxf =~ m~<ar>((?:(?!</ar).)+)</ar>~sg ;
-	my ($ar, $ar_count) = ( 0, 0);
+	my ($ar, $ar_count) = ( 0, -1);
+	my (%KnownKeys,@IndexedDefinitions,@IndexedKeys);
 	foreach my $article (@articles){
 		$ar_count++; $cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
 		$article = cleanseAr($article);
 		chomp $article;
-		push @xdxf_reconstructed, "<ar>\n$article\n</ar>\n";
+		# <head><k>accognoscundis</k></head><def><blockquote>accognosco</blockquote></def>
+		$article =~ m~<head><k>(?<key>(?:(?!</k>).)+)</k></head><def>(?<def>(?:(?!</def>).)+)</def>~s;
+		if( exists $KnownKeys{$+{key}} ){
+			# Append definition to other definition.
+			$IndexedDefinitions[$KnownKeys{$+{key}}] = $IndexedDefinitions[$KnownKeys{$+{key}}]."\n$+{def}";
+			$ar_count--;
+		}
+		else{  
+			$KnownKeys{$+{key}} = $ar_count;
+			$IndexedKeys[$ar_count] = $+{key};
+			$IndexedDefinitions[$ar_count] = $+{def};
+		}
 	}
-	
+	# push @xdxf_reconstructed, "<ar>\n$article\n</ar>\n";	
+	foreach( @IndexedKeys ){
+		push @xdxf_reconstructed, "<ar>\n<head><k>$_</k></head><def>$IndexedDefinitions[$KnownKeys{$_}]</def>\n</ar>\n";	
+	}
 	push @xdxf_reconstructed, $xdxf_closing;
 	printMagenta("\nTotal number of articles processed \$ar = ",scalar @articles,".\n");
 	doneWaiting();
@@ -1234,7 +1358,8 @@ if( $isCreateStardictDictionary ){
 		debug("Not linux, so you the script created an xml Stardict dictionary.");
 		debug("You'll have to convert it to binary manually using Stardict editor.")
 	}
-
+	# Remove oft-file from old dictionary
+	unlink join('', $FileName=~m~^(.+?)\.[^.]+$~)."_reconstructed.idx.oft" if $isTestingOn;
 }
 
 # Create Pocketbook dictionary
@@ -1246,3 +1371,5 @@ if( $isCreatePocketbookDictionary ){
 	printYellow("Running system command:\"$ConvertCommand\"\n");
 	system($ConvertCommand);
 }
+
+unlink join('', $FileName=~m~^(.+?)\.[^.]+$~).".xdxf" if $isTestingOn;
