@@ -1,6 +1,6 @@
 #! /bin/perl
 use strict;
-use autodie;
+# use autodie; # Does not get along with pragma 'open'.
 use Term::ANSIColor;    #Color display on terminal
 use Encode;
 use utf8;
@@ -9,6 +9,19 @@ use open ':std', ':utf8';
 use feature 'unicode_strings'; # You get funky results with the sub convertNumberedSequencesToChar without this.
 use feature 'say';
 
+
+# $BaseDir is the directory where converter.exe and the language folders reside. 
+# Typically the language folders are named by two letters, e.g. english is named 'en'.
+# In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
+my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109";
+
+
+# $KindleUnpackLibFolder is the folder in which kindleunpack.py resides.
+# You can download KindleUnpack using http with: git clone https://github.com/kevinhendricks/KindleUnpack
+# or using ssh with: git clone git@github.com:kevinhendricks/KindleUnpack.git
+# Use absolute path beginning with either '/' (root) or '~'(home) on Linux. On Windows use whatever works.
+my $KindleUnpackLibFolder="/home/mark/git/KindleUnpack/lib";
+
 my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
 
 # Controls manual input: 0 disables.
@@ -16,73 +29,71 @@ my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings 
 my $reformat_full_name = 1 ; # Value 1 demands user input for full_name tag.
 my $reformat_xdxf = 1 ; # Value 1 demands user input for xdxf tag.
 
+# Deliminator for CSV files, usually ",",";" or "\t"(tab).
+my $CVSDeliminator = ",";
+
+
+# Controls for debugging.
+my $isdebug = 1; # Turns off all debug messages
+my $isdebugVerbose = 0; # Turns off all verbose debug messages
+my $debug_entry = "früh"; # In convertHTML2XDXF only debug messages from this entry are shown.
+my $isTestingOn = 1; # Turns tests on
+if ( $isTestingOn ){ use warnings; }
+my $no_test=1; # Testing singles out a single ar and generates a xdxf-file containing only that ar.
+my $ar_chosen = 410; # Ar singled out when no_test = 0;
+my ($cycle_dotprinter, $cycles_per_dot) = (0 , 300); # A green dot is printed achter $cycles_per_dot ar's have been processed.
+my $i_limit = 27000000000000000000; # Hard limit to the number of lines that are processed.
+
+# Controls for Stardict dictionary creation and Koreader stardict compatabiltiy
+my $isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
+# Same Type Seqence is the initial value of the Stardict variable set in the ifo-file.
+# "h" means html-dictionary. "m" means text.
+# The xdxf-file will be filtered for &#xDDDD; values and converted to unicode if set at "m"
+my $SameTypeSequence = "h"; # Either "h" or "m" or "x".
+my $updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
+my $isConvertColorNamestoHexCodePoints = 1; # Converting takes time.
+my $isMakeKoreaderReady = 1; # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
+
+# Controls for Pocketbook conversion
+my $isCreatePocketbookDictionary = 1; # Controls conversion to Pocketbook Dictionary dic-format
+my $remove_color_tags = 0; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably. Relevant for pocketbook dictionary.
 # This controls the maximum article length.
 # If set too large, the old converter will crash and the new will truncate the entry.
 my $max_article_length = 64000;
 # This controls the maximum line length.
 # If set too large, the converter wil complain about bad XML syntax and exit.
 my $max_line_length = 4000;
-# Deliminator for CSV files, usually ",",";" or "\t"(tab).
-my $CVSDeliminator = ",";
 
-my $no_test=1; # Testing singles out a single ar and generates a xdxf-file containing only that ar.
-my $ar_chosen = 410; # Ar singled out when no_test = 0;
-my ($cycle_dotprinter, $cycles_per_dot) = (0 , 300); # A green dot is printed achter $cycles_per_dot ar's have been processed.
-my $i_limit = 27000000000000000000; # Hard limit to the number of lines that are processed.
+# Controls for Mobi dictionary handling
+my $isHandleMobiDictionary = 1; 
 
-my $isdebug = 1; # Turns off all debug messages
-my $isdebugVerbose = 0; # Turns off all verbose debug messages
-my $debug_entry = "früh"; # In convertHTML2XDXF only debug messages from this entry are shown.
-my $isTestingOn = 0; # Turns tests on
-
-my $isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
-my $isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format
-
-my $remove_color_tags = 0; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably. Relevant for pocketbook dictionary.
-my $isConvertColorNamestoHexCodePoints = 1; # Converting takes time.
-my $isMakeKoreaderReady = 1; # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
-my $isRemoveWaveReferences = 1; # Removes all the references to wav-files
-
+# Controls for recoding or deleting images and sounds. 
+my $isRemoveWaveReferences = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
 my $isCodeImageBase64 = 1; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
+# Disable this if you want to make a pocketbook dictionary for now. (For $isCreatePocketBookDictionary = 1.)
+if ($isCreatePocketbookDictionary){$isCodeImageBase64 = 0;}
 my $isConvertGIF2PNG = 1; # Creates a dependency on Imagemagick "convert".
 if( $isCodeImageBase64 ){
-	use MIME::Base64;
-	use Storable;	#To storage the hash %ReplacementImageStrings.
+	use MIME::Base64;	# To encode into Bas64
+	use Storable;		# To store/load the hash %ReplacementImageStrings.
 }
 
-# Same Type Seqence is the initial value of the Stardict variable set in the ifo-file.
-# "h" means html-dictionary. "m" means text.
-# The xdxf-file will be filtered for &#xDDDD; values and converted to unicode if set at "m"
-my $SameTypeSequence = "h"; # Either "h" or "m" or "x".
-my $updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
-# $BaseDir is the directory where converter.exe and the language folders reside.
-# In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
-# my $BaseDir="C:/Users/Debiel/Downloads/PocketbookDic";
-my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109";
 
-chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
+# Determine operating system.
+my $OperatingSystem = "$^O";
+if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
+else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";}
 
 # Last filename will be used
+# Give the filename relative to the base directory defined in $BaseDir
 my $FileName;
-$FileName = "Oxford_English_Dictionary_2nd_Ed._P2-2.4.2.xdxf";
-$FileName = "dict/OxfordAdvancedLearnersDictionary_en-en/OxfordAdvancedLearnersDictionary_en-en.xdxf";
-$FileName = "Oxford_English_Dictionary_2nd_Ed._P1-2.4.2_reconstructed_copy_reconstructed.xdxf";
-$FileName = "Oxford_English_Dictionary_2nd_Ed._P1-2.4.2.xdxf";
-$FileName = "dict/Liddell Scott Jones.ifo";
-$FileName = "dict/LSJ-utf8.csv";
-$FileName = "dict/test/Oxford\ English\ Dictionary\ 2nd\ Ed.\ P1_lines_951058-951205.xdxf";
-$FileName = "dict/test/Oxford\ English\ Dictionary\ 2nd\ Ed.\ P2_article_ending_at_381236reconstructed.xdxf";
-$FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P2-2.4.2/Oxford English Dictionary 2nd Ed. P2.ifo";
-$FileName = "dict/stardict-Oxford_English_Dictionary_2nd_Ed._P1-2.4.2/Oxford English Dictionary 2nd Ed. P1.ifo";
-$FileName = "dict/Duden/duden.ifo";
-$FileName = "dict/Oxford Advanced Learner's Dictionary/Oxford Advanced Learner's Dictionary.ifo";
-$FileName = "dict/latin-english.ifo";
-$FileName = "dict/NouveauLittre-Stardict/output.ifo";
-$FileName = "dict/Oxford_English_Dictionary_2nd_Ed.xdxf";
-$FileName = "dict/Oxford_English_Dictionary_2nd_Ed/testhtml/testhtml.xml";
+$FileName = "dict/öüá.mobi";
+
 # However, when an argument is given, it will supercede the last filename
+# Command line argument handling
 if( defined($ARGV[0]) ){
 	printYellow("Command line arguments provided:\n");
+	@ARGV = map { decode_utf8($_, 1) } @ARGV; # Decode terminal input to utf8.
 	foreach(@ARGV){ printYellow("\'$_\'\n"); }
 	printYellow("Found command line argument: $ARGV[0].\nAssuming it is meant as the dictionary file name.\n");
 	$FileName = $ARGV[0];
@@ -92,22 +103,6 @@ else{
 	printYellow("First argument is the dictionary name to be converted. E.g dict/dictionary.ifo (Remember to slash forward!)\n");
 	printYellow("Second is the language directory name or the CSV deliminator. E.g. eng\nThird is the CVS deliminator. E.g \",\", \";\", \"\\t\"(for tab)\n");
 }
-
-my $LocalPath = join('', $FileName=~ m~^(.+?)[^/]+$~);
-my $FullPath = "$BaseDir/$LocalPath";
-$FullPath =~ s~//\Q$LocalPath\E~/$LocalPath~g;
-
-# As NouveauLittre showed a rather big problem with named entities, I decided to write a special filter
-# Here is the place to insert your DOCTYPE string.
-# Remember to place it between quotes '..' and finish the line with a semicolon ;
-# Last Doctype will be used. To omit the filter place an empty DocType string at the end:
-# $DocType = '';
-my ($DocType,%EntityConversion);
-$DocType = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"[<!ENTITY ns "&#9830;"><!ENTITY os "&#8226;"><!ENTITY oo "&#8250;"><!ENTITY co "&#8249;"><!ENTITY a  "&#x0061;"><!ENTITY â  "&#x0251;"><!ENTITY an "&#x0251;&#x303;"><!ENTITY b  "&#x0062;"><!ENTITY d  "&#x0257;"><!ENTITY e  "&#x0259;"><!ENTITY é  "&#x0065;"><!ENTITY è  "&#x025B;"><!ENTITY in "&#x025B;&#x303;"><!ENTITY f  "&#x066;"><!ENTITY g  "&#x0261;"><!ENTITY h  "&#x0068;"><!ENTITY h2 "&#x0027;"><!ENTITY i  "&#x0069;"><!ENTITY j  "&#x004A;"><!ENTITY k  "&#x006B;"><!ENTITY l  "&#x006C;"><!ENTITY m  "&#x006D;"><!ENTITY n  "&#x006E;"><!ENTITY gn "&#x0272;"><!ENTITY ing "&#x0273;"><!ENTITY o  "&#x006F;"><!ENTITY o2 "&#x0254;"><!ENTITY oe "&#x0276;"><!ENTITY on "&#x0254;&#x303;"><!ENTITY eu "&#x0278;"><!ENTITY un "&#x0276;&#x303;"><!ENTITY p  "&#x0070;"><!ENTITY r  "&#x0280;"><!ENTITY s  "&#x0073;"><!ENTITY ch "&#x0283;"><!ENTITY t  "&#x0074;"><!ENTITY u  "&#x0265;"><!ENTITY ou "&#x0075;"><!ENTITY v  "&#x0076;"><!ENTITY w  "&#x0077;"><!ENTITY x  "&#x0078;"><!ENTITY y  "&#x0079;"><!ENTITY z  "&#x007A;"><!ENTITY Z  "&#x0292;">]><html xml:lang="fr" xmlns="http://www.w3.org/1999/xhtml"><head><title></title></head><body>';
-$DocType = '';
-
-# Pocketbook converter.exe is dependent on a language directory in which has 3 txt-files: keyboard, morphems and collates.
-# Default language directory is English, "en".
 my $language_dir = "";
 if( defined($ARGV[1]) and $ARGV[1] !~ m~^.$~ and $ARGV[1] !~ m~^\\t$~ ){
 	printYellow("Found command line argument: $ARGV[1].\nAssuming it is meant as language directory.\n");
@@ -123,6 +118,46 @@ if( defined($ARGV[2]) and ($ARGV[2] =~ m~^(.t)$~ or $ARGV[2] =~ m~^(.)$~) ){
 	printYellow("Found a command line argument consisting of one character.\n Assuming \"$1\" is the CVS deliminator.\n");
 	$CVSDeliminator = $ARGV[2];
 }
+
+# Path checking and cleaning
+$BaseDir=~s~/$~~; # Remove trailing slashforward '/'.
+if( -e "$BaseDir/converter.exe"){ 
+	debugV("Found converter.exe in the base directory $BaseDir."); 
+}
+elsif( $isCreatePocketbookDictionary ){ 
+	debug("Can't find converter.exe in the base directory $BaseDir. Cannot convert to Pocketbook.");
+	$isCreatePocketbookDictionary = 0;
+}
+else{ debugV("Base directory not containing \'converter.exe\' for PocketBook dictionary creation.");}
+# Pocketbook converter.exe is dependent on a language directory in which has 3 txt-files: keyboard, morphems and collates.
+# Default language directory is English, "en".
+
+$KindleUnpackLibFolder=~s~/$~~; # Remove trailing slashforward '/'.
+if( -e "$KindleUnpackLibFolder/kindleunpack.py"){
+	debugV("Found \'kindleunpack.py\' in $KindleUnpackLibFolder.");
+}
+elsif( $isHandleMobiDictionary ){
+	debug("Can't find \'kindleunpack.py\' in $KindleUnpackLibFolder. Cannot handle mobi dictionaries.");
+	$isHandleMobiDictionary = 0;
+}
+else{ debugV("$KindleUnpackLibFolder doesn't contain \'kindleunpack.py\' for mobi-format handling.");}
+chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
+my $LocalPath = join('', $FileName=~ m~^(.+?)/[^/]+$~);
+my $FullPath = "$BaseDir/$LocalPath";
+debug("Local path is $LocalPath.");
+debug("Full path is $FullPath");
+
+
+# As NouveauLittre showed a rather big problem with named entities, I decided to write a special filter
+# Here is the place to insert your DOCTYPE string.
+# Remember to place it between quotes '..' and finish the line with a semicolon ;
+# Last Doctype will be used. 
+# To omit the filter place an empty DocType string at the end:
+# $DocType = '';
+my ($DocType,%EntityConversion);
+$DocType = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"[<!ENTITY ns "&#9830;"><!ENTITY os "&#8226;"><!ENTITY oo "&#8250;"><!ENTITY co "&#8249;"><!ENTITY a  "&#x0061;"><!ENTITY â  "&#x0251;"><!ENTITY an "&#x0251;&#x303;"><!ENTITY b  "&#x0062;"><!ENTITY d  "&#x0257;"><!ENTITY e  "&#x0259;"><!ENTITY é  "&#x0065;"><!ENTITY è  "&#x025B;"><!ENTITY in "&#x025B;&#x303;"><!ENTITY f  "&#x066;"><!ENTITY g  "&#x0261;"><!ENTITY h  "&#x0068;"><!ENTITY h2 "&#x0027;"><!ENTITY i  "&#x0069;"><!ENTITY j  "&#x004A;"><!ENTITY k  "&#x006B;"><!ENTITY l  "&#x006C;"><!ENTITY m  "&#x006D;"><!ENTITY n  "&#x006E;"><!ENTITY gn "&#x0272;"><!ENTITY ing "&#x0273;"><!ENTITY o  "&#x006F;"><!ENTITY o2 "&#x0254;"><!ENTITY oe "&#x0276;"><!ENTITY on "&#x0254;&#x303;"><!ENTITY eu "&#x0278;"><!ENTITY un "&#x0276;&#x303;"><!ENTITY p  "&#x0070;"><!ENTITY r  "&#x0280;"><!ENTITY s  "&#x0073;"><!ENTITY ch "&#x0283;"><!ENTITY t  "&#x0074;"><!ENTITY u  "&#x0265;"><!ENTITY ou "&#x0075;"><!ENTITY v  "&#x0076;"><!ENTITY w  "&#x0077;"><!ENTITY x  "&#x0078;"><!ENTITY y  "&#x0079;"><!ENTITY z  "&#x007A;"><!ENTITY Z  "&#x0292;">]><html xml:lang="fr" xmlns="http://www.w3.org/1999/xhtml"><head><title></title></head><body>';
+$DocType = '';
+
 
 my @xdxf_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 				'<xdxf lang_from="" lang_to="" format="visual">'."\n",
@@ -145,15 +180,11 @@ my @xml_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 					'<dicttype></dicttype>'."\n",
 					'</info>'."\n");
 my $lastline_xml = "</stardict>\n";
-# Determine operating system.
-my $OperatingSystem = "$^O";
-if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
-else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";}
 
 sub array2File {
     my ( $FileName, @Array ) = @_;
     # debugV("Array to be written:\n",@Array);
-    open( FILE, ">:encoding(UTF-8)", "$FileName" )
+    open( FILE, ">:encoding(utf8)", "$FileName" )
       || warn "Cannot open $FileName: $!\n";
     print FILE @Array;
     close(FILE);
@@ -339,7 +370,8 @@ sub cleanseAr{
 	return( $Content );}
 sub convertColorName2HexValue{
 	my $html = join( '', @_);
-	my %ColorCoding = qw( aliceblue #F0F8FF
+	my %ColorCoding = qw( 
+		aliceblue #F0F8FF
 		antiquewhite #FAEBD7
 		aqua #00FFFF
 		aquamarine #7FFFD4
@@ -486,7 +518,8 @@ sub convertColorName2HexValue{
 		white #FFFFFF
 		whitesmoke #F5F5F5
 		yellow #FFFF00
-		yellowgreen #9ACD32);
+		yellowgreen #9ACD32
+		);
 	waitForIt("Converting all color names to hex values.");
 	# This loop takes 1m26s for a dictionary with 132k entries and no color tags.
 	# foreach my $Color(keys %ColorCoding){
@@ -586,23 +619,32 @@ sub convertHTML2XDXF{
 				}
 				else{
 					# <img hspace="0" align="middle" hisrc="Images/image15907.gif"/>
-					$imagestring =~ m~"(?<image>[^"]*?\.(?<ext>gif|jpg|png|bmp))"~si;
+					$imagestring =~ m~hisrc="(?<image>[^"]*?\.(?<ext>gif|jpg|png|bmp))"~si;
 					debug("Found image named $+{image} with extension $+{ext}.") if m~<idx:orth value="$debug_entry"~;
 					my $imageName = $+{image};
 					my $imageformat = $+{ext};
-					if ( $isConvertGIF2PNG and $imageformat =~ m~gif~i){
-						# Convert gif to png
-						`convert "$FullPath$imageName" "$FullPath$imageName.png"`;
-						$imageName = "$imageName.png";
-						$imageformat = "png";
+					if( -e "$FullPath/$imageName"){
+						if ( $isConvertGIF2PNG and $imageformat =~ m~gif~i){
+							# Convert gif to png
+							my $Command="convert \"$FullPath/$imageName\" \"$FullPath/$imageName.png\"";
+							debug("Executing command: $Command") if m~<idx:orth value="$debug_entry"~;
+							`$Command`;
+							$imageName = "$imageName.png";
+							$imageformat = "png";
+						}
+						my $image = join('', file2Array("$FullPath/$imageName", ":raw", "quiet") );
+						my $encoded = encode_base64($image);
+						$encoded =~ s~\n~~sg;
+						$replacement = '<img src="data:image/'.$imageformat.';base64,'.$encoded.'" alt="'.$imageName.'"/>';
+						$replacement =~ s~\\\"~"~sg;
+						debug($replacement) if m~<idx:orth value="$debug_entry"~;
+						$ReplacementImageStrings{$imagestring} = $replacement;
 					}
-					my $image = join('', file2Array($FullPath.$imageName, ":raw", "quiet") );
-					my $encoded = encode_base64($image);
-					$encoded =~ s~\n~~sg;
-					$replacement = '<img src="data:image/'.$imageformat.';base64,'.$encoded.'" alt="'.$imageName.'"/>';
-					$replacement =~ s~\\\"~"~sg;
-					debug($replacement) if m~<idx:orth value="$debug_entry"~;
-					$ReplacementImageStrings{$imagestring} = $replacement;
+					else{ 
+						if( $isRealDead ){ debug("Can't find $FullPath/$imageName. Quitting."); die; } 
+						else{ $replacement = ""; }
+					}
+
 				}
 				s~\Q$imagestring\E~$replacement~;
 			}
@@ -620,15 +662,13 @@ sub convertHTML2XDXF{
 			while( ord( substr( $decoded, 0, 1) ) == 0 ){
 				$decoded = substr( $decoded, 1 );
 			}
-			# if character is NL, than replacement should be \n
+			# Skip character because it cannot be handled by code and is most probably the same in cp1252 and unicode.
 			if( length($decoded)>1 ){
-				# skip character because it cannot be handled by code, yet.
-				# Convert to hexadecimal value
-				my $hex = sprintf("%X", $encoded);  ## 
-				$decoded = "&#x$hex;";
-				m~^<idx:orth value="(?<key>[^"]+)"></idx:orth>~;
-				# debug("Relevant index key is $+{key}");
+				# Convert to hexadecimal value so that the while-loop doesn't become endless.
+				my $hex = sprintf("%X", $encoded);  
+				$decoded = "&#x$hex;"; 
 			}
+			# If character is NL, than replacement should be \n
 			elsif( ord($decoded) == 12 ){ $decoded = "\n";}
 			my $DebugString = "Encoding is $encoding. Encoded is $encoded. Decoded is \'$decoded\' of length ".length($decoded).", numbered ".ord($decoded);
 			$ConversionDebugStrings{$encoded} = $DebugString;
@@ -797,8 +837,6 @@ sub convertXDXFtoStardictXML{
 	waitForIt("Converting xdxf-xml to Stardict-xml." );
 	my @articles = $xdxf =~ m~<ar>((?:(?!</ar).)+)</ar>~sg ;
 	printCyan("Finished getting articles at ", getLoggingTime(),"\n" );
-	array2File("testNewConvertArrayIn.xml",($xdxf)) if $isTestingOn;
-	array2File("testNewConvertArticlesOut.xml",@articles) if $isTestingOn;
 	$cycle_dotprinter = 0;
 	foreach my $article ( @articles){
 		$cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
@@ -825,7 +863,7 @@ sub file2Array {
     my $encoding = $_[1];
     my $verbosity = $_[2];
     my $isBinMode = 0; 
-    if($encoding eq ":raw"){
+    if(defined $encoding and $encoding eq ":raw"){
     	undef $encoding;
     	$isBinMode = 1;
     }
@@ -840,7 +878,7 @@ sub file2Array {
   	}
     my @ArrayLines = <FILE>;
     close(FILE);
-    printBlue("Read $FileName, returning array. Exiting file2Array\n") if $verbosity ne "quiet";
+    printBlue("Read $FileName, returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
     return (@ArrayLines);}
 sub filterXDXFforEntitites{
 	my( @xdxf ) = @_;
@@ -876,8 +914,6 @@ sub getLoggingTime {
                                    $year+1900,$mon+1,$mday,$hour,$min,$sec);
     return $nice_timestamp;}
 sub loadXDXF{
-	my ($FileName,$OperatingSystem) = @_;
-
 	# Create the array @xdxf
 	my @xdxf;
 	my $PseudoFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."xdxf";
@@ -921,35 +957,83 @@ sub loadXDXF{
 		# debug(@xdxf); # Check generated @xdxf
 		$FileName=$+{filename}.".xdxf";
 	}
-	# Output of KindleUnpack.pyw
-	elsif( $FileName =~ m~^(?<filename>((?!\.html).)+)\.html$~){
+	elsif(	$FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ or
+			$FileName =~ m~^(?<filename>((?!\.html).)+)\.html$~	){
+		# Use full path and filename
+		my $InputFile = "$BaseDir/$FileName";
+		my $OutputFolder = substr($InputFile, 0, length($InputFile)-5);
+		my $DictionaryName = join('',$OutputFolder =~ m~([^/]+)$~);
+		
+		if( $FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ 	){
+			# Checklist
+			if ($OperatingSystem eq "linux"){ debugV("Converting mobi to html on Linux is possible.") }
+			else{ debug("Not Linux, so the script can't convert mobi-format. Quitting!"); die; }
+			my $python_version = `python --version`;
+			if(  substr($python_version, 0,6) eq "Python"){
+				debug("Found python responding as expected.");
+			}
+			else{ debug("Python binary not working as expected/not installed. Quitting!"); die; }
+			
+			# Conversion mobi to html
+			if( -e "$OutputFolder/mobi7/$DictionaryName.html" ){
+				debug("html-file found. Mobi-file already converted.")
+			}
+			else{
+				chdir $KindleUnpackLibFolder || warn "Cannot change to $KindleUnpackLibFolder: $!\n";
+				waitForIt("The script kindelunpack.py is now unpacking the file:\n$InputFile\nto: $OutputFolder.");
+				my $returnstring = `python kindleunpack.py -r -s --epub_version=A -i "$InputFile" "$OutputFolder"`;
+				if( $returnstring =~ m~Completed\n*$~s ){
+					debug("Succes!");
+				}
+				else{
+					debug("Failed to convert mobi"); 
+					debug($returnstring);
+					die;
+				}
+				chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
+				rename "$OutputFolder/mobi7/book.html", "$OutputFolder/mobi7/$DictionaryName.html";
+				doneWaiting();
+			}
+			debug("Dictionary name is '$DictionaryName'.");
+			$LocalPath = "$LocalPath/$DictionaryName/mobi7";
+			$FullPath = "$FullPath/$DictionaryName/mobi7";
+			$FileName = "$LocalPath/$DictionaryName.html";
+			debug("Local path for generated html is \'$LocalPath\'.");
+			debug("Full path for generated html is \'$FullPath\.");
+			debug("Filename for generated html is \'$FileName\'.");
+		}
+		# Output of KindleUnpack.pyw
 		my $encoding = "UTF-8";
 		my @html = file2Array($FileName);
-		my $FileNameWithoutExtention = $+{filename};
 		# <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
-		if( $html[0] =~ m~content="text/html; charset=windows-1252"~ ){
+		if( $html[0] =~ m~content="text/html; charset=windows-1252"~is ){
 			# Reopen with encoding cp-1252
 			debugV("Found encoding Windows-1252, a.k.a. cp1252");
 			$encoding = "cp1252";
 			my @html = file2Array($FileName,$encoding,"quiet");
-
+		}
+		elsif( $html[0] =~ m~content="text/html; charset=utf-8"~is ){
+			debugV("Found encoding utf-8");
+			$encoding = "utf-8";
+			my @html = file2Array($FileName,$encoding,"quiet");	
 		}
 		@xdxf = convertHTML2XDXF($encoding,@html);
 		# Check whether there is a saved reconstructed xdxf to get the language and name from.
-		if(-e $FileNameWithoutExtention."_reconstructed.xdxf"){
-			my @saved_xdxf = file2Array($FileNameWithoutExtention."_reconstructed.xdxf");
+		if(-e  "$LocalPath/$DictionaryName"."_reconstructed.xdxf"){
+			my @saved_xdxf = file2Array("$LocalPath/$DictionaryName"."_reconstructed.xdxf");
 			@xdxf[0..2] = @saved_xdxf[0..2];
 		}
 		else{debug('No prior dictionary reconstructed.');}
-		$FileName=$FileNameWithoutExtention.".xdxf";
+		$FileName="$LocalPath/$DictionaryName".".xdxf";
 		# Write it to disk so it hasn't have to be done again.
 		array2File($FileName, @xdxf);
 		# debug(@xdxf); # Check generated @xdxf
-		
-		
+
+
+	
 	}
-	else{debug("Not a known extension for the given filename. Quitting!");die;}
-	return ($FileName, @xdxf);}
+	else{debug("Not an extension that the script can handle for the given filename. Quitting!");die;}
+	return( @xdxf );}
 sub makeKoreaderReady{
 	my $html = join('',@_);
 	waitForIt("Making the dictionary Koreader ready.");
@@ -992,6 +1076,9 @@ sub makeKoreaderReady{
 		array2File($FileNameLUA,@lua);
 	}
 	doneWaiting();
+	# Remove oft-file from old dictionary
+	unlink join('', $FileName=~m~^(.+?)\.[^.]+$~)."_reconstructed.idx.oft";
+
 	return(split(/$/, $html));}
 sub printGreen   { print color('green') if $OperatingSystem eq "linux";   print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printBlue    { print color('blue') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
@@ -1020,9 +1107,9 @@ sub reconstructXDXF{
 				print(" lang_from is \"$1\". Would you like to change it? (press enter to keep default \[$lang_from\] ");
 				my $one = <STDIN>; chomp $one; if( $one ne ""){ $lang_from = $one ; }
 				print(" lang_to is \"$2\". Would you like to change it? (press enter to keep default \[$lang_to\] ");
-				my $one = <STDIN>; chomp $one; if( $one ne ""){ $lang_to = $one ; }
+				my $two = <STDIN>; chomp $two; if( $two ne ""){ $lang_to = $two ; }
 				print(" format is \"$3\". Would you like to change it? (press enter to keep default \[$format\] ");
-				my $one = <STDIN>; chomp $one; if( $one ne ""){ $format = $one ; }
+				my $three = <STDIN>; chomp $three; if( $three ne ""){ $format = $three ; }
 				$xdxf= 'lang_from="'.$lang_from.'" lang_to="'.$lang_to.'" format="'.$format.'"';
 			}
 			$entry = "<xdxf ".$xdxf.">\n";
@@ -1090,7 +1177,7 @@ sub waitForIt{ printCyan("@_"," This will take some time. ", getLoggingTime(),"\
 
 # Fill array from file.
 my @xdxf;
-($FileName, @xdxf) = loadXDXF( $FileName, $OperatingSystem );
+@xdxf = loadXDXF();
 array2File("testLoadedDVDX.xml", @xdxf) if $isTestingOn;
 # filterXDXFforEntitites
 @xdxf = filterXDXFforEntitites(@xdxf);
@@ -1120,7 +1207,7 @@ if( $isCreateStardictDictionary ){
 	array2File($dict_xml, @StardictXMLreconstructed);
 
 	# Convert reconstructed XML-file to binary
-	if ( $OperatingSystem == "linux"){
+	if ( $OperatingSystem eq "linux"){
 		my $dict_bin = $dict_xml;
 		$dict_bin =~ s~\.xml~\.ifo~;
 		my $command = "stardict-text2bin \"$dict_xml\" \"$dict_bin\" ";
