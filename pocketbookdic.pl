@@ -37,7 +37,7 @@ my $CVSDeliminator = ",";
 my $isdebug = 1; # Turns off all debug messages
 my $isdebugVerbose = 0; # Turns off all verbose debug messages
 my $debug_entry = "früh"; # In convertHTML2XDXF only debug messages from this entry are shown.
-my $isTestingOn = 1; # Turns tests on
+my $isTestingOn = 0; # Turns tests on
 if ( $isTestingOn ){ use warnings; }
 my $no_test=1; # Testing singles out a single ar and generates a xdxf-file containing only that ar.
 my $ar_chosen = 410; # Ar singled out when no_test = 0;
