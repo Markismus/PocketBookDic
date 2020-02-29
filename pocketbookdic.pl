@@ -9,18 +9,26 @@ use open ':std', ':utf8';
 use feature 'unicode_strings'; # You get funky results with the sub convertNumberedSequencesToChar without this.
 use feature 'say';
 
+###########################################
+### Beginning of manual control input   ###
+###########################################
 
 # $BaseDir is the directory where converter.exe and the language folders reside. 
 # Typically the language folders are named by two letters, e.g. english is named 'en'.
 # In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
 my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109";
 
-
 # $KindleUnpackLibFolder is the folder in which kindleunpack.py resides.
 # You can download KindleUnpack using http with: git clone https://github.com/kevinhendricks/KindleUnpack
 # or using ssh with: git clone git@github.com:kevinhendricks/KindleUnpack.git
 # Use absolute path beginning with either '/' (root) or '~'(home) on Linux. On Windows use whatever works.
 my $KindleUnpackLibFolder="/home/mark/git/KindleUnpack/lib";
+
+# Last filename will be used.
+# Give the filename relative to the base directory defined in $BaseDir.
+# However, when an argument is given, it will supercede the last filename
+my $FileName;
+$FileName = "dict/öüá.mobi";
 
 my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
 
@@ -31,7 +39,6 @@ my $reformat_xdxf = 1 ; # Value 1 demands user input for xdxf tag.
 
 # Deliminator for CSV files, usually ",",";" or "\t"(tab).
 my $CVSDeliminator = ",";
-
 
 # Controls for debugging.
 my $isdebug = 1; # Turns off all debug messages
@@ -70,24 +77,13 @@ my $isHandleMobiDictionary = 1;
 # Controls for recoding or deleting images and sounds. 
 my $isRemoveWaveReferences = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
 my $isCodeImageBase64 = 1; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
-# Disable this if you want to make a pocketbook dictionary for now. (For $isCreatePocketBookDictionary = 1.)
-if ($isCreatePocketbookDictionary){$isCodeImageBase64 = 0;}
+	
 my $isConvertGIF2PNG = 1; # Creates a dependency on Imagemagick "convert".
-if( $isCodeImageBase64 ){
-	use MIME::Base64;	# To encode into Bas64
-	use Storable;		# To store/load the hash %ReplacementImageStrings.
-}
 
-
-# Determine operating system.
-my $OperatingSystem = "$^O";
-if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
-else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";}
-
-# Last filename will be used
-# Give the filename relative to the base directory defined in $BaseDir
-my $FileName;
-$FileName = "dict/öüá.mobi";
+#########################################################
+###  End of manual control input                     ####
+###  (Excluding doctype html entities. See below. )  ####
+#########################################################
 
 # However, when an argument is given, it will supercede the last filename
 # Command line argument handling
@@ -117,6 +113,24 @@ if ( defined($ARGV[1]) and ($ARGV[1] =~ m~^(\\t)$~ or $ARGV[1] =~ m~^(.)$~ )){
 if( defined($ARGV[2]) and ($ARGV[2] =~ m~^(.t)$~ or $ARGV[2] =~ m~^(.)$~) ){
 	printYellow("Found a command line argument consisting of one character.\n Assuming \"$1\" is the CVS deliminator.\n");
 	$CVSDeliminator = $ARGV[2];
+}
+
+# Determine operating system.
+my $OperatingSystem = "$^O";
+if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
+else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";}
+
+# Checks for inline base64 coding.
+# Image inline coding won't work for pocketbook dictionary.
+if ($isCreatePocketbookDictionary and $isCodeImageBase64){ 
+	debug("Images won't be encoded in reconstructed dictionary, if Pocketbook dictionary creation is enabled.");
+	debug("The definition would become too long and crash 'converter.exe'.");
+	debug("Set \"\$isCreatePocketbookDictionary = 0;\" if you want imaged encoded inline for Stardict- and XDXF-format.");
+}
+# Load pragmas for image coding.
+if( $isCodeImageBase64 ){
+	use MIME::Base64;	# To encode into Bas64
+	use Storable;		# To store/load the hash %ReplacementImageStrings.
 }
 
 # Path checking and cleaning
@@ -257,7 +271,8 @@ sub cleanseAr{
 			$def =~ s~</blockquote><blockquote>~</blockquote>\n<blockquote>~gs;
 			# Splits blockquote from next heading </blockquote><b><c c=
 			$def =~ s~</blockquote><b><c c=~</blockquote>\n<b><c c=~gs;
-
+			# Remove base64 encoded content: $replacement = '<img src="data:image/'.$imageformat.';base64,'.$encoded.'" alt="'.$imageName.'"/>';
+			$def =~ s~<img src="data:[^/]+/[^;]+;base64[^>]+>~~g;
 
 			# Splits the too long lines.
 			my @def = split(/\n/,$def);
@@ -273,15 +288,16 @@ sub cleanseAr{
 				 		# Saw this with definition without tags a lot a greek characters. Word count <3500, bytes>7500.
 				 		# New cut location is from half the line.
 				 		$cut_location = index $line, "<", int(length($line)/2);
-				 		# But sometimes there are no tags
 				 		if($cut_location == -1 or $cut_location > $max_line_length){
-				 			$cut_location = index $line, ".", int($max_line_length * 0.85);
+				 			$cut_location = index $line, "<", int(length($line)/3);
+				 			# But sometimes there are no tags
 				 			if($cut_location == -1 or $cut_location > $max_line_length){
-				 				$cut_location = index $line, ".", int(length($line)/2);
+				 				$cut_location = index $line, ".", int($max_line_length * 0.85);
+				 				if($cut_location == -1 or $cut_location > $max_line_length){
+				 					$cut_location = index $line, ".", int(length($line)/2);
+				 				}
 				 			}
 				 		}
-
-
 				 	}
 			 		debugV("Definition line $def_line_counter is ",length($line)," characters and ",length(encode('UTF-8', $line))," bytes. Cut location is $cut_location.");
 			 		my $cutline_begin = substr($line, 0, $cut_location);
