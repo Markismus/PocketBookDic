@@ -1,4 +1,4 @@
-#! /bin/perl
+#!/bin/perl
 use strict;
 # use autodie; # Does not get along with pragma 'open'.
 use Term::ANSIColor;    #Color display on terminal
@@ -41,12 +41,12 @@ my $reformat_xdxf = 1 ; # Value 1 demands user input for xdxf tag.
 my $CVSDeliminator = ",";
 
 # Controls for debugging.
-my $isdebug = 1; # Turns off all debug messages
-my $isdebugVerbose = 0; # Turns off all verbose debug messages
-my $debug_entry = "früh"; # In convertHTML2XDXF only debug messages from this entry are shown. 
-my $isTestingOn = 1; # Turns tests on
+my $isdebug = 1; # Toggles all debug messages
+my $isdebugVerbose = 1; # Toggles all verbose debug messages
+my $debug_entry = "Gewirr"; # In convertHTML2XDXF only debug messages from this entry are shown. 
+my $isTestingOn = 0; # Turns tests on
 if ( $isTestingOn ){ use warnings; }
-my $no_test=1; # Testing singles out a single ar and generates a xdxf-file containing only that ar.
+my $no_test = 0; # Testing singles out a single ar and generates a xdxf-file containing only that ar.
 my $ar_chosen = 410; # Ar singled out when no_test = 0;
 my ($cycle_dotprinter, $cycles_per_dot) = (0 , 300); # A green dot is printed achter $cycles_per_dot ar's have been processed.
 my $i_limit = 27000000000000000000; # Hard limit to the number of lines that are processed.
@@ -76,10 +76,47 @@ my $isHandleMobiDictionary = 1;
 
 # Controls for recoding or deleting images and sounds. 
 my $isRemoveWaveReferences = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
-my $isCodeImageBase64 = 1; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
+my $isCodeImageBase64 = 0; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
 	
-my $isConvertGIF2PNG = 1; # Creates a dependency on Imagemagick "convert".
+my $isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
 
+# Shortcuts to Collection of settings.
+my $Just4Koreader = 0;
+my $Just4PocketBook = 0;
+
+if( $Just4Koreader){
+	$isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
+	$SameTypeSequence = "h"; # Either "h" or "m" or "x".
+	$updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
+	$isConvertColorNamestoHexCodePoints = 1; # Converting takes time.
+	$isMakeKoreaderReady = 1; # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
+	$isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format
+	$remove_color_tags = 0; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably. Relevant for pocketbook dictionary.
+	$max_article_length = 640000;
+	$max_line_length = 8000;
+	$isRemoveWaveReferences = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
+	$isCodeImageBase64 = 1; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
+	$isConvertGIF2PNG = 1; # Creates a dependency on Imagemagick "convert".
+	$isHandleMobiDictionary = 1; 
+}
+if( $Just4PocketBook ){
+	$isCreateStardictDictionary = 0; # Turns on Stardict text and binary dictionary creation.
+	$SameTypeSequence = "h"; # Either "h" or "m" or "x".
+	$updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
+	$isConvertColorNamestoHexCodePoints = 0; # Converting takes time and space
+	$isMakeKoreaderReady = 0; # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
+
+	# Controls for Pocketbook conversion
+	$isCreatePocketbookDictionary = 1; # Controls conversion to Pocketbook Dictionary dic-format
+	$remove_color_tags = 1; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably. Relevant for pocketbook dictionary.
+	$max_article_length = 64000;
+	$max_line_length = 4000;
+	$isHandleMobiDictionary = 1; 
+	# Controls for recoding or deleting images and sounds. 
+	$isRemoveWaveReferences = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
+	$isCodeImageBase64 = 0; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
+	$isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
+}
 #########################################################
 ###  End of manual control input                     ####
 ###  (Excluding doctype html entities. See below. )  ####
@@ -251,20 +288,20 @@ sub checkSameTypeSequence{
 sub cleanseAr{
 	my @Content = @_;
 	my $Content = join('',@Content) ;
+	# Special characters in $head and $def should be converted to
+	#  &lt; (<), &amp; (&), &gt; (>), &quot; ("), and &apos; (')
+	my $PossibleTags = qr~/?(|def|mbp|c>|c c="|abr>|ex>|kref>|k>|key|rref|f>|!--|!doctype|a|abbr|acronym|address|applet|area|article|aside|audio|b>|base|basefont|bb|bdo|big|blockquote|body|br/|button|canvas|caption|center|cite|code|col|colgroup|command|datagrid|datalist|dd|del|details|dfn|dialog|dir|div|dl|dt|em|embed|eventsource|fieldset|figcaption|figure|font|footer|form|frame|frameset|h[1-6]|head|header|hgroup|hr/|html|i>|iframe|img|input|ins|isindex|kbd|keygen|label|legend|li|link|map|mark|menu|meta|meter|nav|noframes|noscript|object|ol|optgroup|option|output|p|param|pre|progress|q>|rp|rt|ruby|s>|samp|script|section|select|small|source|span|strike|strong|style|sub|sup|table|tbody|td|textarea|tfoot|th|thead|time|title|tr|track|tt|u>|ul|var|video|wbr)~;
+	my $HTMLcodes = qr~(lt;|amp;|gt;|quot;|apos;|\#x?[0-9A-Fa-f]{1,6})~;
+		
+	$Content =~ s~(?<lt><)(?!$PossibleTags)~&lt;~gs;
+	$Content =~ s~(?<amp>&)(?!$HTMLcodes)~&amp;~gs;
+
 	if( $Content =~ m~^<head>(?<head>(?:(?!</head).)+)</head><def>(?<def>(?:(?!</def).)+)</def>~s){
 		# debugFindings();
 		# debug("Well formed ar content entry");
 		my $head = $+{head};
 		my $def_old = $+{def};
 		my $def = $def_old;
-
-		# Special characters in $head and $def should be converted to
-		#  &lt; (<), &amp; (&), &gt; (>), &quot; ("), and &apos; (')
-		$head =~ s~(?<lt><)(?!/?(key>|k>))~&lt;~gs;
-		$head =~ s~(?<amp>&)(?!(lt;|amp;|gt;|quot;|apos;))~&amp;~gs;
-		$def =~ s~(?<lt><)(?!/?(c>|c c="|block|quote|b>|i>|abr>|ex>|kref>|sup>|sub>|dtrn>|k>|key>|rref|f>|span>|small>|u>|img))~&lt;~gs;
-		$def =~ s~(?<amp>&)(?!(lt;|amp;|gt;|quot;|apos;|\#x?[0-9A-Fa-f]{1,6}))~&amp;~gs;
-		# $def =~ s~(?<amp>&)(?!([^;]{1,6};))~&amp;~gs; # This excludes the removal of & before &#01234;
 
 		if( $isCreatePocketbookDictionary){
 			# Splits complex blockquote blocks from each other. Small impact on layout.
@@ -292,9 +329,16 @@ sub cleanseAr{
 				 			$cut_location = index $line, "<", int(length($line)/3);
 				 			# But sometimes there are no tags
 				 			if($cut_location == -1 or $cut_location > $max_line_length){
-				 				$cut_location = index $line, ".", int($max_line_length * 0.85);
+				 				$cut_location = index $line, ". ", int($max_line_length * 0.85);
 				 				if($cut_location == -1 or $cut_location > $max_line_length){
-				 					$cut_location = index $line, ".", int(length($line)/2);
+				 					$cut_location = index $line, ". ", int(length($line)/2);
+				 					if($cut_location == -1 or $cut_location > $max_line_length){
+				 						$cut_location = index $line, ", ", int($max_line_length * 0.85);
+				 						if($cut_location == -1 or $cut_location > $max_line_length){
+				 						$cut_location = index $line, ", ", int(length($line)/2);
+				 					
+						 				}
+						 			}		
 				 				}
 				 			}
 				 		}
@@ -380,162 +424,14 @@ sub cleanseAr{
 		# <rref>
 		#z_epee_1_gb_2.wav</rref>
 		#<rref>z_a__gb_2.wav</rref> 
-		$Content =~ s~<rref>((?!\.wav</rref>).)+\.wav</rref>~~gs;
+		# <c c="blue"><b>ac</b>‧<b>quaint</b></c> /əˈkweɪnt/ <abr>BrE</abr> <rref>bre_ld41acquaint.wav</rref> <abr>AmE</abr> <rref>ame_acquaint.wav</rref><i><c> verb</c></i><c c="green"> [transitive]</c><i><c c="maroon"> formal</c></i>
+		$Content =~ s~(<abr>(AmE|BrE)</abr>)? *<rref>((?!\.wav</rref>).)+\.wav</rref>~~gs;
 	}
 
 	return( $Content );}
 sub convertColorName2HexValue{
 	my $html = join( '', @_);
-	my %ColorCoding = qw( 
-		aliceblue #F0F8FF
-		antiquewhite #FAEBD7
-		aqua #00FFFF
-		aquamarine #7FFFD4
-		azure #F0FFFF
-		beige #F5F5DC
-		bisque #FFE4C4
-		black #0
-		blanchedalmond #FFEBCD
-		blue #0000FF
-		blueviolet #8A2BE2
-		brown #A52A2A
-		burlywood #DEB887
-		cadetblue #5F9EA0
-		chartreuse #7FFF00
-		chocolate #D2691E
-		coral #FF7F50
-		cornflowerblue #6495ED
-		cornsilk #FFF8DC
-		crimson #DC143C
-		cyan #00FFFF
-		darkblue #00008B
-		darkcyan #008B8B
-		darkgoldenrod #B8860B
-		darkgray #A9A9A9
-		darkgrey #A9A9A9
-		darkgreen #6400
-		darkkhaki #BDB76B
-		darkmagenta #8B008B
-		darkolivegreen #556B2F
-		darkorange #FF8C00
-		darkorchid #9932CC
-		darkred #8B0000
-		darksalmon #E9967A
-		darkseagreen #8FBC8F
-		darkslateblue #483D8B
-		darkslategray #2F4F4F
-		darkslategrey #2F4F4F
-		darkturquoise #00CED1
-		darkviolet #9400D3
-		deeppink #FF1493
-		deepskyblue #00BFFF
-		dimgray #696969
-		dimgrey #696969
-		dodgerblue #1E90FF
-		firebrick #B22222
-		floralwhite #FFFAF0
-		forestgreen #228B22
-		fuchsia #FF00FF
-		gainsboro #DCDCDC
-		ghostwhite #F8F8FF
-		gold #FFD700
-		goldenrod #DAA520
-		gray #808080
-		grey #808080
-		green #8000
-		greenyellow #ADFF2F
-		honeydew #F0FFF0
-		hotpink #FF69B4
-		indianred  #CD5C5C
-		indigo  #4B0082
-		ivory #FFFFF0
-		khaki #F0E68C
-		lavender #E6E6FA
-		lavenderblush #FFF0F5
-		lawngreen #7CFC00
-		lemonchiffon #FFFACD
-		lightblue #ADD8E6
-		lightcoral #F08080
-		lightcyan #E0FFFF
-		lightgoldenrodyellow #FAFAD2
-		lightgray #D3D3D3
-		lightgrey #D3D3D3
-		lightgreen #90EE90
-		lightpink #FFB6C1
-		lightsalmon #FFA07A
-		lightseagreen #20B2AA
-		lightskyblue #87CEFA
-		lightslategray #778899
-		lightslategrey #778899
-		lightsteelblue #B0C4DE
-		lightyellow #FFFFE0
-		lime #00FF00
-		limegreen #32CD32
-		linen #FAF0E6
-		magenta #FF00FF
-		maroon #800000
-		mediumaquamarine #66CDAA
-		mediumblue #0000CD
-		mediumorchid #BA55D3
-		mediumpurple #9370DB
-		mediumseagreen #3CB371
-		mediumslateblue #7B68EE
-		mediumspringgreen #00FA9A
-		mediumturquoise #48D1CC
-		mediumvioletred #C71585
-		midnightblue #191970
-		mintcream #F5FFFA
-		mistyrose #FFE4E1
-		moccasin #FFE4B5
-		navajowhite #FFDEAD
-		navy #80
-		oldlace #FDF5E6
-		olive #808000
-		olivedrab #6B8E23
-		orange #FFA500
-		orangered #FF4500
-		orchid #DA70D6
-		palegoldenrod #EEE8AA
-		palegreen #98FB98
-		paleturquoise #AFEEEE
-		palevioletred #DB7093
-		papayawhip #FFEFD5
-		peachpuff #FFDAB9
-		peru #CD853F
-		pink #FFC0CB
-		plum #DDA0DD
-		powderblue #B0E0E6
-		purple #800080
-		rebeccapurple #663399
-		red #FF0000
-		rosybrown #BC8F8F
-		royalblue #41690
-		saddlebrown #8B4513
-		salmon #FA8072
-		sandybrown #F4A460
-		seagreen #2E8B57
-		seashell #FFF5EE
-		sienna #A0522D
-		silver #C0C0C0
-		skyblue #87CEEB
-		slateblue #6A5ACD
-		slategray #708090
-		slategrey #708090
-		snow #FFFAFA
-		springgreen #00FF7F
-		steelblue #4682B4
-		tan #D2B48C
-		teal #8080
-		thistle #D8BFD8
-		tomato #FF6347
-		turquoise #40E0D0
-		violet #EE82EE
-		wheat #F5DEB3
-		white #FFFFFF
-		whitesmoke #F5F5F5
-		yellow #FFFF00
-		yellowgreen #9ACD32
-		);
+	my %ColorCoding = qw( aliceblue #F0F8FF  antiquewhite #FAEBD7  aqua #00FFFF  aquamarine #7FFFD4  azure #F0FFFF  beige #F5F5DC  bisque #FFE4C4  black #0  blanchedalmond #FFEBCD  blue #0000FF  blueviolet #8A2BE2  brown #A52A2A  burlywood #DEB887  cadetblue #5F9EA0  chartreuse #7FFF00  chocolate #D2691E  coral #FF7F50  cornflowerblue #6495ED  cornsilk #FFF8DC  crimson #DC143C  cyan #00FFFF  darkblue #00008B  darkcyan #008B8B  darkgoldenrod #B8860B  darkgray #A9A9A9  darkgrey #A9A9A9  darkgreen #6400  darkkhaki #BDB76B  darkmagenta #8B008B  darkolivegreen #556B2F  darkorange #FF8C00  darkorchid #9932CC  darkred #8B0000  darksalmon #E9967A  darkseagreen #8FBC8F  darkslateblue #483D8B  darkslategray #2F4F4F  darkslategrey #2F4F4F  darkturquoise #00CED1  darkviolet #9400D3  deeppink #FF1493  deepskyblue #00BFFF  dimgray #696969  dimgrey #696969  dodgerblue #1E90FF  firebrick #B22222  floralwhite #FFFAF0  forestgreen #228B22  fuchsia #FF00FF  gainsboro #DCDCDC  ghostwhite #F8F8FF  gold #FFD700  goldenrod #DAA520  gray #808080  grey #808080  green #8000  greenyellow #ADFF2F  honeydew #F0FFF0  hotpink #FF69B4  indianred  #CD5C5C  indigo  #4B0082  ivory #FFFFF0  khaki #F0E68C  lavender #E6E6FA  lavenderblush #FFF0F5  lawngreen #7CFC00  lemonchiffon #FFFACD  lightblue #ADD8E6  lightcoral #F08080  lightcyan #E0FFFF  lightgoldenrodyellow #FAFAD2  lightgray #D3D3D3  lightgrey #D3D3D3  lightgreen #90EE90  lightpink #FFB6C1  lightsalmon #FFA07A  lightseagreen #20B2AA  lightskyblue #87CEFA  lightslategray #778899  lightslategrey #778899  lightsteelblue #B0C4DE  lightyellow #FFFFE0  lime #00FF00  limegreen #32CD32  linen #FAF0E6  magenta #FF00FF  maroon #800000  mediumaquamarine #66CDAA  mediumblue #0000CD  mediumorchid #BA55D3  mediumpurple #9370DB  mediumseagreen #3CB371  mediumslateblue #7B68EE  mediumspringgreen #00FA9A  mediumturquoise #48D1CC  mediumvioletred #C71585  midnightblue #191970  mintcream #F5FFFA  mistyrose #FFE4E1  moccasin #FFE4B5  navajowhite #FFDEAD  navy #80  oldlace #FDF5E6  olive #808000  olivedrab #6B8E23  orange #FFA500  orangered #FF4500  orchid #DA70D6  palegoldenrod #EEE8AA  palegreen #98FB98  paleturquoise #AFEEEE  palevioletred #DB7093  papayawhip #FFEFD5  peachpuff #FFDAB9  peru #CD853F  pink #FFC0CB  plum #DDA0DD  powderblue #B0E0E6  purple #800080  rebeccapurple #663399  red #FF0000  rosybrown #BC8F8F  royalblue #41690  saddlebrown #8B4513  salmon #FA8072  sandybrown #F4A460  seagreen #2E8B57  seashell #FFF5EE  sienna #A0522D  silver #C0C0C0  skyblue #87CEEB  slateblue #6A5ACD  slategray #708090  slategrey #708090  snow #FFFAFA  springgreen #00FF7F  steelblue #4682B4  tan #D2B48C  teal #8080  thistle #D8BFD8  tomato #FF6347  turquoise #40E0D0  violet #EE82EE  wheat #F5DEB3  white #FFFFFF  whitesmoke #F5F5F5  yellow #FFFF00  yellowgreen #9ACD32 );
 	waitForIt("Converting all color names to hex values.");
 	# This loop takes 1m26s for a dictionary with 132k entries and no color tags.
 	# foreach my $Color(keys %ColorCoding){
@@ -808,17 +704,17 @@ sub convertHTML2XDXF{
 		}
 		
 		# Remove leftover empty lines.
-		s~\s\s~ ~sg;
+		s~  ~ ~sg;
 		s~\t\t~\t~sg;
 		s~\n\n~\n~sg;
 		# Remove trailing and leading spaces and line endings
-		s~^[\n\s]+~~sg;
-		s~[\n\s]+$~~sg;
+		s~^\s+~~sg;
+		s~\s+$~~sg;
 
 		# Assign remaining entry to $def.
 		my $def = "<blockquote>".$_."</blockquote>";
-		debugV("key found: $key") if $number<10;
-		debugV("def found: $def") if $number<10;
+		debugV("key found: $key") if $number<5;
+		debugV("def found: $def") if $number<5;
 		# Remove whitespaces at the beginning of the definition and EOL at the end.
 		$def =~ s~^\s+~~;
 		$def =~ s~\n$~~;
@@ -1085,13 +981,16 @@ sub loadXDXF{
 		$FileName=$+{filename}.".xdxf";
 	}
 	elsif(	$FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ or
+			$FileName =~ m~^(?<filename>((?!\.azw3).)+)\.azw3$~ or
 			$FileName =~ m~^(?<filename>((?!\.html).)+)\.html$~	){
 		# Use full path and filename
 		my $InputFile = "$BaseDir/$FileName";
 		my $OutputFolder = substr($InputFile, 0, length($InputFile)-5);
-		my $DictionaryName = join('',$OutputFolder =~ m~([^/]+)$~);
+		unless( $OutputFolder =~ m~([^/]+)$~ ){ warn "Couldn't match dictionary name for '$OutputFolder'" ; Die(); }
+		my $DictionaryName = $1;
 		
-		if( $FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ 	){
+		if( $FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ or
+			$FileName =~ m~^(?<filename>((?!\.azw3).)+)\.azw3$~ 	){
 			# Checklist
 			if ($OperatingSystem eq "linux"){ debugV("Converting mobi to html on Linux is possible.") }
 			else{ debug("Not Linux, so the script can't convert mobi-format. Quitting!"); die; }
@@ -1344,6 +1243,11 @@ if( $isCreateStardictDictionary ){
 	my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_reconstructed);
 	my $dict_xml = $FileName;
 	if( $dict_xml !~ s~\.xdxf~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); die if $isRealDead; }
+	# Remove spaces in filename
+	# my @dict_xml = split('/',$dict_xml);
+	$dict_xml =~ s~(?<!\\) ~\ ~g;
+	# $dict_xml = join('/', @dict_xml);
+
 	array2File($dict_xml, @StardictXMLreconstructed);
 
 	# Convert reconstructed XML-file to binary
@@ -1351,8 +1255,29 @@ if( $isCreateStardictDictionary ){
 		my $dict_bin = $dict_xml;
 		$dict_bin =~ s~\.xml~\.ifo~;
 		my $command = "stardict-text2bin \"$dict_xml\" \"$dict_bin\" ";
-		printYellow("Running system command:\"$command\"\n");
+		printYellow("Running system command:\n$command\n");
 		system($command);
+		# Workaround for dictzip
+		if( $dict_bin =~ m~ ~ ){
+			debugV("Spaces found, so dictzip will have failed. Running it again while masking the spaces.");
+			if( $dict_bin !~ m~(?<filename>[^/]+)$~ ){ debug("Regex not working for dictzip workaround."); die if $isRealDead; }
+			my $SpacedFileName = $+{filename};
+			
+			my $Path = $dict_bin;
+			if( $Path =~ s~\Q$SpacedFileName\E~~ ){ debug("Changing to path $Path"); }
+			chdir $Path;		
+			
+			$SpacedFileName =~ s~ifo$~dict~;
+			my $MaskedFileName = $SpacedFileName;
+			$MaskedFileName =~ s~ ~__~g;
+			
+			rename "$SpacedFileName", "$MaskedFileName";
+			my $command = "dictzip $MaskedFileName";
+			printYellow("Running system command:\n$command\n");
+			system($command);
+			rename "$MaskedFileName.dz", "$SpacedFileName.dz";
+		}
+		else{ debug("No spaces in filename."); debug("\$dict_bin is \'$dict_bin\'"); }
 	}
 	else{ 
 		debug("Not linux, so you the script created an xml Stardict dictionary.");
@@ -1371,5 +1296,5 @@ if( $isCreatePocketbookDictionary ){
 	printYellow("Running system command:\"$ConvertCommand\"\n");
 	system($ConvertCommand);
 }
-
-unlink join('', $FileName=~m~^(.+?)\.[^.]+$~).".xdxf" if $isTestingOn;
+my $Renamed = join('', $FileName=~m~^(.+?)\.[^.]+$~);
+rename $Renamed.".xdxf", $Renamed.".backup.xdxf" if $isTestingOn;
