@@ -16,7 +16,7 @@ use feature 'say';
 # $BaseDir is the directory where converter.exe and the language folders reside. 
 # Typically the language folders are named by two letters, e.g. english is named 'en'.
 # In each folder should be a collates.txt, keyboard.txt and morphems.txt file.
-my $BaseDir="/home/mark/Downloads/DictionaryConverter-neu 171109";
+my $BaseDir="/home/mark/Downloads/PocketbookDic";
 
 # $KindleUnpackLibFolder is the folder in which kindleunpack.py resides.
 # You can download KindleUnpack using http with: git clone https://github.com/kevinhendricks/KindleUnpack
@@ -28,7 +28,8 @@ my $KindleUnpackLibFolder="/home/mark/git/KindleUnpack/lib";
 # Give the filename relative to the base directory defined in $BaseDir.
 # However, when an argument is given, it will supercede the last filename
 my $FileName;
-$FileName = "dict/öüá.mobi";
+$FileName = "dict/stardict-Webster_s_Unabridged_3-2.4.2/Webster_s_Unabridged_3.ifo";
+$FileName = "dict/Babylon_English_Greek/Babylon_English_Greek.ifo";
 
 my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
 
@@ -82,7 +83,7 @@ my $isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
 
 # Shortcuts to Collection of settings.
 my $Just4Koreader = 0;
-my $Just4PocketBook = 0;
+my $Just4PocketBook = 1;
 
 if( $Just4Koreader){
 	$isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
@@ -1258,9 +1259,9 @@ if( $isCreateStardictDictionary ){
 		printYellow("Running system command:\n$command\n");
 		system($command);
 		# Workaround for dictzip
-		if( $dict_bin =~ m~ ~ ){
-			debugV("Spaces found, so dictzip will have failed. Running it again while masking the spaces.");
-			if( $dict_bin !~ m~(?<filename>[^/]+)$~ ){ debug("Regex not working for dictzip workaround."); die if $isRealDead; }
+		if( $dict_bin =~ m~ |\(|\)~ ){
+			debugV("Spaces or braces found, so dictzip will have failed. Running it again while masking the spaces.");
+			if( $dict_bin !~ m~(?<filename>[^/]+)$~){ debug("Regex not working for dictzip workaround."); die if $isRealDead; }
 			my $SpacedFileName = $+{filename};
 			
 			my $Path = $dict_bin;
@@ -1270,6 +1271,8 @@ if( $isCreateStardictDictionary ){
 			$SpacedFileName =~ s~ifo$~dict~;
 			my $MaskedFileName = $SpacedFileName;
 			$MaskedFileName =~ s~ ~__~g;
+			$MaskedFileName =~ s~\(~___~g;
+			$MaskedFileName =~ s~\)~____~g;
 			
 			rename "$SpacedFileName", "$MaskedFileName";
 			my $command = "dictzip $MaskedFileName";
