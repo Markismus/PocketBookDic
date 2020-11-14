@@ -14,6 +14,7 @@ _Dependencies:_
     - If you run Windows you should _manually_ generate the xml- or csv-file. E.g. You can use stardict-editor (included with the windows Stardict installation) and decompile a dictionary to Textual Stardict dictionary. This generates a xml-file that you can use as filename at the start of the script.
 - stardict-text2bin - The script has been expanded to generate Stardict binary files. 
 - KindleUnpack - If you want to convert mobi-dictionaries, you'll first have to convert it to html-format using KindleUnpack (https://github.com/kevinhendricks/KindleUnpack).
+- dictzip for zipping the stardict dict-file generated with startdict-text2bin.
 - I've probably forgotten something. If you run into it, please open an issue.
 
 _Preparation:_
