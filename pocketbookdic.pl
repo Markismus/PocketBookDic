@@ -31,8 +31,9 @@ my $FileName;
 $FileName = "dict/stardict-Webster_s_Unabridged_3-2.4.2/Webster_s_Unabridged_3.ifo";
 $FileName = "dict/Babylon_English_Greek/Babylon_English_Greek.ifo";
 $FileName = "dict/Papyros/ell-ell_papyros_ilhs.dsl.ifo";
-$FileName = "dict/Urban Dictionary/Urban Dictionary_unbloated.xdxf";
-
+$FileName = "dict/Oxford Advanced Learners 9th Ed (Stardict)/OALD9.ifo";
+$FileName = "dict/Oxford English Dictionary 2nd Ed/Oxford English Dictionary 2nd Ed.xdxf";
+	
 my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
 
 # Controls manual input: 0 disables.
@@ -86,8 +87,8 @@ my $isCodeImageBase64 = 0; # Some dictionaries contain images. Encoding them as 
 my $isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
 
 # Shortcuts to Collection of settings.
-my $Just4Koreader 	= 1;
-my $Just4PocketBook = 0;
+my $Just4Koreader 	= 0;
+my $Just4PocketBook = 1;
 
 if( $Just4Koreader){
 	$isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
