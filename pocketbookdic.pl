@@ -31,13 +31,13 @@ my $FileName;
 $FileName = "dict/stardict-Webster_s_Unabridged_3-2.4.2/Webster_s_Unabridged_3.ifo";
 $FileName = "dict/Babylon_English_Greek/Babylon_English_Greek.ifo";
 $FileName = "dict/Papyros/ell-ell_papyros_ilhs.dsl.ifo";
-
-my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
+	
+my $isRealDead = 1; # Some errors should kill the program. However, somtimes you just want to convert.
 
 # Controls manual input: 0 disables.
 my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
-my $reformat_full_name = 1 ; # Value 1 demands user input for full_name tag.
-my $reformat_xdxf = 1 ; # Value 1 demands user input for xdxf tag.
+my $reformat_full_name = 0 ; # Value 1 demands user input for full_name tag.
+my $reformat_xdxf = 0 ; # Value 1 demands user input for xdxf tag.
 
 # Deliminator for CSV files, usually ",",";" or "\t"(tab).
 my $CVSDeliminator = ",";
@@ -85,7 +85,7 @@ my $isCodeImageBase64 = 0; # Some dictionaries contain images. Encoding them as 
 my $isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
 
 # Shortcuts to Collection of settings.
-my $Just4Koreader 	= 1;
+my $Just4Koreader = 1;
 my $Just4PocketBook = 0;
 
 if( $Just4Koreader){
@@ -920,6 +920,9 @@ sub convertXDXFtoStardictXML{
 			my $PreviousStopArticle = pop @xml;
 			my $PreviousStopDefinition = pop @xml;
 			my $PreviousCDATA = pop @xml;
+			if ( '<![CDATA['.$CurrentDefinition.']]>'."\n" eq "$PreviousCDATA" ){ debug("Double entry found. Skipping!"); next;}
+			debug("\$CurrentKey: \"", $CurrentKey, "\"");
+			debug("\$CurrentDefinition:\"", $CurrentDefinition, "\"");
 			debug("\$PreviousStopArticle: \"", $PreviousStopArticle, "\"");
 			debug("\$PreviousStopDefinition: \"", $PreviousStopDefinition, "\"");
 			debug("\$PreviousCDATA: \"", $PreviousCDATA, "\"");
@@ -1251,6 +1254,16 @@ sub reconstructXDXF{
 	printMagenta("\nTotal number of articles processed \$ar = ",scalar @articles,".\n");
 	doneWaiting();
 	return( @xdxf_reconstructed );}
+sub removeBloat{
+	my $xdxf = join('',@_); 
+	debugV("Removing bloat from dictionary...");
+	while ( $xdxf =~ s~<blockquote>(?<content><blockquote>(?!<blockquote>).*?</blockquote>)</blockquote>~$+{content}~sg ){ debugV("Another round (removing double nested blockquotes)");}
+	while( $xdxf =~ s~<ex>\s*</ex>|<ex></ex>|<blockquote></blockquote>|<blockquote>\s*</blockquote>~~sg ){ debugV("And another (removing empty blockquotes and examples)"); }
+	while( $xdxf =~ s~\n\n~\n~sg ){ debugV("Finally then..(removing empty lines)");}
+	while( $xdxf =~ s~</blockquote>\s+<blockquote>~</blockquote><blockquote>~sg ){ debugV("...another one (removing EOLs between blockquotes)"); }
+	while( $xdxf =~ s~</blockquote>\s+</def>~</blockquote></def>~sg ){ debugV("...and another one (removing EOLs between blockquotes and definition stop tags)"); }
+	debugV("...done!");
+	return( split(/^/, $xdxf) );}
 sub removeInvalidChars{
 	my $xdxf = $_[0]; # Only a string or first entry of array is checked and returned.
 	waitForIt("Removing invalid characters.");
@@ -1273,11 +1286,29 @@ sub waitForIt{ printCyan("@_"," This will take some time. ", getLoggingTime(),"\
 # Fill array from file.
 my @xdxf;
 @xdxf = loadXDXF();
+my $SizeOne = scalar @xdxf;
+debugV("\$SizeOne\t=\t$SizeOne");
+# Remove bloat from xdxf.
+if( $FileName !~ m~_unbloated\.xdxf$~ ){
+	@xdxf = removeBloat(@xdxf);
+	if( $FileName =~ m~xdxf$~ ){ my $Unbloated = $FileName; $Unbloated =~ s~\.xdxf$~_unbloated.xdxf~; array2File($Unbloated, @xdxf); }
+}
+my $SizeTwo = scalar @xdxf;
+if( $SizeTwo > $SizeOne){ debug("\$SizeTwo ($SizeTwo) is larger than \$SizeOne ($SizeOne"); }
+else{ debugV("\$SizeTwo\t=\t$SizeTwo");}
 array2File("testLoadedDVDX.xml", @xdxf) if $isTestingOn;
 # filterXDXFforEntitites
 @xdxf = filterXDXFforEntitites(@xdxf);
+my $SizeThree = scalar @xdxf;
+if( $SizeThree > $SizeTwo){ debug("\$SizeThree ($SizeThree) is larger than \$SizeTwo ($SizeTwo"); }
+else{ debugV("\$SizeThree\t=\t$SizeThree");}
+
 array2File("testFilteredDVDX.xml", @xdxf) if $isTestingOn;
 my @xdxf_reconstructed = reconstructXDXF( @xdxf );
+my $SizeFour = scalar @xdxf;
+if( $SizeFour > $SizeThree){ debug("\$SizeFour ($SizeFour) is larger than \$SizeThree ($SizeThree"); }
+else{ debugV("\$SizeFour\t=\t$SizeFour");}
+
 array2File("test_Constructed.xml", @xdxf_reconstructed) if $isTestingOn;
 # If SameTypeSequence is not "h", remove &#xDDDD; sequences and replace them with characters.
 if ( $SameTypeSequence ne "h" ){
