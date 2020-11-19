@@ -31,8 +31,10 @@ my $FileName;
 $FileName = "dict/stardict-Webster_s_Unabridged_3-2.4.2/Webster_s_Unabridged_3.ifo";
 $FileName = "dict/Babylon_English_Greek/Babylon_English_Greek.ifo";
 $FileName = "dict/Papyros/ell-ell_papyros_ilhs.dsl.ifo";
-	
-my $isRealDead = 1; # Some errors should kill the program. However, somtimes you just want to convert.
+$FileName = "dict/Oxford Advanced Learners 9th Ed (Stardict)/OALD9.ifo";
+$FileName = "dict/Oxford English Dictionary 2nd Ed/Oxford English Dictionary 2nd Ed.xdxf";
+
+my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
 
 # Controls manual input: 0 disables.
 my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
@@ -85,7 +87,7 @@ my $isCodeImageBase64 = 0; # Some dictionaries contain images. Encoding them as 
 my $isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
 
 # Shortcuts to Collection of settings.
-my $Just4Koreader = 1;
+my $Just4Koreader   = 1;
 my $Just4PocketBook = 0;
 
 if( $Just4Koreader){
@@ -228,11 +230,11 @@ my @xml_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 					'<version>2.4.2</version>'."\n",
 					'<bookname></bookname>'."\n",
 					'<author>pocketbookdic.pl</author>'."\n",
-					'<email></email>'."\n",
-					'<website></website>'."\n",
+					'<email>rather_open_issue@github.com</email>'."\n",
+					'<website>https://github.com/Markismus/PocketBookDic</website>'."\n",
 					'<description></description>'."\n",
-					'<date></date>'."\n",
-					'<dicttype></dicttype>'."\n",
+					'<date>'.gmtime().'</date>'."\n",
+					# '<dicttype></dicttype>'."\n",
 					'</info>'."\n");
 my $lastline_xml = "</stardict>\n";
 
@@ -295,7 +297,7 @@ sub cleanseAr{
 	
 	# Special characters in $head and $def should be converted to
 	#  &lt; (<), &amp; (&), &gt; (>), &quot; ("), and &apos; (')
-	my $PossibleTags = qr~/?(def|mbp|c>|c c="|abr>|ex>|kref>|k>|key|rref|f>|!--|!doctype|a|abbr|acronym|address|applet|area|article|aside|audio|b>|base|basefont|bb|bdo|big|blockquote|body|br/|button|canvas|caption|center|cite|code|col|colgroup|command|datagrid|datalist|dd|del|details|dfn|dialog|dir|div|dl|dt|em|embed|eventsource|fieldset|figcaption|figure|font|footer|form|frame|frameset|h[1-6]|head|header|hgroup|hr/|html|i>|i |iframe|img|input|ins|isindex|kbd|keygen|label|legend|li|link|map|mark|menu|meta|meter|nav|noframes|noscript|object|ol|optgroup|option|output|p|param|pre|progress|q>|rp|rt|ruby|s>|samp|script|section|select|small|source|span|strike|strong|style|sub|sup|table|tbody|td|textarea|tfoot|th|thead|time|title|tr|track|tt|u>|ul|var|video|wbr)~;
+	my $PossibleTags = qr~/?(def|mbp|c>|c c="|abr>|ex>|kref>|k>|key|rref|f>|!--|!doctype|a|abbr|acronym|address|applet|area|article|aside|audio|b>|base|basefont|bb|bdo|big|blockquote|body|/br>|br/|button|canvas|caption|center|cite|code|col|colgroup|command|datagrid|datalist|dd|del|details|dfn|dialog|dir|div|dl|dt|em|embed|eventsource|fieldset|figcaption|figure|font|footer|form|frame|frameset|h[1-6]|head|header|hgroup|hr/|html|i>|i |iframe|img|input|ins|isindex|kbd|keygen|label|legend|li|link|map|mark|menu|meta|meter|nav|noframes|noscript|object|ol|optgroup|option|output|p|param|pre|progress|q>|rp|rt|ruby|s>|samp|script|section|select|small|source|span|strike|strong|style|sub|sup|table|tbody|td|textarea|tfoot|th|thead|time|title|tr|track|tt|u>|ul|var|video|wbr)~;
 	my $HTMLcodes = qr~(lt;|amp;|gt;|quot;|apos;|\#x?[0-9A-Fa-f]{1,6})~;
 		
 	$Content =~ s~(?<lt><)(?!$PossibleTags)~&lt;~gs;
@@ -477,9 +479,12 @@ sub convertColorName2HexValue{
 	# This takes 1s for a dictionary with 132k entries and no color tags
 	# Not tested with Oxford 2nd Ed. yet!!
 	$html =~ s~c="(\w+)">~c="$ColorCoding{lc($1)}">~isg;
-	$html =~ s~color:(\w+)>~c:$ColorCoding{lc($1)}>~isg;
+	# $html =~ s~color:(\w+)>~c:$ColorCoding{lc($1)}>~isg;
+	# <span style="color:orchid">▪</span> <i><span style="color:sienna">I stepped back to let them pass.</span>
+	# $html =~ s~<span style="color:(?<color>\w+)">(?<colored>(?!</span>).*?)</span>~<span style="color:$ColorCoding{lc($+{color})}">$+{colored}</span>~isg;
+	$html =~ s~color:(?<color>\w+)~color:$ColorCoding{lc($+{color})}~isg;
 	doneWaiting();
-	return( split(/$/,$html) );}
+	return( split(/^/,$html) );}
 sub convertCVStoXDXF{
 	my @cvs = @_;
 	my @xdxf = @xdxf_start;
@@ -1262,12 +1267,26 @@ sub removeBloat{
 	while( $xdxf =~ s~\n\n~\n~sg ){ debugV("Finally then..(removing empty lines)");}
 	while( $xdxf =~ s~</blockquote>\s+<blockquote>~</blockquote><blockquote>~sg ){ debugV("...another one (removing EOLs between blockquotes)"); }
 	while( $xdxf =~ s~</blockquote>\s+</def>~</blockquote></def>~sg ){ debugV("...and another one (removing EOLs between blockquotes and definition stop tags)"); }
+	# This a tricky one. 
+	# OALD9 has a strange string [s]key.bmp[/s] that keeps repeating. No idea why!
+	while( $xdxf =~ s~\[s\].*?\.bmp\[/s\]~~sg ){ debugV("....cleaning house (removing s-blocks with .bmp at the end.)"); }
 	debugV("...done!");
 	return( split(/^/, $xdxf) );}
 sub removeInvalidChars{
 	my $xdxf = $_[0]; # Only a string or first entry of array is checked and returned.
 	waitForIt("Removing invalid characters.");
-	my @results = $xdxf =~ s~(\x05|\x02|\x01)~~sg;
+	my @results = $xdxf =~ s~(\x05|\x02|\x01|.\x7f)~~sg;
+	my @newresults = $xdxf =~ s~\x{0080}~Ç~sg;
+	@results = (@results, @newresults);
+	@newresults = $xdxf =~ s~\x{0091}~æ~sg;
+	@results = (@results, @newresults);
+	@newresults = $xdxf =~ s~\x{0092}~Æ~sg;
+	@results = (@results, @newresults);
+	@newresults = $xdxf =~ s~\x{0093}~ô~sg;
+	@results = (@results, @newresults);
+	@newresults = $xdxf =~ s~\x{0094}~ö~sg;
+	@results = (@results, @newresults);
+	
 	shift @results;
 	if( scalar @results > 0 ){ 
 		# Make unique results;
