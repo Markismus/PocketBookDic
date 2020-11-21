@@ -38,8 +38,8 @@ my $isRealDead=1; # Some errors should kill the program. However, somtimes you j
 
 # Controls manual input: 0 disables.
 my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
-my $reformat_full_name = 0 ; # Value 1 demands user input for full_name tag.
-my $reformat_xdxf = 0 ; # Value 1 demands user input for xdxf tag.
+my $reformat_full_name = 1 ; # Value 1 demands user input for full_name tag.
+my $reformat_xdxf = 1 ; # Value 1 demands user input for xdxf tag.
 
 # Deliminator for CSV files, usually ",",";" or "\t"(tab).
 my $CVSDeliminator = ",";
@@ -237,6 +237,65 @@ my @xml_start = ( 	'<?xml version="1.0" encoding="UTF-8" ?>'."\n",
 					# '<dicttype></dicttype>'."\n",
 					'</info>'."\n");
 my $lastline_xml = "</stardict>\n";
+
+# Localized Roman Package, because LCL uses lxxxx, which is strictly speaking not a roman number.
+#Begin
+my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
+my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
+my @figure = reverse sort keys %roman_digit;
+$roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
+
+sub isroman{
+	my $String= shift;
+
+	if(	defined $String and $String=~m/^[ivxlcm]+$/	){	return(1);	}
+	else{	return(0);	}
+}
+
+sub arabic{
+    my $arg = shift;
+    isroman $arg or return undef;
+    my($last_digit) = 1000;
+    my($arabic);
+    foreach (split(//, uc $arg)) {
+        my($digit) = $roman2arabic{$_};
+        $arabic -= 2 * $last_digit if $last_digit < $digit;
+        $arabic += ($last_digit = $digit);
+    }
+    $arabic;
+}
+sub Roman{
+    my $arg = shift;
+    0 < $arg and $arg < 4000 or return undef;
+    my($x, $roman);
+    foreach (@figure) {
+        my($digit, $i, $v) = (int($arg / $_), @{$roman_digit{$_}});
+        if (1 <= $digit and $digit <= 3) {
+            $roman .= $i x $digit;
+        } elsif ($digit == 4) {
+            $roman .= "$i$v";
+        } elsif ($digit == 5) {
+            $roman .= $v;
+        } elsif (6 <= $digit and $digit <= 8) {
+            $roman .= $v . $i x ($digit - 5);
+        } elsif ($digit == 9) {
+            $roman .= "$i$x";
+        }
+        $arg -= $digit * $_;
+        $x = $i;
+    }
+    $roman;
+}
+
+sub roman{
+    lc Roman shift;
+}
+sub sortroman{
+    return ( sort {arabic($a) <=> arabic($b)} @_ );
+}
+#End Localized Roman Package
+
+
 
 sub array2File {
     my ( $FileName, @Array ) = @_;
@@ -927,15 +986,18 @@ sub convertXDXFtoStardictXML{
 			my $PreviousStopDefinition = pop @xml;
 			my $PreviousCDATA = pop @xml;
 			if ( '<![CDATA['.$CurrentDefinition.']]>'."\n" eq "$PreviousCDATA" ){ debug("Double entry found. Skipping!"); next;}
-			debug("\$CurrentKey: \"", $CurrentKey, "\"");
-			debug("\$CurrentDefinition:\"", $CurrentDefinition, "\"");
-			debug("\$PreviousStopArticle: \"", $PreviousStopArticle, "\"");
-			debug("\$PreviousStopDefinition: \"", $PreviousStopDefinition, "\"");
-			debug("\$PreviousCDATA: \"", $PreviousCDATA, "\"");
-			debug("Quitting before anything is tested. If testing is OK: remove next 'die'-statement");
-			die;
-			$PreviousCDATA =~ s~']]>'\n~\n$CurrentDefinition']]>'\n~s;
-			push @xml, $PreviousCDATA, $PreviousStopDefinition, $PreviousStopArticle;
+			debugV("\n\$CurrentKey:\n\"", $CurrentKey, "\"");
+			debugV("\$CurrentDefinition:\n\"", $CurrentDefinition, "\"");
+			debugV("\$PreviousStopArticle:\n\"", $PreviousStopArticle, "\"");
+			debugV("\$PreviousStopDefinition:\n\"", $PreviousStopDefinition, "\"");
+			debugV("\$PreviousCDATA:\n\"", $PreviousCDATA, "\"");
+			debugV("Quitting before anything is tested. If testing is OK: remove next 'die'-statement");
+			my $PreviousDefinition = $PreviousCDATA;
+			$PreviousDefinition =~ s~^<!\[CDATA\[(?<definition>.+?)\]\]>\n$~$+{definition}~s;
+			debugV("\$PreviousDefinition:\n\"", $PreviousDefinition, "\"");
+			my $UpdatedCDATA = '<![CDATA[' . fixPrefixes($PreviousDefinition,$CurrentDefinition) . "]]>\n";
+			debugV("\$UpdatedCDATA:\n\"",$UpdatedCDATA, "\"");
+			push @xml, $UpdatedCDATA, $PreviousStopDefinition, $PreviousStopArticle;
 		}
 	}
 	push @xml, "\n";
@@ -987,6 +1049,36 @@ sub filterXDXFforEntitites{
 	}
 	doneWaiting();
 	return (@Filteredxdxf);}
+sub fixPrefixes{
+				my( $PreviousDefinition, $CurrentDefinition ) = @_;
+				debugV("\$CurrentDefinition:\n\"", $CurrentDefinition,"\"");
+				debugV("\$PreviousDefinition:\n\"", $PreviousDefinition,"\"");
+			
+				my( $CurrentDefinitionPrefix, $PreviousDefinitionPrefix) = ( "", "");
+				
+				my @PossiblePrefixes = $PreviousDefinition =~ m~<sup>[ivx]+\.</sup>~gs;
+				if( scalar @PossiblePrefixes > 0 ){ 
+					debugV("\@PossiblePrefixes\t=\t@PossiblePrefixes");
+					debugV("Multiple entries found.");
+					my $LastPrefix = $PossiblePrefixes[-1];
+					$LastPrefix =~ s~<sup>|</sup>|\.~~sg;
+					debugV("\$LastPrefix:\t=\t$LastPrefix");
+					my $LastPrefixArabic = arabic($LastPrefix);
+					$LastPrefixArabic++;
+					$CurrentDefinitionPrefix = "<sup>".roman($LastPrefixArabic).".</sup>";
+					debugV("\$CurrentDefinitionPrefix\t=\t$CurrentDefinitionPrefix");
+				}
+				else{ 
+					$PreviousDefinitionPrefix = '<sup>i.</sup>';
+					$CurrentDefinitionPrefix = '<sup>ii.</sup>';
+				}
+				
+				$PreviousDefinition = $PreviousDefinitionPrefix.$PreviousDefinition;
+				$CurrentDefinition  = $CurrentDefinitionPrefix.$CurrentDefinition;
+				
+				my $UpdatedDefinition = $PreviousDefinition."\n".$CurrentDefinition;
+				debugV("\$UpdatedDefinition:\n\"", $UpdatedDefinition, "\"");
+				return( $UpdatedDefinition);}
 sub generateEntityHashFromDocType{
 	my $String = $_[0]; # MultiLine DocType string. Not Array!!!
 	my %EntityConversion=( );
@@ -1243,7 +1335,10 @@ sub reconstructXDXF{
 		$article =~ m~<head><k>(?<key>(?:(?!</k>).)+)</k></head><def>(?<def>(?:(?!</def>).)+)</def>~s;
 		if( exists $KnownKeys{$+{key}} ){
 			# Append definition to other definition.
-			$IndexedDefinitions[$KnownKeys{$+{key}}] = $IndexedDefinitions[$KnownKeys{$+{key}}]."\n$+{def}";
+			my $CurrentDefinition = $+{def};
+			my $PreviousDefinition = $IndexedDefinitions[$KnownKeys{$+{key}}];
+			$IndexedDefinitions[$KnownKeys{$+{key}}] = fixPrefixes($PreviousDefinition, $CurrentDefinition);
+
 			$ar_count--;
 		}
 		else{  
