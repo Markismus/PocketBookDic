@@ -16,6 +16,7 @@ _Dependencies:_
 - stardict-text2bin - The script has been expanded to generate Stardict binary files. 
 - KindleUnpack - If you want to convert mobi-dictionaries, you'll first have to convert it to html-format using KindleUnpack (https://github.com/kevinhendricks/KindleUnpack).
 - dictzip for zipping the stardict dict-file generated with startdict-text2bin.
+- 7z CLI utility for unzipping epub-files. 
 - I've probably forgotten something. If you run into it, please open an issue.
 
 _Preparation:_
