@@ -33,6 +33,7 @@ $FileName = "dict/Babylon_English_Greek/Babylon_English_Greek.ifo";
 $FileName = "dict/Papyros/ell-ell_papyros_ilhs.dsl.ifo";
 $FileName = "dict/Oxford Advanced Learners 9th Ed (Stardict)/OALD9.ifo";
 $FileName = "dict/Oxford English Dictionary 2nd Ed/Oxford English Dictionary 2nd Ed.xdxf";
+$FileName = "dict/Woordenboeken - Dale Van, - Groot Woordenboek Engels-Nederland.epub";
 
 my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
 
@@ -46,7 +47,7 @@ my $CVSDeliminator = ",";
 
 # Controls for debugging.
 my $isdebug = 1; # Toggles all debug messages
-my $isdebugVerbose = 1; # Toggles all verbose debug messages
+my $isdebugVerbose = 0; # Toggles all verbose debug messages
 my $DebugKeyWordConvertHTML2XDXF = "Gewirr"; # In convertHTML2XDXF only debug messages from this entry are shown. E.g. "Gewirr" 
 my $DebugKeyWordCleanseAr = '<k>φλέως</k>'; # In cleanseAr only extensive debug messages for this entry are shown. E.g. '<k>φλέως</k>'
 
@@ -1215,6 +1216,83 @@ sub loadXDXF{
 
 	
 	}
+    elsif( $FileName =~ m~^(?<filename>((?!\.epub).)+)\.epub$~i ){
+        debug("Found an epub-file. Unzipping.");
+        unless( $FileName =~ m~([^/]+)$~ ){ warn "Couldn't match dictionary name for '$FileName'" ; Die(); }
+        my $DictionaryName = $1;
+        debug('$DictionaryName = "', $DictionaryName, '"');
+        my $LocalPath = substr($FileName, 0, length($FileName)-length($DictionaryName) );
+        chdir $BaseDir."/".$LocalPath;
+        my $SubDir = substr($DictionaryName, 0, length($DictionaryName)-5);
+        $SubDir =~ s~ ~__~g;
+        unless( -e $SubDir){`mkdir "$SubDir"`; debug( "Made directory '$SubDir'"); }
+        else{ debug("Directory '$SubDir' already exists. Files will be overwritten if present."); }
+        my $UnzipCommand = "7z e -y \"$DictionaryName\" -o\"$SubDir\"";
+        debugV("Executing command:\n '$UnzipCommand'");
+        system($UnzipCommand);
+        debug("\"$SubDir/*.html\"");
+
+        my @html = glob("$SubDir/*.html");
+        debugV('@html = ', @html);
+        @xdxf = @xdxf_start;
+        foreach my $HTMLFile( @html ){
+            my $Content = join('', file2Array($HTMLFile) );
+            # <style type="text/css">
+            # p{text-align:left;text-indent:0;margin-top:0;margin-bottom:0;}
+            # .ww{color:#FFFFFF;}
+            # .gag{font-weight:bold;} 
+            # .gc{font-weight:bold;text-decoration:underline;} 
+            # .g4{color:#115349;}
+            # .g5{color:#3B3B3B;}
+            # .g6_s{color:#472565;}
+            # .gm{font-style:italic;}
+            # .gaa_gj{font-weight:bold;}
+            # .gh{font-weight:bold;}
+            # </style>
+            my (@Classes, %Classes);
+            if( $Content =~ m~<style type="text/css">(?<styleblock>(?!</style>).+)</style>~s ){
+                my $StyleBlock = $+{styleblock};
+                debugV("StyleBlock is \n$StyleBlock");
+                @Classes = $StyleBlock =~ m~\.([^\{]+)\{(?<style>[^\}]+)\}~sg;
+                while( @Classes){
+                    my $Class = shift @Classes;
+                    my $Style = shift @Classes;
+                    $Class = "class=\"$Class\"";
+                    $Style = "style=\"$Style\"";
+                    debugV("Class '$Class' is style '$Style'");
+                    $Classes{$Class} =  $Style;
+                }
+            }
+            else{ debug("No StyleBlock found.");}
+            foreach my $Class( keys %Classes){
+                $Content =~ s~\Q$Class\E~$Classes{$Class}~sg;
+            }
+            debugV($Content);
+            my @Paragraphs = $Content =~ m~(<p[^>]*>(?:(?!</p>).)+</p>)~sg;
+            foreach(@Paragraphs){
+                debugV($_);
+            }
+            debug("number of paragraphs in '$HTMLFile' is ", scalar @Paragraphs);
+            my $isLoopDebugging = 0;
+            while(@Paragraphs){
+                my $Key = shift @Paragraphs;
+                my $Def = shift @Paragraphs;
+                # <p style="color:#FFFFFF;"><sub>q  32 chars
+                # </sub></p>            10 chars
+                $Key = substr( $Key, 32, length($Key) - 42);
+                # debug('$Key is ', $Key);
+                # debug('$Def is ', $Def);
+                push @xdxf, "<ar><head><k>$Key</k></head><def>$Def</def></ar>\n";
+                debug("Pushed <ar><head><k>$Key</k></head><def>$Def</def></ar>") if $isLoopDebugging;
+            } # Finished all Paragraphs
+
+        } # Finished all HTMLFiles
+        push @xdxf, "</xdxf>\n";
+        my $XDXFfile = $DictionaryName;
+        $XDXFfile =~ s~epub$~xdxf~;
+        array2File($XDXFfile, @xdxf);
+        $FileName = $LocalPath.$XDXFfile;
+    }
 	else{debug("Not an extension that the script can handle for the given filename. Quitting!");die;}
 	return( @xdxf );}
 sub makeKoreaderReady{
