@@ -29,9 +29,6 @@ my $KindleUnpackLibFolder="/home/mark/git/KindleUnpack/lib";
 # However, when an argument is given, it will supercede the last filename
 my $FileName;
 $FileName = "dict/stardict-Webster_s_Unabridged_3-2.4.2/Webster_s_Unabridged_3.ifo";
-$FileName = "dict/Babylon_English_Greek/Babylon_English_Greek.ifo";
-$FileName = "dict/Papyros/ell-ell_papyros_ilhs.dsl.ifo";
-$FileName = "dict/Oxford Advanced Learners 9th Ed (Stardict)/OALD9.ifo";
 $FileName = "dict/Oxford English Dictionary 2nd Ed/Oxford English Dictionary 2nd Ed.xdxf";
 $FileName = "dict/Woordenboeken - Dale Van, - Groot Woordenboek Engels-Nederland.epub";
 
@@ -88,10 +85,11 @@ my $isCodeImageBase64 = 0; # Some dictionaries contain images. Encoding them as 
 my $isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
 
 # Shortcuts to Collection of settings.
-my $Just4Koreader 	= 1;
-my $Just4PocketBook = 0;
+# If you select both settings, they will be ignored.
+my $Just4Koreader 	= 0;
+my $Just4PocketBook = 1;
 
-if( $Just4Koreader){
+if( $Just4Koreader and !$Just4PocketBook){
 	$isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
 	$SameTypeSequence = "h"; # Either "h" or "m" or "x".
 	$updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
@@ -106,7 +104,7 @@ if( $Just4Koreader){
 	$isConvertGIF2PNG = 1; # Creates a dependency on Imagemagick "convert".
 	$isHandleMobiDictionary = 1; 
 }
-if( $Just4PocketBook ){
+if( $Just4PocketBook and !$Just4Koreader){
 	$isCreateStardictDictionary = 0; # Turns on Stardict text and binary dictionary creation.
 	$SameTypeSequence = "h"; # Either "h" or "m" or "x".
 	$updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
@@ -245,14 +243,12 @@ my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
 my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
 my @figure = reverse sort keys %roman_digit;
 $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
-
 sub isroman{
 	my $String= shift;
 
 	if(	defined $String and $String=~m/^[ivxlcm]+$/	){	return(1);	}
 	else{	return(0);	}
 }
-
 sub arabic{
     my $arg = shift;
     isroman $arg or return undef;
@@ -300,9 +296,9 @@ sub sortroman{
 
 sub array2File {
     my ( $FileName, @Array ) = @_;
-    # debugV("Array to be written:\n",@Array);
-    open( FILE, ">:encoding(utf8)", "$FileName" )
-      || warn "Cannot open $FileName: $!\n";
+    debugV("Array to be written:\n",@Array);
+    open( FILE, ">:encoding(utf8)", $BaseDir."/".$FileName )
+      || ( warn "Cannot open $FileName: $!\n" and Die() ) ;
     print FILE @Array;
     close(FILE);
     $FileName =~ s/.+\/(.+)/$1/;
@@ -330,6 +326,21 @@ sub debugFindings {
     if ( defined $16 ) { debugV("16 is:\n $16\n"); }
     if ( defined $17 ) { debugV("17 is:\n $17\n"); }
     if ( defined $18 ) { debugV("18 is:\n $18\n"); }}
+sub Die{
+    sub showCallStack {
+      my ( $path, $line, $subr );
+      my $max_depth = 30;
+      my $i = 1;
+        debug("--- Begin stack trace ---");
+        while ( ( my @call_details = (caller($i++)) ) && ($i<$max_depth) ) {
+        debug("$call_details[1] line $call_details[2] in function $call_details[3]");
+        }
+        debug("--- End stack trace ---");
+    }
+
+    showCallStack();
+    die;
+} 
 sub checkSameTypeSequence{
 	my $FileName = $_[0];
 	if(! $updateSameTypeSequence ){return;}
@@ -1272,7 +1283,7 @@ sub loadXDXF{
             foreach(@Paragraphs){
                 debugV($_);
             }
-            debug("number of paragraphs in '$HTMLFile' is ", scalar @Paragraphs);
+            debugV("number of paragraphs in '$HTMLFile' is ", scalar @Paragraphs);
             my $isLoopDebugging = 0;
             while(@Paragraphs){
                 my $Key = shift @Paragraphs;
@@ -1291,9 +1302,16 @@ sub loadXDXF{
         my $XDXFfile = $DictionaryName;
         $XDXFfile =~ s~epub$~xdxf~;
         array2File($XDXFfile, @xdxf);
+ 
         $FileName = $LocalPath.$XDXFfile;
+ 
+        debugV("Current directory was ", `pwd`);
+        debugV("Returning to basedir '$BaseDir'.");
+        chdir $BaseDir;
     }
 	else{debug("Not an extension that the script can handle for the given filename. Quitting!");die;}
+
+
 	return( @xdxf );}
 sub makeKoreaderReady{
 	my $html = join('',@_);
@@ -1352,9 +1370,29 @@ sub reconstructXDXF{
 	my @xdxf_reconstructed = ();
 	my $xdxf_closing = "</xdxf>\n";
 	
+    # Initalizing values based on found values in reconstructed xdxf-file
+    my $full_name;
+    my $dict_xdxf_reconstructed =  $FileName;
+    if( $dict_xdxf_reconstructed !~ s~\.[^\.]+$~_reconstructed\.xdxf~ ){ debug("Filename substitution did not work for : \"$dict_xdxf_reconstructed\""); die if $isRealDead; }
+    if( -e $dict_xdxf_reconstructed ){ 
+        my @xdxf_reconstructed = file2Array($dict_xdxf_reconstructed);
+        my $xdxf_reconstructed = join('', @xdxf_reconstructed[0..20]);
+        debugV("First 20 lines of xdxf_reconstructed:\n", $xdxf_reconstructed);
+        #<xdxf lang_from="fr" lang_to="nl" format="visual">
+        if( $xdxf_reconstructed =~ m~<xdxf lang_from="(?<lang_from>\w+)" lang_to="(?<lang_to>\w+)" format="visual">~ ){
+            $lang_from = $+{lang_from};
+            $lang_to = $+{lang_to};
+        }
+        # <full_name>Van Dale FR-NL 2010</full_name>
+        if( $xdxf_reconstructed =~ m~<full_name>(?<full_name>[^<]+)</full_name>~ ){
+            $full_name = $+{full_name};
+        }
+    }
+
 	waitForIt("Reconstructing xdxf array.");
 	## Step through the array line by line until the articles start.
 	## Then push (altered) entry to array.
+
 	foreach my $entry (@xdxf){
 		# Handling of xdxf tag
 		if ( $entry =~ m~^<xdxf(?<xdxf>.+)>\n$~){
@@ -1378,10 +1416,12 @@ sub reconstructXDXF{
 		elsif ( $entry =~ m~^<full_name>~){
 			if ( $entry !~ m~^<full_name>.*</full_name>\n$~){ debug("full_name tag is not on one line. Investigate!\n"); die if $isRealDead;}
 			elsif( $reformat_full_name and $entry =~ m~^<full_name>(?<fullname>((?!</full).)*)</full_name>\n$~ ){
-				my $full_name = $+{fullname};
 				my $old_name = $full_name;
-				print("Full_name is \"$full_name\".\nWould you like to change it? (press enter to keep default \[$full_name\] ");
-				my $one = <STDIN>; chomp $one; if( $one ne ""){ $full_name = $one ; };
+				$full_name = $+{fullname};
+				print("Full_name is \"$full_name\".\nWould you like to change it? (press enter to keep default \[$old_name\] ");
+				my $one = <STDIN>; chomp $one; 
+                if( $one ne ""){ $full_name = $one ; }
+                else{ $full_name = $old_name;}
 				debug("\$entry was: $entry");
 				$entry = "<full_name>$full_name</full_name>\n";
 				debug("Fullname tag entry is now: ");
@@ -1484,7 +1524,11 @@ debugV("\$SizeOne\t=\t$SizeOne");
 # Remove bloat from xdxf.
 if( $FileName !~ m~_unbloated\.xdxf$~ ){
 	@xdxf = removeBloat(@xdxf);
-	if( $FileName =~ m~xdxf$~ ){ my $Unbloated = $FileName; $Unbloated =~ s~\.xdxf$~_unbloated.xdxf~; array2File($Unbloated, @xdxf); }
+	if( $FileName =~ m~xdxf$~ ){ 
+        my $Unbloated = $FileName; 
+        $Unbloated =~ s~\.xdxf$~_unbloated.xdxf~; 
+        array2File($Unbloated, @xdxf); 
+    }
 }
 my $SizeTwo = scalar @xdxf;
 if( $SizeTwo > $SizeOne){ debug("\$SizeTwo ($SizeTwo) is larger than \$SizeOne ($SizeOne"); }
@@ -1534,7 +1578,7 @@ if( $isCreateStardictDictionary ){
 	if ( $OperatingSystem eq "linux"){
 		my $dict_bin = $dict_xml;
 		$dict_bin =~ s~\.xml~\.ifo~;
-		my $command = "stardict-text2bin \"$dict_xml\" \"$dict_bin\" ";
+		my $command = "stardict-text2bin \"$BaseDir/$dict_xml\" \"$BaseDir/$dict_bin\" ";
 		printYellow("Running system command:\n$command\n");
 		system($command);
 		# Workaround for dictzip
@@ -1573,9 +1617,9 @@ if( $isCreateStardictDictionary ){
 if( $isCreatePocketbookDictionary ){
 	my $ConvertCommand;
 	if( $language_dir ne "" ){ $lang_from = $language_dir ;}
-	if( $OperatingSystem eq "linux"){ $ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$dict_xdxf\" $lang_from"; }
+	if( $OperatingSystem eq "linux"){ $ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$BaseDir/$dict_xdxf\" $lang_from"; }
 	else{ $ConvertCommand = "converter.exe \"$dict_xdxf\" $lang_from"; }
-	printYellow("Running system command:\"$ConvertCommand\"\n");
+    printYellow("Running system command:\"$ConvertCommand\"\n");
 	system($ConvertCommand);
 }
 my $Renamed = join('', $FileName=~m~^(.+?)\.[^.]+$~);
