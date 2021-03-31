@@ -1,5 +1,6 @@
 # PocketBookDic
-Scripts to convert to pocketbook dictionary dic-format
+Script that originated to convert dictionaries to pocketbook dictionary dic-format. 
+However, since I moved away from Pocketbook devices, I am more focussed on converting to the intermediary xdxf-format and Stardict-format. Both formats are easily converted with other tools to custom formats. This script only incorporates the Pocketbook dic-format. For other formats I can recommend pyGlossary. 
 
 **pocketbookdic.pl** \
 Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml-, mobi- (via html- with KindleUnpack) and xdxf-format to pocketbook dic-, Stardict dict/idx/ifo-, xdxf- and Stardict xml-format. (The csv-file should be comma separated.)
@@ -13,7 +14,9 @@ _Dependencies:_
 - stardict-bin2text - The script uses a binary from the stardict-tools package to convert a triplet of ifo-, -idx and -dict (or -dict.dz) Stardict files to one xml-file. (That xml-file will then be converted to a xdxf-file, which will be reconstructed to fit through converter.exe. 
     - If you run Windows you should _manually_ generate the xml- or csv-file. E.g. You can use stardict-editor (included with the windows Stardict installation) and decompile a dictionary to Textual Stardict dictionary. This generates a xml-file that you can use as filename at the start of the script.
 - stardict-text2bin - The script has been expanded to generate Stardict binary files. 
-- KindleUnpack - If you want to convert mobi-dictionaries, you'll first have to convert it to html-format using KindleUnpack (https://github.com/kevinhendricks/KindleUnpack).
+- KindleUnpack - If you want to convert mobi-dictionaries, you'll first have to convert it to html-format using KindleUnpack (https://github.com/kevinhendricks/KindleUnpack). Under Linux it is enough to point the script to the installation directory and the script will handle it for you.
+- dictzip for zipping the stardict dict-file generated with startdict-text2bin.
+- 7z CLI utility for unzipping epub-files. 
 - I've probably forgotten something. If you run into it, please open an issue.
 
 _Preparation:_
