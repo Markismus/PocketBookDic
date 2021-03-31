@@ -4,6 +4,7 @@ However, since I moved away from Pocketbook devices, I am more focussed on conve
 
 **pocketbookdic.pl** \
 Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml-, mobi- (via html- with KindleUnpack) and xdxf-format to pocketbook dic-, Stardict dict/idx/ifo-, xdxf- and Stardict xml-format. (The csv-file should be comma separated.)
+Currently starting to convert epub-dictionaries and rawml-files. (Rawml-files are unpacked mobi-files that KindleUnpack can't process further.)
 
 _Dependencies:_
 - Perl - It's a Perl script: Install Perl to run it! 
