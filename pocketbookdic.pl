@@ -794,7 +794,7 @@ sub convertHTML2XDXF{
 							$imageName = "$imageName.png";
 							$imageformat = "png";
 						}
-						my $image = join('', file2Array("$FullPath/$imageName", ":raw", "quiet") );
+						my $image = join('', file2Array("$FullPath/$imageName", "raw", "quiet") );
 						my $encoded = encode_base64($image);
 						$encoded =~ s~\n~~sg;
 						$replacement = '<img src="data:image/'.$imageformat.';base64,'.$encoded.'" alt="'.$imageName.'"/>';
@@ -1045,12 +1045,26 @@ sub convertNonBreakableSpacetoNumberedSequence{
 	return( @UnConverted );}
 sub convertNumberedSequencesToChar{
 	my $UnConverted = join('',@_);
-	debugV("Entered sub convertNumberedSequencesToChar");
-	# while( $UnConverted =~ m~\&\#x([0-9A-Fa-f]{1,6});~s ){
-        $UnConverted =~ s~\&\#x([0-9A-Fa-f]{1,6});~chr(hex($1))~seg ;
-        # debug("Result convertNumberedSequencesToChar: $1"."-> '".chr(hex($1))."'" ) if $isTestingOn;
-    # } 
-    $UnConverted =~ s~\&\#([0-9]{1,6});~chr(int($1))~seg ;
+    debug("Entered sub convertNumberedSequencesToChar") if $isTestingOn;
+	while( $UnConverted =~ m~\&\#x([0-9A-Fa-f]{1,6});~s ){
+        my $HexCodePoint = $1;
+        $UnConverted =~ s~\&\#x$HexCodePoint;~chr(hex($HexCodePoint))~seg ;
+        debug("Result convertNumberedSequencesToChar: $HexCodePoint"."-> '".chr(hex($HexCodePoint))."'" ) if $isTestingOn;
+    } 
+    while( $UnConverted =~ m~\&\#([0-9]{1,6});~s  ){
+        my $Number = $1;
+        if( $Number >= 128 and $Number <=159 ){
+            # However, for the characters in the range of 128-159 in Windows-1252, these are the wrong values. For example the Euro (€) is at code point 0x80 in Windows-1252, but in Unicode it is U+20AC. &#x80; is the NCR for a control code and will not display as the Euro. The correct NCR is &#x20AC;. 
+
+            $UnConverted =~ s~\&\#$Number;~decode('cp1252', chr(int($Number)))~seg;
+            debug("Result convertNumberedSequencesToChar: $Number"."-> '".decode('cp1252', chr(int($Number)))."'" ) if $isTestingOn;
+        }
+        else{ 
+            $UnConverted =~ s~\&\#$Number;~chr(int($Number))~seg ;
+            debug("Result convertNumberedSequencesToChar: $Number"."-> '".chr(int($Number))."'" ) if $isTestingOn;
+        }
+    }
+    
     $UnConverted = removeInvalidChars( $UnConverted );
     
 	return( split(/(\n)/, $UnConverted) );}
@@ -1200,14 +1214,14 @@ sub escapeHTMLString{
     $String =~ s~&~\&amp;~sg;
     $String =~ s~"~\&quot;~sg;
     return $String;}
-sub file2Array {
+sub file2ArrayOld {
 
     #This subroutine expects a path-and-filename in one and returns an array
     my $FileName = $_[0];
     my $encoding = $_[1];
     my $verbosity = $_[2];
     my $isBinMode = 0; 
-    if(defined $encoding and $encoding eq ":raw"){
+    if(defined $encoding and $encoding eq "raw"){
     	undef $encoding;
     	$isBinMode = 1;
     }
@@ -1224,6 +1238,42 @@ sub file2Array {
     close(FILE);
     printBlue("Read $FileName, returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
     return (@ArrayLines);}
+sub file2Array
+{
+    #This subroutine expects a path-and-filename in one and returns an array
+    my $FileName = $_[0];
+    my $encoding = $_[1];
+    my $verbosity = $_[2];
+    # Read the raw bytes
+    local $/;
+    open (my $fh, '<:raw', $FileName) or return undef();
+    my $raw = <$fh>;
+    close($fh);
+    if($encoding eq "raw"){ 
+        printBlue("Read $FileName (raw), returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
+        return( split(/^/, $raw) );
+}
+    elsif( defined $encoding ){
+        printBlue("Read $FileName ($encoding), returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
+        return(split(/^/, decode( $encoding, $raw ) ) );
+    }
+
+    my $content;
+    # Try to interpret the content as UTF-8
+    eval { my $text = decode('utf-8', $raw, Encode::FB_CROAK); $content = $text };
+    # If this failed, interpret as windows-1252 (a superset of iso-8859-1 and ascii)
+    if (!$content) {
+        eval { my $text = decode('windows-1252', $raw, Encode::FB_CROAK); $content = $text };
+    }
+    # If this failed, give up and use the raw bytes
+    if (!$content) {
+        $content = $raw;
+    }
+
+    printBlue("Read $FileName, returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
+    
+    return split(/^/, $content);
+}
 sub filterXDXFforEntitites{
 	my( @xdxf ) = @_;
 	my @Filteredxdxf;
@@ -1407,18 +1457,19 @@ sub loadXDXF{
 		my $encoding = "UTF-8";
         if( $HTMLConversion ){
 		  my @html = file2Array($FileName);
-		  # <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
-		  if( $html[0] =~ m~content="text/html; charset=windows-1252"~is ){
-			# Reopen with encoding cp-1252
-			debugV("Found encoding Windows-1252, a.k.a. cp1252");
-			$encoding = "cp1252";
-			my @html = file2Array($FileName,$encoding,"quiet");
-		  }
-		  elsif( $html[0] =~ m~content="text/html; charset=utf-8"~is ){
-		  	debugV("Found encoding utf-8");
-			$encoding = "utf-8";
-			my @html = file2Array($FileName,$encoding,"quiet");	
-		  }
+		 #  # <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
+   #        my $SkipWindeos1252 = 1;
+		 #  if( !$SkipWindeos1252 and $html[0] =~ m~content="text/html; charset=windows-1252"~is ){
+			# # Reopen with encoding cp-1252
+			# debug("Found encoding Windows-1252, a.k.a. cp1252");
+			# $encoding = "cp1252";
+			# my @html = file2Array($FileName,$encoding,"quiet");
+		 #  }
+		 #  elsif( $html[0] =~ m~content="text/html; charset=utf-8"~is ){
+		 #  	debugV("Found encoding utf-8");
+			# $encoding = "utf-8";
+			# my @html = file2Array($FileName,$encoding,"quiet");	
+		 #  }
 		  @xdxf = convertHTML2XDXF($encoding,@html);
 		  array2File("testConvertedHTML.xdxf", @xdxf) if $isTestingOn;
         }
