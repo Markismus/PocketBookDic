@@ -124,10 +124,10 @@ if( $Just4Koreader and !$Just4PocketBook){
 	# Controls for recoding or deleting images and sounds. 
 	$isRemoveWaveReferences = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
 	$isCodeImageBase64 = 1; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
-	$isConvertGIF2PNG = 1; # Creates a dependency on Imagemagick "convert".
+	$isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
 
 	$unEscapeHTML = 0;
-    $ForceConvertNumberedSequencesToChar = 0;
+    $ForceConvertNumberedSequencesToChar = 1;
     $ForceConvertBlockquote2Div = 1;
     $EscapeHTMLCharacters = 0;
 }
@@ -147,7 +147,7 @@ if( $Just4PocketBook and !$Just4Koreader){
 	
 	# Controls for recoding or deleting images and sounds. 
 	$isRemoveWaveReferences = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
-	$isCodeImageBase64 = 0; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
+	$isCodeImageBase64 = 1; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
 	$isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
 
 	$unEscapeHTML = 1;
@@ -1349,7 +1349,7 @@ sub loadXDXF{
 	my @xdxf;
 	my $PseudoFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."xdxf";
 	## Load from xdxffile
-	if( $FileName =~ m~\.xdxf$~){@xdxf = file2Array($FileName);}
+	if( $FileName =~ m~\.xdxf$~){ @xdxf = file2Array($FileName); }
 	elsif( -e $PseudoFileName ){ 
 		@xdxf = file2Array($PseudoFileName); 
 		# Check SameTypeSequence
