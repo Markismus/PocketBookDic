@@ -977,7 +977,13 @@ sub convertRAWML2XDXF{
     #     </div>
     # </body>
 
-    my @indexentries = $rawml=~m~(<h3>(?:(?!<hr).)+)<hr />~gs; # Collect from the start until the next starts.
+    my (@indexentries, $headervalue);
+    for( $headervalue = 3; $headervalue > 0; $headervalue--){
+        debug( "headervalue = $headervalue");
+        @indexentries = $rawml=~m~(<h(?:$headervalue)>(?:(?!<hr|<mbp).)+)<hr ?/>~gs; # Collect from the start until the next starts.
+        if( @indexentries > 10 ){ last; }
+    }
+    unless( @indexentries ){ debug("No indexentries found in rawml-string."); debug(substr($rawml, 0, 2200)); goto DONE;}
     waitForIt("Converting indexentries from RAWML to XDXF.");
     my $isLoopDebugging = 1;
     my $lastkey = "";
@@ -986,9 +992,10 @@ sub convertRAWML2XDXF{
         $number++;
         # Create key&definition strings.
         # <h3> zurrir </h3> śmiać
-        s~<h3> (?<key>[^<]+)</h3>~~s; # Remove h3-block value.
+        debug( "headervalue = $headervalue");
+        s~<h(?:$headervalue)> ?(?<key>[^<]+)</h(?:$headervalue)>~~s; # Remove h3-block value.
         my $key = $+{key};
-        if( defined $key and $key ne "" ){  debug("Found \$key $key.") if $isLoopDebugging; }
+        if( defined $key and $key ne "" ){  debug("Found \$key $key.") if $isLoopDebugging; $isLoopDebugging++ if $isLoopDebugging; $isLoopDebugging = 0 if $isLoopDebugging == 10; }
         else{ debug("No key found! Dumping and Quitting:\n\n$_"); die;}
         # Remove leftover empty lines.
         s~  ~ ~sg;
@@ -1025,7 +1032,7 @@ sub convertRAWML2XDXF{
         # To allow appending definitions of identical keys
         $lastkey = $key;
     }
-    doneWaiting();
+    DONE: doneWaiting();
     push @xdxf, $lastline_xdxf;
     return(@xdxf);}
 sub convertNonBreakableSpacetoNumberedSequence{
