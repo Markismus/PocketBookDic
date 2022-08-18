@@ -1382,7 +1382,7 @@ sub loadXDXF{
 		$FileName=$+{filename}.".xdxf";
 	}
 	elsif(	$FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ or
-			$FileName =~ m~^(?<filename>((?!\.azw3).)+)\.azw3$~ or
+			$FileName =~ m~^(?<filename>((?!\.azw3?).)+)\.azw3?$~ or
 			$FileName =~ m~^(?<filename>((?!\.html).)+)\.html$~	){
 		# Use full path and filename
 		my $InputFile = "$BaseDir/$FileName";
@@ -1392,7 +1392,7 @@ sub loadXDXF{
 		my $HTMLConversion = 0;
         my $RAWMLConversion = 0;    
 		if( $FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ or
-			$FileName =~ m~^(?<filename>((?!\.azw3).)+)\.azw3$~ 	){
+			$FileName =~ m~^(?<filename>((?!\.azw3?).)+)\.azw3?$~ 	){
 			# Checklist
 			if ($OperatingSystem eq "linux"){ debugV("Converting mobi to html on Linux is possible.") }
 			else{ debug("Not Linux, so the script can't convert mobi-format. Quitting!"); die; }
