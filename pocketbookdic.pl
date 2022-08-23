@@ -329,9 +329,24 @@ sub sortroman{
 
 sub array2File {
     my ( $FileName, @Array ) = @_;
+    if( $FileName =~ m~(?<dir>.*)/(?<file>[^/]+)~ ){
+        my $dir = $+{dir};
+        my $file = $+{file};
+        unless( -r $dir){ 
+            warn "Can't read '$dir'"; 
+            $dir =~ s~ ~\\ ~g;
+            unless( -r $dir ){ warn "Can't read '$dir' with escaped spaces."; }
+        }
+        unless( -w $dir){ warn "Can't write '$dir'"; }
+
+    
+    }
     debugV("Array to be written:\n",@Array);
-    open( FILE, ">:encoding(utf8)", $BaseDir."/".$FileName )
-      || ( warn "Cannot open $FileName: $!\n" and Die() ) ;
+    if( -e $FileName){ warn "$FileName already exist"; };
+    unless( open( FILE, ">:encoding(utf8)", $FileName ) ){
+      warn "Cannot open $FileName: $!\n"; 
+      Die() ;
+    }
     print FILE @Array;
     close(FILE);
     $FileName =~ s/.+\/(.+)/$1/;
@@ -1245,15 +1260,57 @@ sub file2ArrayOld {
     close(FILE);
     printBlue("Read $FileName, returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
     return (@ArrayLines);}
-sub file2Array
-{
+sub file2Array{
     #This subroutine expects a path-and-filename in one and returns an array
     my $FileName = $_[0];
     my $encoding = $_[1];
     my $verbosity = $_[2];
     # Read the raw bytes
     local $/;
-    open (my $fh, '<:raw', $FileName) or return undef();
+    unless( -e $FileName ){
+        warn "'$FileName' doesn't exist.";
+        if( $FileName =~ m~(?<dir>.*)/(?<file>[^/]+)~ ){
+            my $dir = $+{dir};
+            my $file = $+{file};
+            if( -e $dir ){
+                unless( -r $dir){
+                    warn "Can't read '$dir'";
+                    $dir =~ s~ ~\\ ~g;
+                    unless( -r $dir ){ warn "Can't read '$dir' with escaped spaces."; }
+                }
+                unless( -w $dir){ warn "Can't write '$dir'"; }
+            }
+            elsif( $dir =~ s~ ~\\ ~g and -e $dir){
+                warn "Found '$dir' after escaping spaces";
+            }
+            elsif( -e "$BaseDir/$dir"){
+                warn "Found $BaseDir/$dir. Prefixing '$BaseDir'.";
+                $dir = "$BaseDir/$dir";
+            }
+            else{
+                warn "'$dir' doesn't exist";
+                my @commands = (
+                    "pwd",
+                    "ls -larth $dir",
+                    "ls -larth $BaseDir/$dir");
+                foreach(@commands){
+                    print "\$ $_\n";
+                    system("$_");
+                }
+                Die();
+            }
+        }
+
+        if( -e "BaseDir/$FileName"){
+            warn "Changing it to BaseDir/$FileName";
+            $FileName = "BaseDir/$FileName";
+        }
+        elsif( $FileName =~ s~ ~\\ ~g and -e $FileName ){
+            warn "Escaped spaces to find filename";
+        }
+    }
+    else{ warn "$FileName exists."; }
+    open (my $fh, '<:raw', "$FileName") or (warn "Couldn't open $FileName: $!" and Die() and return undef() );
     my $raw = <$fh>;
     close($fh);
     if($encoding eq "raw"){ 
@@ -1276,10 +1333,10 @@ sub file2Array
     if (!$content) {
         $content = $raw;
     }
-
-    printBlue("Read $FileName, returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
+    my @ReturnArray = split(/^/, $content);
+    printBlue("Read $FileName, returning array of size ".@ReturnArray.". Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
     
-    return split(/^/, $content);
+    return @ReturnArray;
 }
 sub filterXDXFforEntitites{
 	my( @xdxf ) = @_;
