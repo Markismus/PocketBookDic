@@ -920,7 +920,7 @@ sub convertHTML2XDXF{
 		$lastInflectionEntries = $lastInflectionEntries.$InflectionEntries;
 	}
 	# Save hash for later use.
-	store(\%ReplacementImageStrings, $HashFileName);
+	store(\%ReplacementImageStrings, $HashFileName) if scalar keys %ReplacementImageStrings;
 	foreach( sort keys %ConversionDebugStrings){ debug($ConversionDebugStrings{$_}); }
 	doneWaiting();
 	push @xdxf, $lastline_xdxf;
