@@ -49,6 +49,7 @@ my $isdebug = 1; # Toggles all debug messages
 my $isdebugVerbose = 0; # Toggles all verbose debug messages
 my $DebugKeyWordConvertHTML2XDXF = "Gewirr"; # In convertHTML2XDXF only debug messages from this entry are shown. E.g. "Gewirr" 
 my $DebugKeyWordCleanseAr = '<k>φλέως</k>'; # In cleanseAr only extensive debug messages for this entry are shown. E.g. '<k>φλέως</k>'
+my $NumberofCharactersShownFailedRawML = 4500;
 
 my $isTestingOn = 0; # Toggles intermediary output of xdxf-array.
 if ( $isTestingOn ){ use warnings; }
@@ -998,7 +999,7 @@ sub convertRAWML2XDXF{
         @indexentries = $rawml=~m~(<h(?:$headervalue)>(?:(?!<hr|<mbp).)+)<hr ?/>~gs; # Collect from the start until the next starts.
         if( @indexentries > 10 ){ last; }
     }
-    unless( @indexentries ){ debug("No indexentries found in rawml-string."); debug(substr($rawml, 0, 2200)); goto DONE;}
+    unless( @indexentries ){ debug("No indexentries found in rawml-string."); debug(substr($rawml, 0, $NumberofCharactersShownFailedRawML)); goto DONE;}
     waitForIt("Converting indexentries from RAWML to XDXF.");
     my $isLoopDebugging = 1;
     my $lastkey = "";
@@ -1457,6 +1458,7 @@ sub loadXDXF{
         my $RAWMLConversion = 0;    
 		if( $FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ or
 			$FileName =~ m~^(?<filename>((?!\.azw3?).)+)\.azw3?$~ 	){
+
 			# Checklist
 			if ($OperatingSystem eq "linux"){ debugV("Converting mobi to html on Linux is possible.") }
 			else{ debug("Not Linux, so the script can't convert mobi-format. Quitting!"); die; }
@@ -1465,6 +1467,7 @@ sub loadXDXF{
 				debug("Found python responding as expected.");
 			}
 			else{ debug("Python binary not working as expected/not installed. Quitting!"); die; }
+
 			# Conversion mobi to html
 			if( -e "$OutputFolder/mobi7/$DictionaryName.html" ){
 				debug("html-file found. Mobi-file already converted.");
@@ -1487,6 +1490,13 @@ sub loadXDXF{
 				my $returnstring = `python kindleunpack.py -r -s --epub_version=A -i "$InputFile" "$OutputFolder"`;
 				if( $returnstring =~ m~Completed\n*$~s ){
 					debug("Succes!");
+                    chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
+                    rename "$OutputFolder/mobi7/book.html", "$OutputFolder/mobi7/$DictionaryName.html";
+                    doneWaiting();
+                    $HTMLConversion = 1;
+                    $LocalPath = "$LocalPath/$DictionaryName/mobi7";
+                    $FullPath = "$FullPath/$DictionaryName/mobi7";
+                    $FileName = "$LocalPath/$DictionaryName.html";
 				}
                 else{
 					debug("KindleUnpack failed to convert the mobi-file."); 
@@ -1498,48 +1508,30 @@ sub loadXDXF{
                         $LocalPath = "$LocalPath/$DictionaryName/mobi7";
                         $FullPath = "$FullPath/$DictionaryName/mobi7";
                         $FileName = "$LocalPath/$DictionaryName.rawml";   
+                        chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
                     }
                     else{ Die(); }
-				}
-				chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
-				rename "$OutputFolder/mobi7/book.html", "$OutputFolder/mobi7/$DictionaryName.html";
-				doneWaiting();
-                $HTMLConversion = 1;
-                $LocalPath = "$LocalPath/$DictionaryName/mobi7";
-                $FullPath = "$FullPath/$DictionaryName/mobi7";
-                $FileName = "$LocalPath/$DictionaryName.html";
+                }
             }
-			debug("Dictionary name is '$DictionaryName'.");
+			debug("After conversion dictionary name is '$DictionaryName'.");
 			debug("Local path for generated html is \'$LocalPath\'.");
-			debug("Full path for generated html is \'$FullPath\.");
+			debug("Full path for generated html is \'$FullPath\'.");
 			debug("Filename for generated html is \'$FileName\'.");
 		}
-		if( $FileName =~ m~^(?<filename>((?!\.html).)+)\.html$~	){
+		elsif( $FileName =~ m~^(?<filename>((?!\.html).)+)\.html$~	){
 			$HTMLConversion = 1; 
 		}
+
 		# Output of KindleUnpack.pyw
 		my $encoding = "UTF-8";
         if( $HTMLConversion ){
-		  my @html = file2Array($FileName);
-		 #  # <meta http-equiv="content-type" content="text/html; charset=windows-1252" />
-   #        my $SkipWindeos1252 = 1;
-		 #  if( !$SkipWindeos1252 and $html[0] =~ m~content="text/html; charset=windows-1252"~is ){
-			# # Reopen with encoding cp-1252
-			# debug("Found encoding Windows-1252, a.k.a. cp1252");
-			# $encoding = "cp1252";
-			# my @html = file2Array($FileName,$encoding,"quiet");
-		 #  }
-		 #  elsif( $html[0] =~ m~content="text/html; charset=utf-8"~is ){
-		 #  	debugV("Found encoding utf-8");
-			# $encoding = "utf-8";
-			# my @html = file2Array($FileName,$encoding,"quiet");	
-		 #  }
-		  @xdxf = convertHTML2XDXF($encoding,@html);
-		  array2File("testConvertedHTML.xdxf", @xdxf) if $isTestingOn;
+            my @html = file2Array($FileName);
+            @xdxf = convertHTML2XDXF($encoding,@html);
+            array2File("testConvertedHTML.xdxf", @xdxf) if $isTestingOn;
         }
         elsif( $RAWMLConversion ){
-            my @rawml = file2Array($FileName);
-            @xdxf = convertRAWML2XDXF(@rawml);
+            my @rawml = file2Array( $FileName );
+            @xdxf = convertRAWML2XDXF( @rawml );
             if( scalar @xdxf == (1+scalar @xdxf_start) ){ debug("Not able to handle the rawml-file. Quitting!"); Die(); }
         }
 		# Check whether there is a saved reconstructed xdxf to get the language and name from.
