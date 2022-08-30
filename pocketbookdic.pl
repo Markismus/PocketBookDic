@@ -1001,11 +1001,12 @@ sub convertRAWML2XDXF{
 
     my (@indexentries, $headervalue);
     for( $headervalue = 3; $headervalue > 0; $headervalue--){
-        debug( "headervalue = $headervalue");
+        debug( "headervalue = $headervalue.   scalar \@indexentries = ".scalar @indexentries);
         @indexentries = $rawml=~m~(<h(?:$headervalue)>(?:(?!<hr|<mbp).)+)<hr ?/>~gs; # Collect from the start until the next starts.
         if( @indexentries > 10 ){ last; }
     }
     unless( @indexentries ){ debug("No indexentries found in rawml-string."); debug(substr($rawml, 0, $NumberofCharactersShownFailedRawML)); goto DONE;}
+    else{ info("Found ".scalar @indexentries." indexentries.\n"); }
     waitForIt("Converting indexentries from RAWML to XDXF.");
     my $isLoopDebugging = 1;
     my $lastkey = "";
@@ -1014,7 +1015,7 @@ sub convertRAWML2XDXF{
         $number++;
         # Create key&definition strings.
         # <h3> zurrir </h3> śmiać
-        debug( "headervalue = $headervalue");
+        debug( "headervalue = $headervalue") if $number < 5;
         s~<h(?:$headervalue)> ?(?<key>[^<]+)</h(?:$headervalue)>~~s; # Remove h3-block value.
         my $key = $+{key};
         if( defined $key and $key ne "" ){  debug("Found \$key $key.") if $isLoopDebugging; $isLoopDebugging++ if $isLoopDebugging; $isLoopDebugging = 0 if $isLoopDebugging == 10; }
