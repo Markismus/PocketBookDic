@@ -1859,6 +1859,14 @@ sub removeInvalidChars{
 	else{ debugV('Nothing removed. If \"parser error : PCDATA invalid Char value...\" remains, look at subroutine removeInvalidChars.');}
 	doneWaiting();
 	return($xdxf); }
+sub startFromStop{ return ("<" . substr( $_[0], 2, (length( $_[0] ) - 3) ) . "( [^>]*>|>)"); }
+sub startTag{
+    $_[0] =~ s~\s+~~s;
+    unless( $_[0] =~ m~^(?<StartTag><[^>]+>)~s ){ warn "Regex for key-start doesn't match."; die; }
+    return ( $+{"StartTag"} );}
+sub stopFromStart{ 
+    unless( $_[0] =~ m~<(?<tag>\w+)( |>)~ ){ warn "Regex in stopFromStart doesn't match."; die; }
+    return( "</" . $+{"tag"}.">" );}
 sub string2File{    
     my $FileName = shift;
     my @Array = split(/^/, shift);
