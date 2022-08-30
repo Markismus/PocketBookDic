@@ -1054,7 +1054,8 @@ sub convertRAWML2XDXF{
         # To allow appending definitions of identical keys
         $lastkey = $key;
     }
-    DONE: doneWaiting();
+    DONE: 
+    doneWaiting();
     push @xdxf, $lastline_xdxf;
     return(@xdxf);}
 sub convertNonBreakableSpacetoNumberedSequence{
@@ -1323,7 +1324,7 @@ sub file2Array{
     if($encoding eq "raw"){ 
         printBlue("Read $FileName (raw), returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
         return( split(/^/, $raw) );
-}
+    }
     elsif( defined $encoding ){
         printBlue("Read $FileName ($encoding), returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
         return(split(/^/, decode( $encoding, $raw ) ) );
@@ -1343,8 +1344,7 @@ sub file2Array{
     my @ReturnArray = split(/^/, $content);
     printBlue("Read $FileName, returning array of size ".@ReturnArray.". Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
     
-    return @ReturnArray;
-}
+    return @ReturnArray;}
 sub filterXDXFforEntitites{
 	my( @xdxf ) = @_;
 	my @Filteredxdxf;
@@ -1689,12 +1689,12 @@ sub makeKoreaderReady{
 	doneWaiting();
 	
 	return(split(/$/, $html));}
-sub printGreen   { print color('green') if $OperatingSystem eq "linux";   print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printBlue    { print color('blue') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub printCyan    { print color('cyan') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub printGreen   { print color('green') if $OperatingSystem eq "linux";   print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub printMagenta { print color('magenta') if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printRed     { print color('red') if $OperatingSystem eq "linux";     print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printYellow  { print color('yellow') if $OperatingSystem eq "linux";  print @_; print color('reset') if $OperatingSystem eq "linux"; }
-sub printMagenta { print color('magenta') if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
-sub printCyan    { print color('cyan') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub reconstructXDXF{
 	# Construct a new xdxf array to prevent converter.exe from crashing.
 	## Initial values
@@ -1897,9 +1897,7 @@ sub tidyXMLArray{
         push @XMLTidied, $xml;
         if(scalar @_ > 1){ return (split( /^/, $xml) ); }
         else{ return $xml;}
-    }
-    
-    }
+    }}
 sub unEscapeHTMLArray{
     my $String = unEscapeHTMLString( join('', @_) );
     return( split(/^/, $String) ); }
@@ -1911,7 +1909,8 @@ sub unEscapeHTMLString{
     $String =~ s~\&amp;~&~sg;
     $String =~ s~\&quot;~"~sg;
     return $String;}
-sub waitForIt{ printCyan("@_"," This will take some time. ", getLoggingTime(),"\n");}
+sub waitForIt{ printCyan(join('', @_)," This will take some time. ", getLoggingTime(),"\n");}
+
 # Generate entity hash defined in DOCTYPE
 %EntityConversion = generateEntityHashFromDocType($DocType);
 
@@ -1931,7 +1930,7 @@ if( $FileName !~ m~_unbloated\.xdxf$~ ){
     }
 }
 my $SizeTwo = scalar @xdxf;
-if( $SizeTwo > $SizeOne){ debug("\$SizeTwo ($SizeTwo) is larger than \$SizeOne ($SizeOne"); }
+if( $SizeTwo > $SizeOne){ debug("Unbloated \@xdxf ($SizeTwo) has more indices than before ($SizeOne"); }
 else{ debugV("\$SizeTwo\t=\t$SizeTwo");}
 array2File("testUnbloated.xdxf", @xdxf) if $isTestingOn;
 # filterXDXFforEntitites
