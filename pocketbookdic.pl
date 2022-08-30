@@ -47,6 +47,9 @@ my $CVSDeliminator = ",";
 # Controls for debugging.
 my $isdebug = 1; # Toggles all debug messages
 my $isdebugVerbose = 0; # Toggles all verbose debug messages
+my $isdebugVeryVerbose = 0; # Toggles all verbose debug messages
+my ( $isInfo, $isInfoVerbose, $isInfoVeryVerbose ) = ( 1, 0 ,0 );  # Toggles info messages
+my ( $isgenerateXDXFTagBasedVerbose, $isgatherSetsVerbose ) = ( 0, 0 ); # Controls verbosity of tag functions
 my $DebugKeyWordConvertHTML2XDXF = "Gewirr"; # In convertHTML2XDXF only debug messages from this entry are shown. E.g. "Gewirr" 
 my $DebugKeyWordCleanseAr = '<k>φλέως</k>'; # In cleanseAr only extensive debug messages for this entry are shown. E.g. '<k>φλέως</k>'
 my $NumberofCharactersShownFailedRawML = 4500;
@@ -355,6 +358,7 @@ sub array2File {
     return ("File written");}
 sub debug { $isdebug and printRed( @_, "\n" ); return(1);}
 sub debugV { $isdebugVerbose and printBlue( @_, "\n" ); return(1);}
+sub debugVV { $isdebugVeryVerbose and printBlue( @_, "\n" ); return(1);}
 sub debugFindings {
     debugV();
     if ( defined $1 )  { debugV("\$1 is: \"$1\"\n"); }
