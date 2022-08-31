@@ -1531,7 +1531,7 @@ sub generateXDXFTagBased{
             print "\n-----".$$_{"set"}[0]."------\n";
             debug($$_{"percentage"}."%");
             if( $$_{"percentage"} < $$Info{ "minimum set percentage"}){ 
-                debug("Maximum percentage is below minimum. No use trying for sets."); 
+                debug("Maximum percentage (".$$_{"percentage"}."%)is below minimum (".$$Info{ "minimum set percentage"}."). No use trying for sets."); 
                 info("You can lower \$MinimumSetPercentage at the start of generateXDXFTagBased to change this behaviour."); 
                 last;
             }
@@ -1547,12 +1547,12 @@ sub generateXDXFTagBased{
             $test =~ s~$$_{"regex"}\s+~~sg;
             debug("length of the remaining test is ". length($test) );
             debug(substr($test,0,2000));
-            debug("Number of articles found: ".scalar @articles." with regex '".$$_{"regex"}."'.");
-            debug("0\n".$articles[0]);
-            debug("1\n".$articles[1]);
-            debug("2\n".$articles[2]);
             if( length($test) == 0 ){
                 info("Articles identified.");
+                info("Number of articles found: ".scalar @articles." with regex '".$$_{"regex"}."'.");
+                info("0\n".$articles[0]);
+                info("1\n".$articles[1]);
+                info("2\n".$articles[2]);
                 $$Info{ "articles"} = \@articles;
                 $$Info{ "article stop tag"} = $$_{"set"}[0];
                 return 1;
@@ -1878,22 +1878,23 @@ sub generateXDXFTagBased{
     filterTagsHash( \%Info ); # Uses the hash key { "counted tags hash" }. Generates 4 keys in given hash, resp. "removed tags", "filtered rawml", "filtered tags hash" and "deleted tags".
     
     # Gather the start- and stop tag sets.
-    # my ( $sets, $SkippedTags )  = gatherSets( $Info{ "filtered tags hash" } );
-    # $Info{ "sets" }              = $sets;
-    # $Info{ "SkippedTags" }      = $SkippedTags;
     gatherSets( \%Info ); # Uses the hash key "filtered tags hash" and generates the keys "sets" and "SkippedTags", resp. an array- and a hash-reference.
 
-    # Are there high frequency tag-blocks that contain all other high frequency blocks?
+    # Find the percentages that the sets occupy of the rawml.
     sets2Percentages( \%Info ); # Uses the hash keys "sets" and "filtered rawml" to generate the key "SetInfo", an array-reference.
 
-    unless( findArticlesBySets( \%Info ) ){
-        # Is there a high frequency tag that doesn't have a partner, e.g. <hr /> or <hr/>? Splitting at such a tag could give uniform chunks;
-        splitRawmlIntoArticles( \%Info ); # Takes the hash keys "SkippedTags" and "filtered rawml" and generates the keys "articles" and "filtered SkippedTags", resp. an array- and a hash-reference.
-    }
-    else{ info( "Articles were found."); }
+    # Are there high frequency tag-blocks that contain all other high frequency blocks?
+    unless( exists $Info{ "articles" } ){ findArticlesBySets( \%Info ); }
 
-    if( exists $Info{ "articles" } and splitArticlesIntoKeyAndDefinition(\%Info) ){
-        info("Articles were split into keys and definitions");
+    # Is there a high frequency tag that doesn't have a partner, e.g. <hr /> or <hr/>? Splitting at such a tag could give uniform chunks;
+    unless( exists $Info{ "articles" } ){ splitRawmlIntoArticles( \%Info ); } # Takes the hash keys "SkippedTags" and "filtered rawml" and generates the keys "articles" and "filtered SkippedTags", resp. an array- and a hash-reference.
+    
+    
+    if( exists $Info{ "articles" } ){ 
+        info( "Articles were found.");
+        if( splitArticlesIntoKeyAndDefinition(\%Info) ){
+            info("Articles were split into keys and definitions");
+        }
     }
     else{ debug( "No articles found with sub generateXDXFTagBased(), yet"); }
     return ( $Info{ "xdxf"} )}
