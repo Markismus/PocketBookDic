@@ -2400,7 +2400,7 @@ sub removeInvalidChars{
     if( $isConvertMobiAltCodes ){ $xdxf = convertMobiAltCodes( $xdxf ); }
 
     my $check = 0 ;
-    if( $xdxf =~ s~(\x7f|\x1F|\x1E|\x1D|\x1C|\x1B|\x1A|\x19|\x18|\x17|\x16|\x15|\x14|\x13|\x12|\x11|\x10|\x0F|\x0E|\x0D|\x0C|\x0B|\x0A|\x09|\x08|\x07|\x06|\x05|\x04|\x03|\x02|\x01|\x00)~~sg ){ $check++; infoV( "Removed characters with codes U+007F or between U+0000 and U+001F.");
+    if( $xdxf =~ s~(\x7f|\x1F|\x1E|\x1D|\x1C|\x1B|\x1A|\x19|\x18|\x17|\x16|\x15|\x14|\x13|\x12|\x11|\x10|\x0F|\x0E|\x0D|\x0C|\x0B|\x0A|\x09|\x08|\x07|\x06|\x05|\x04|\x03|\x02|\x01|\x00)~~sg ){ $check++; infoV( "Removed characters with codes U+007F or between U+0000 and U+001F.");}
     if( $xdxf =~ s~(\x{0080})~Ç~sg ){ $check++; infoV(" Replaced U+0080 with 'Ç'"); }
     if( $xdxf =~ s~(\x{0091})~æ~sg ){ $check++; infoV(" Replaced U+0091 with 'æ'"); }
     if( $xdxf =~ s~(\x{0092})~Æ~sg ){ $check++; infoV(" Replaced U+0092 with 'Æ'"); }
