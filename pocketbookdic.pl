@@ -69,6 +69,7 @@ my $isCreateStardictDictionary = 0; # Turns on Stardict text and binary dictiona
 my $SameTypeSequence = "h"; # Either "h" or "m" or "x".
 my $updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
 my $isConvertColorNamestoHexCodePoints = 1; # Converting takes time.
+my $isConvertMobiAltCodes = 1; # Apparently, characters in the range of 1-31 are displayed as alt-codes in mobireader.
 my $isMakeKoreaderReady = 1; # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
 
 # Controls for Pocketbook conversion
@@ -1078,6 +1079,76 @@ sub convertRAWML2XDXF{
     doneWaiting();
     push @xdxf, $lastline_xdxf;
     return(@xdxf);}
+sub convertMobiAltCodes{
+    # my %MobiAltCodes = {
+    #     1 => '☺',
+    #     2 => '☻',
+    #     3 => '♥',
+    #     4 => '♦',
+    #     5 => '♣',
+    #     6 => '♠',
+    #     7 => '•',
+    #     8 => '◘',
+    #     9 => '○',
+    #     10 => '◙',
+    #     11 => '♂',
+    #     12 => '♀',
+    #     13 => '♪',
+    #     14 => '♫',
+    #     15 => '☼',
+    #     16 => '►',
+    #     17 => '◄',
+    #     18 => '↕',
+    #     19 => '‼',
+    #     20 => '¶',
+    #     21 => '§',
+    #     22 => '&',
+    #     23 => '↨',
+    #     24 => '↑',
+    #     25 => '↓',
+    #     26 => '→',
+    #     27 => '←',
+    #     28 => '∟',
+    #     29 => '↔',
+    #     30 => '▲',
+    #     31 => '▼'
+    # };
+
+    my $xdxf = $_[0]; # Only a string or first entry of array is checked and returned.
+    waitForIt("Converting Mobi alt-codes, because isConvertMobiAltCodes = $isConvertMobiAltCodes.");
+    if( $xdxf =~ s~\x01~☺~g ){ info("Converted mobi alt-code to '☺'");}
+    if( $xdxf =~ s~\x02~☻~g ){ info("Converted mobi alt-code to '☻'");}
+    if( $xdxf =~ s~\x03~♥~g ){ info("Converted mobi alt-code to '♥'");}
+    if( $xdxf =~ s~\x04~♦~g ){ info("Converted mobi alt-code to '♦'");}
+    if( $xdxf =~ s~\x05~♣~g ){ info("Converted mobi alt-code to '♣'");}
+    if( $xdxf =~ s~\x06~♠~g ){ info("Converted mobi alt-code to '♠'");}
+    if( $xdxf =~ s~\x07~•~g ){ info("Converted mobi alt-code to '•'");}
+    if( $xdxf =~ s~\x08~◘~g ){ info("Converted mobi alt-code to '◘'");}
+    if( $xdxf =~ s~\x09~○~g ){ info("Converted mobi alt-code to '○'");}
+    if( $xdxf =~ s~\x0A~◙~g ){ info("Converted mobi alt-code to '◙'");}
+    if( $xdxf =~ s~\x0B~♂~g ){ info("Converted mobi alt-code to '♂'");}
+    if( $xdxf =~ s~\x0C~♀~g ){ info("Converted mobi alt-code to '♀'");}
+    if( $xdxf =~ s~\x0D~♪~g ){ info("Converted mobi alt-code to '♪'");}
+    if( $xdxf =~ s~\x0E~♫~g ){ info("Converted mobi alt-code to '♫'");}
+    if( $xdxf =~ s~\x0F~☼~g ){ info("Converted mobi alt-code to '☼'");}
+    if( $xdxf =~ s~\x10~►~g ){ info("Converted mobi alt-code to '►'");}
+    if( $xdxf =~ s~\x11~◄~g ){ info("Converted mobi alt-code to '◄'");}
+    if( $xdxf =~ s~\x12~↕~g ){ info("Converted mobi alt-code to '↕'");}
+    if( $xdxf =~ s~\x13~‼~g ){ info("Converted mobi alt-code to '‼'");}
+    if( $xdxf =~ s~\x14~¶~g ){ info("Converted mobi alt-code to '¶'");}
+    if( $xdxf =~ s~\x15~§~g ){ info("Converted mobi alt-code to '§'");}
+    if( $xdxf =~ s~\x16~&~g ){ info("Converted mobi alt-code to '&'");}
+    if( $xdxf =~ s~\x17~↨~g ){ info("Converted mobi alt-code to '↨'");}
+    if( $xdxf =~ s~\x18~↑~g ){ info("Converted mobi alt-code to '↑'");}
+    if( $xdxf =~ s~\x19~↓~g ){ info("Converted mobi alt-code to '↓'");}
+    if( $xdxf =~ s~\x1A~→~g ){ info("Converted mobi alt-code to '→'");}
+    if( $xdxf =~ s~\x1B~←~g ){ info("Converted mobi alt-code to '←'");}
+    if( $xdxf =~ s~\x1C~∟~g ){ info("Converted mobi alt-code to '∟'");}
+    if( $xdxf =~ s~\x1D~↔~g ){ info("Converted mobi alt-code to '↔'");}
+    if( $xdxf =~ s~\x1E~▲~g ){ info("Converted mobi alt-code to '▲'");}
+    if( $xdxf =~ s~\x1F~▼~g ){ info("Converted mobi alt-code to '▼'");}
+    doneWaiting();
+    return($xdxf); }
 sub convertNonBreakableSpacetoNumberedSequence{
 	my $UnConverted = join('',@_);
 	waitForIt("Removing '&nbsp;'.");
@@ -2324,30 +2395,22 @@ sub removeBloat{
 	debugV("...done!");
 	return( split(/^/, $xdxf) );}
 sub removeInvalidChars{
-	my $xdxf = $_[0]; # Only a string or first entry of array is checked and returned.
-	waitForIt("Removing invalid characters.");
-	my @results = $xdxf =~ s~(\x05|\x02|\x01|\x7f|\x00)~~sg;
-	my @newresults = $xdxf =~ s~(\x{0080})~Ç~sg;
-	@results = (@results, @newresults);
-	@newresults = $xdxf =~ s~(\x{0091})~æ~sg;
-	@results = (@results, @newresults);
-	@newresults = $xdxf =~ s~(\x{0092})~Æ~sg;
-	@results = (@results, @newresults);
-	@newresults = $xdxf =~ s~(\x{0093})~ô~sg;
-	@results = (@results, @newresults);
-	@newresults = $xdxf =~ s~(\x{0094})~ö~sg;
-	@results = (@results, @newresults);
-	
-	shift @results;
-	if( scalar @results > 0 ){
-		# Make unique results;
-		my %unique_results;
-		foreach(@results){ $unique_results{$_} = 1; }
-		debug("Number of characters removed in removeInvalidChars: ",scalar @results);
-	}
-	else{ debugV('Nothing removed. If \"parser error : PCDATA invalid Char value...\" remains, look at subroutine removeInvalidChars.');}
-	doneWaiting();
-	return($xdxf); }
+    my $xdxf = $_[0]; # Only a string or first entry of array is checked and returned.
+    waitForIt("Removing invalid characters.");
+
+    if( $isConvertMobiAltCodes ){ $xdxf = convertMobiAltCodes( $xdxf ); }
+
+    my $check = 0 ;
+    if( $xdxf =~ s~(\x7f|\x1F|\x1E|\x1D|\x1C|\x1B|\x1A|\x19|\x18|\x17|\x16|\x15|\x14|\x13|\x12|\x11|\x10|\x0F|\x0E|\x0D|\x0C|\x0B|\x0A|\x09|\x08|\x07|\x06|\x05|\x04|\x03|\x02|\x01|\x00)~~sg ){ $check++; infoV( "Removed characters with codes U+007F or between U+0000 and U+001F.");
+    if( $xdxf =~ s~(\x{0080})~Ç~sg ){ $check++; infoV(" Replaced U+0080 with 'Ç'"); }
+    if( $xdxf =~ s~(\x{0091})~æ~sg ){ $check++; infoV(" Replaced U+0091 with 'æ'"); }
+    if( $xdxf =~ s~(\x{0092})~Æ~sg ){ $check++; infoV(" Replaced U+0092 with 'Æ'"); }
+    if( $xdxf =~ s~(\x{0093})~ô~sg ){ $check++; infoV(" Replaced U+0093 with 'ô'"); }
+    if( $xdxf =~ s~(\x{0094})~ö~sg ){ $check++; infoV(" Replaced U+0094 with 'ö'"); }
+    unless( $check ){ debugV('Nothing removed. If \"parser error : PCDATA invalid Char value...\" remains, look at subroutine removeInvalidChars.');}
+
+    doneWaiting();
+    return($xdxf); }
 sub startFromStop{ return ("<" . substr( $_[0], 2, (length( $_[0] ) - 3) ) . "( [^>]*>|>)"); }
 sub startTag{
     $_[0] =~ s~\s+~~s;
