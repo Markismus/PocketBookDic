@@ -45,9 +45,9 @@ my $reformat_xdxf = 1 ; # Value 1 demands user input for xdxf tag.
 my $CVSDeliminator = ",";
 
 # Controls for debugging.
-my $isdebug = 1; # Toggles all debug messages
-my $isdebugVerbose = 0; # Toggles all verbose debug messages
-my $isdebugVeryVerbose = 0; # Toggles all verbose debug messages
+my $isDebug = 1; # Toggles all debug messages
+my $isDebugVerbose = 0; # Toggles all verbose debug messages
+my $isDebugVeryVerbose = 0; # Toggles all verbose debug messages
 my ( $isInfo, $isInfoVerbose, $isInfoVeryVerbose ) = ( 1, 0 ,0 );  # Toggles info messages
 my ( $isgenerateXDXFTagBasedVerbose, $isgatherSetsVerbose ) = ( 0, 0 ); # Controls verbosity of tag functions
 my $DebugKeyWordConvertHTML2XDXF = "Gewirr"; # In convertHTML2XDXF only debug messages from this entry are shown. E.g. "Gewirr"
@@ -347,7 +347,7 @@ sub array2File {
 
     }
     debugV("Array to be written:\n",@Array);
-    if( -e $FileName){ warn "$FileName already exist"; };
+    if( -e $FileName){ warn "$FileName already exist" if $isDebugVerbose; };
     unless( open( FILE, ">:encoding(utf8)", $FileName ) ){
       warn "Cannot open $FileName: $!\n";
       Die() ;
@@ -355,11 +355,11 @@ sub array2File {
     print FILE @Array;
     close(FILE);
     $FileName =~ s/.+\/(.+)/$1/;
-    printGreen("Written $FileName. Exiting sub array2File\n") if $isdebugVerbose;
+    printGreen("Written $FileName. Exiting sub array2File\n") if $isDebugVerbose;
     return ("File written");}
-sub debug { $isdebug and printRed( @_, "\n" ); return(1);}
-sub debugV { $isdebugVerbose and printBlue( @_, "\n" ); return(1);}
-sub debugVV { $isdebugVeryVerbose and printBlue( @_, "\n" ); return(1);}
+sub debug { $isDebug and printRed( @_, "\n" ); return(1);}
+sub debugV { $isDebugVerbose and printBlue( @_, "\n" ); return(1);}
+sub debugVV { $isDebugVeryVerbose and printBlue( @_, "\n" ); return(1);}
 sub debugFindings {
     debugV();
     if ( defined $1 )  { debugV("\$1 is: \"$1\"\n"); }
@@ -1408,7 +1408,7 @@ sub file2Array{
             warn "Escaped spaces to find filename";
         }
     }
-    else{ warn "$FileName exists."; }
+    else{ debugVV( "$FileName exists."); }
     open (my $fh, '<:raw', "$FileName") or (warn "Couldn't open $FileName: $!" and Die() and return undef() );
     my $raw = <$fh>;
     close($fh);
@@ -1969,7 +1969,6 @@ sub generateXDXFTagBased{
     }
     else{ debug( "No articles found with sub generateXDXFTagBased(), yet"); }
     return ( $Info{ "xdxf"} )}
-
 sub getLoggingTime {
 
     my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
