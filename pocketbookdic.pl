@@ -2657,9 +2657,6 @@ sub retrieveHash{
             $value =~ s~,$~~;
             $value =~ s~^('|")~~;
             $value =~ s~('|")$~~;
-            $value =~ s~^\\(.)~$1~g; # Remove preceding slashes.
-            debug_t("key is>$key<");
-            debug_t("value is >$value<");
             my $check = 0;
             while( $value =~ m~\\x\{([0-9A-Fa-f]+)\}~ ){
                 $check++;
@@ -2672,6 +2669,9 @@ sub retrieveHash{
                 debug_t("'$oldvalue' is now '$value'");
             }
             if( $check ){ debug_t("updated value is '$value'") ;}
+            $value =~ s~^\\(.)~$1~g; # Remove preceding slashes.
+            debug_t("key is>$key<");
+            debug_t("value is >$value<");
             unless( $key and $value ){
                 warn "Line '$_' in returned array from '$_[0]$DumperSuffix' is not a simple hash structure";
                 return( retrieve (@_) );
