@@ -9,7 +9,10 @@ use open ':std', ':utf8';
 use feature 'unicode_strings'; # You get funky results with the sub convertNumberedSequencesToChar without this.
 use feature 'say';
 use Data::Dumper;
+$Data::Dumper::Sortkeys = 1;
 use Storable;
+use Time::HiRes qw/ time /;
+
 ###########################################
 ### Beginning of manual control input   ###
 ###########################################
@@ -101,18 +104,18 @@ my $MinimumSetPercentage = 80 ; # A tag-set should be at least this percentage t
 my $isCreateMDict = 0;
 
 # Controls for recoding or deleting images and sounds.
-my $isRemoveWaveReferences = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
-my $isConvertImagesUsingOCR = 1; # Try to identify images as symbols whenever possible.
-my $isCodeImageBase64 = 0; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
-
-my $isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
-
-my $unEscapeHTML = 0;
-my $EscapeHTMLCharacters = 0;
-my $ForceConvertBlockquote2Div = 0;
-
-my $UseXMLTidy = 0; # Enables or disables the use of the subroutine tidyXMLArray. Still experimental, so disable.
-my $isCutDoneWithTidyXML = 0; # Enables or disables the cutting of a line for the pocketbook dictionary in cleanseAr. Still experimental, so disable.
+my $isRemoveWaveReferences           = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
+my $isConvertImagesUsingOCR          = 1; # Try to identify images as symbols whenever possible.
+my $isCodeImageBase64                = 0; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
+my $isConvertGIF2PNG                 = 0; # Creates a dependency on Imagemagick "convert".
+my $isRemoveUnSubstitutedImageString = 1;
+my $isRemoveUnSourcedImageStrings    = 1;
+my $unEscapeHTML                     = 0;
+my $EscapeHTMLCharacters             = 0;
+my $ForceConvertBlockquote2Div       = 0;
+my $isConvertDiv2SpaninHTML2DXDF     = 0;
+my $UseXMLTidy                       = 0; # Enables or disables the use of the subroutine tidyXMLArray. Still experimental, so disable.
+my $isCutDoneWithTidyXML             = 0; # Enables or disables the cutting of a line for the pocketbook dictionary in cleanseAr. Still experimental, so disable.
 
 
 # Shortcuts to Collection of settings.
@@ -754,7 +757,7 @@ sub convertImage2Base64{
     return $_;}
 sub convertIMG2Text{
     my $String = shift;
-    infoV("Entering convertIMG2Text");
+    info_t("Entering convertIMG2Text");
     debugVV( $String."\n");
 
     # Get absolute ImagePath
@@ -773,10 +776,9 @@ sub convertIMG2Text{
     my $counter = 0;
     my %ImageStringsHandled;
     IMAGESTRING: foreach my $ImageString( @ImageStrings){
-        # Deal with identical strings
+        # Deal with already handled imagestrings in $String.
         if( $ImageStringsHandled{ $ImageString } ){ next; }
-        else{ $ImageStringsHandled{ $ImageString } = 1; }
-
+        # Unhandled imagestring.
         $counter++;
         if( $ImageString =~ m~alt="x([0-9A-Fa-f]+)"~ ){
             infoV("Alternative expression for image is U+$1.");
@@ -784,77 +786,103 @@ sub convertIMG2Text{
             my $Alt = chr( hex($1) );
             if( $String =~ s~\Q$ImageString\E~$Alt~sg ){
                 infoV("Substituted imagestring '$ImageString' with '$Alt'");
+                $ImageStringsHandled{ $ImageString } = 1; 
                 next IMAGESTRING;
             }
             else{ warn "Regex substitution alternative expression doesn't work."; Die(); }
         }
         my @Sources = $ImageString =~ m~(\w*src="[^"]+")~sg;
-        unless( scalar @Sources ){ warn "No sources found in imagestring:\n'$ImageString'"; next; }
+        unless( scalar @Sources ){ 
+            warn "No sources found in imagestring:\n'$ImageString'"; 
+            $ImageStringsHandled{ $ImageString } = 1; 
+            if( $isRemoveUnSourcedImageStrings ){ 
+                unless( $String =~ s~\Q$ImageString\E~~sg){ warn "Couldn't remove unsourced imagestring"; Die(); }
+                next IMAGESTRING; 
+            }
+        }
 
         my %Sources;
         foreach( @Sources ){
             unless( m~(?<type>\w*src)="(?<imagename>[^"]+)"~s ){ warn "Regex sources doesn't work."; Die(); }
             $Sources{ $+{"imagename"} } = $+{"type"};
         }
-        my %SourceQuality = { "src" => 0, "hisrc" => 1, "lowsrc" => -1 };
+        my %SourceQuality = { "src" => 1, "hisrc" => 2, "lowsrc" => 0 };
         sub sourceQuality{
-            # Filename to src/hisrc/losrc to 0/1/-1
+            # Filename to src/hisrc/losrc to 1/2/0
             # Descending sort so $a and $b are swapped.
             $SourceQuality{ $Sources{ $b } } <=> $SourceQuality { $Sources { $a } }
         }
-        my %Text;
         SOURCE: foreach my $Source ( sort sourceQuality keys %Sources ){
+            # Change to absolute path
+            my $SourceInfo = "Quality of '$Source' is '$Sources{ $Source }'";
             $Source = $ImagePath . $Source;
+            # If the source has been validated, act upon it.
             if( exists $ValidatedOCRedImages{ $Source } ){
                 if( defined $ValidatedOCRedImages{ $Source } and $ValidatedOCRedImages{ $Source } ne "VALIDATED AS INCORRECT" ){
                     unless ( $String =~ s~\Q$ImageString\E~$ValidatedOCRedImages{ $Source }~sg ){
-                        warn "ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Source }'.";
+                        warn "ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Source }'."; Die();
                     }
-                    else{ infoV("ImageString '$ImageString' substituted with '$ValidatedOCRedImages{ $Source }'."); }
+                    else{ 
+                        infoV("ImageString '$ImageString' substituted with '$ValidatedOCRedImages{ $Source }'."); 
+                    }
+                    $ImageStringsHandled{ $ImageString } = 1;
                     next IMAGESTRING;
                 }
+                else{ next SOURCE; }
             }
-            infoV( $Source ) if $counter < 600;
-            unless( -e $Source ){ warn "Image file '$Source' not found."; next; }
-            # No use in running the OCR twice.
-            my $text ;
-            if( exists $OCRedImages{ $Source } ){ $text = $OCRedImages{ $Source }; }
-            else{
-                $text = get_ocr( $Source, undef, "eng+equ --psm 10" );
-                chomp $text;
-                infoV( "Imagestring =\n'".$ImageString."'");
-                info( "Tesseract identified image '$Source' as '$text'");
-                $OCRedImages{ $Source } = $text;
-            }
+            # No validated recognition of source image available.
+            elsif( $isManualValidation ){
+                unless( -e $Source ){ warn "Image file '$Source' not found."; next SOURCE; }
+                # No use in running the OCR twice.
+                unless( exists $OCRedImages{ $Source } ){
+                    my $text = get_ocr( $Source, undef, "eng+equ --psm 10" );
+                    chomp $text;
+                    info_t( "Imagestring =\n'".$ImageString."'");
+                    info_t( $SourceInfo );
+                    info( "Tesseract identified image '$Source' as '$text'");
+                    $OCRedImages{ $Source } = $text;
+                }
+                if( $OCRedImages{ $Source } eq '' ){ debug("No result from OCR."); }
 
-            if( $text ne '' ){ $Text{$Source} = $text; } # So %Text is a localized version of %OCRedImages;
-            elsif(!( exists $OCRedImages{ $Source } ) ){ debug("No result from OCR."); }
-        }
-
-        if( $isManualValidation and scalar keys %Text >= 1 ){
-            my (%Images, @Text);
-            foreach( sort sourceQuality keys %Text ){ $Images{ $Text{$_} } = $_; push @Text, $Text{$_}; }
-            foreach( @Text ){
-                if( exists $ValidatedOCRedImages{ $Images{$_} } ){ next; }
-                # ValidatedOCRedImages
-                system("feh -x -Z -g300x300 \"$Images{$_}\"&");
-                printGreen("\n\n--------->Is the image '$Images{$_}' correctly recognized as '$_'?\nPress enter to keep or provide a correction or quit[ENTER|PROVIDE CORRECTION|NO|QUIT]");
+                # Validate OCRedImages manually and store them or quit.
+                my $substitution = 0;
+                system("feh --borderless --auto-zoom --image-bg white --geometry 300x300 \"$Source\"&");
+                printGreen("\n\n--------->Is the image '$Source' correctly recognized as '".$OCRedImages{$Source}."'?\nPress enter to keep or provide a correction or quit manual validation [Enter|Provide correction|No|quit]");
                 my $input = <STDIN>;
                 system( "killall feh 2>/dev/null");
                 chomp $input;
-                my $substitution = 0;
-                if( $input eq ''){ $ValidatedOCRedImages{ $Images{$_} } = $_; $substitution = 1}
-                elsif( $input =~ m~quit~i ){ $isManualValidation = 0; last; }
-                elsif( $input =~ m~no~i ){ $ValidatedOCRedImages{ $Images{$_} } = "VALIDATED AS INCORRECT"; $substitution = 0}
-                else{ $ValidatedOCRedImages{ $Images{$_} } = $input; $substitution = 1}
+                if( $input =~ m~quit~i ){ 
+                    $isManualValidation = 0; 
+                    next SOURCE; 
+                }
+                elsif( $input eq ''){ 
+                    $ValidatedOCRedImages{ $Source } = $OCRedImages{ $Source }; 
+                    $substitution = 1;
+                }
+                elsif( $input =~ m~no~i ){ 
+                    $ValidatedOCRedImages{ $Source } = "VALIDATED AS INCORRECT"; 
+                    $substitution = 0;
+                }
+                else{ 
+                    $ValidatedOCRedImages{ $Source } = $input; 
+                    $substitution = 1;
+                }
+                storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName);
+                
                 if( $substitution ){
-                    unless ( $String =~ s~\Q$ImageString\E~$ValidatedOCRedImages{ $Images{$_} }~sg ){
-                        warn "ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Images{$_} }'";
+                    unless ( $String =~ s~\Q$ImageString\E~$ValidatedOCRedImages{ $Source }~sg ){
+                        warn "ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Source }'"; 
+                        Die();
                     }
-                    storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName); # To check whether filename is storable.
+                    $ImageStringsHandled{ $ImageString } = 1;
                     next IMAGESTRING;
                 }
             }
+        }
+        # End SOURCE-loop. If the code is here, than no substitution has been made for the imagestring.
+        if( $isRemoveUnSubstitutedImageString ){ 
+            unless( $String =~ s~\Q$ImageString\E~~sg ){ warn "Image-tag '$ImageString' could not be removed"; Die(); }
+            $ImageStringsHandled{ $ImageString } = 1;
         }
     }
     infoV("Leaving convertIMG2Text");
@@ -976,23 +1004,29 @@ sub convertHTML2XDXF{
 	my $lastInflectionEntries="";
 	my %ConversionDebugStrings;
 	waitForIt("Converting indexentries from HTML to XDXF.");
+    my ($TotalRemovalTime,$TotalImageConversion,$TotalEncodingConversionTime,$TotalConversion2SpanTime,$TotalArticleExtraction) = (0,0,0,0,0);
 	foreach (@indexentries){
+        my $TotalTime = 0;
 		$number++;
-		
 		my $isLoopDebugging = 0;
 		if(m~<idx:orth value="\Q$DebugKeyWordConvertHTML2XDXF\E"~ and $isTestingOn){ $isLoopDebugging = 1; }
 		debug($_) if $isLoopDebugging;
-		
+        # Removal of tags
+		my $start = time;
 		# Remove <a />, </a>, </idx:entry>, <br/>, <hr />, <betonung/>, <mmc:fulltext-word ../> tags
 		s~</?a[^>]*>|<betonung\s*/>|</idx:entry>|<br\s*/>|<hr\s*/>|<mmc:fulltext-word[^>]+>~~sg;
 		# Remove empty sup and sub-blocks
 		s~<sub>[\s]*</sub>|<sup>[\s]*</sup>|<b>[\s]*</b>~~sg;
+        $TotalRemovalTime += time - $start;
 		# Convert or remove <img...>, e.g. <img hspace="0" align="middle" hisrc="Images/image15907.gif" />
-        if( m~<img[^>]+>~s and $isConvertImagesUsingOCR ){ $_ = convertIMG2Text( $_ ); }
-		if( m~<img[^>]+>~s and $isCodeImageBase64 ){ $_ = convertImage2Base64( $_ ); }
-		else{  s~<img[^>]+>~~sg; }
+        $start = time;
+        if( $isConvertImagesUsingOCR and m~<img[^>]+>~s ){ $_ = convertIMG2Text( $_ ); }
+		if( $isCodeImageBase64       and m~<img[^>]+>~s ){ $_ = convertImage2Base64( $_ ); }
+		else{  s~<img[^>]+>~~sg; } # No images-resources are used in xdxf.
+		$TotalImageConversion += time - $start;
 
-		# Include encoding conversion
+        # Include encoding conversion
+        $start = time;
 		while( $encoding eq "cp1252" and m~\&\#(\d+);~s ){
 			my $encoded = $1;
 			my $decoded = decode( $encoding, pack("N", $encoded) );
@@ -1012,11 +1046,12 @@ sub convertHTML2XDXF{
 			$ConversionDebugStrings{$encoded} = $DebugString;
 			s~\&\#$encoded;~$decoded~sg;				
 		}
-		
+		$TotalEncodingConversionTime += time - $start;
 		# Change div-blocks to spans
 		s~(</?)div[^>]*>~$1span>~sg;
 		my $round = 0;
 		# Change font- to spanblocks
+        $start = time;
 		while( s~<font size="(?:2|-1)">((?:(?!</font).)+)</font>~<small>$1</small>~sg ){
 			$round++;
 			debug("font-blocks substituted with small-blocks in round $round.") if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
@@ -1032,7 +1067,9 @@ sub convertHTML2XDXF{
 			$round++;
 			debug("<mmc:no-fulltext>-blocks substituted with spans in round $round.") if $number<3;
 		}
+        $TotalConversion2SpanTime = time - $start;
 		# Create key&definition strings.
+        $start = time;
 		# m~^<idx:orth value="(?<key>[^"]+)"></idx:orth>(?<def>.+)$~s; # Works only for Duden
 		s~<idx:orth value="(?<key>[^"]+)">~~s; # Remove idx-orth value.
 		my $key = $+{key};
@@ -1098,8 +1135,17 @@ sub convertHTML2XDXF{
 		$lastkey = $key;
 		# To allow inflection entries after the main entry
 		$lastInflectionEntries = $lastInflectionEntries.$InflectionEntries;
-	}
-	foreach( sort keys %ConversionDebugStrings){ debug($ConversionDebugStrings{$_}); }
+        $TotalArticleExtraction += time - $start;
+        my @Names = ("TotalRemovalTime","TotalImageConversion","TotalEncodingConversionTime","TotalConversion2SpanTime","TotalArticleExtraction");
+        foreach($TotalRemovalTime,$TotalImageConversion,$TotalEncodingConversionTime,$TotalConversion2SpanTime,$TotalArticleExtraction){
+            my $Name = shift @Names;
+            infoVV("$Name: $_");
+            $TotalTime += $_;
+        }
+        infoVV("Total time in loop: $TotalTime");
+    }
+    
+    foreach( sort keys %ConversionDebugStrings){ debug($ConversionDebugStrings{$_}); }
 	doneWaiting();
 	push @xdxf, $lastline_xdxf;
 	return(@xdxf);}
