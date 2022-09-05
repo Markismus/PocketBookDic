@@ -96,6 +96,7 @@ my $isCreateMDict = 0;
 
 # Controls for recoding or deleting images and sounds.
 my $isRemoveWaveReferences = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
+my $isConvertImagesUsingOCR = 1; # Try to identify images as symbols whenever possible.
 my $isCodeImageBase64 = 0; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
 
 my $isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
@@ -129,7 +130,7 @@ if( $Just4Koreader and !$Just4PocketBook){
 
 	# Controls for recoding or deleting images and sounds.
 	$isRemoveWaveReferences = 1; # Removes all the references to wav-files Could be encoded in Base64 now.
-	$isCodeImageBase64 = 1; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
+	$isCodeImageBase64 = 0; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
 	$isConvertGIF2PNG = 0; # Creates a dependency on Imagemagick "convert".
 
 	$unEscapeHTML = 0;
@@ -704,6 +705,155 @@ sub convertCVStoXDXF{
     }
     push @xdxf, $lastline_xdxf;
     return(@xdxf);}
+sub convertImage2Base64{
+    $_ =  shift;
+    my @imagestrings = m~(<img[^>]+>)~sg;
+    debug("Number of imagestrings found is ", scalar @imagestrings) if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
+    my $replacement;
+    foreach my $imagestring(@imagestrings){
+        # debug('$ReplacementImageStrings{$imagestring}: ',$ReplacementImageStrings{$imagestring});
+        if ( exists $ReplacementImageStrings{$imagestring} ){
+            $replacement = $ReplacementImageStrings{$imagestring}
+        }
+        else{
+            # <img hspace="0" align="middle" hisrc="Images/image15907.gif"/>
+            $imagestring =~ m~hisrc="(?<image>[^"]*?\.(?<ext>gif|jpg|png|bmp))"~si;
+            debug("Found image named $+{image} with extension $+{ext}.") if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
+            my $imageName = $+{image};
+            my $imageformat = $+{ext};
+            if( -e "$FullPath/$imageName"){
+                if ( $isConvertGIF2PNG and $imageformat =~ m~gif~i){
+                    # Convert gif to png
+                    my $Command="convert \"$FullPath/$imageName\" \"$FullPath/$imageName.png\"";
+                    debug("Executing command: $Command") if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
+                    `$Command`;
+                    $imageName = "$imageName.png";
+                    $imageformat = "png";
+                }
+                my $image = join('', file2Array("$FullPath/$imageName", "raw", "quiet") );
+                my $encoded = encode_base64($image);
+                $encoded =~ s~\n~~sg;
+                $replacement = '<img src="data:image/'.$imageformat.';base64,'.$encoded.'" alt="'.$imageName.'"/>';
+                $replacement =~ s~\\\"~"~sg;
+                debug($replacement) if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
+                $ReplacementImageStrings{$imagestring} = $replacement;
+            }
+            else{
+                if( $isRealDead ){ debug("Can't find $FullPath/$imageName. Quitting."); die; }
+                else{ $replacement = ""; }
+            }
+        }
+        s~\Q$imagestring\E~$replacement~;
+    }
+    return $_;}
+sub convertIMG2Text{
+    my $String = shift;
+    infoV("Entering convertIMG2Text");
+    debugVV( $String."\n");
+
+    # Get absolute ImagePath
+    my $CurrentDir = `pwd`; chomp $CurrentDir;
+    unless( $CurrentDir eq $BaseDir){ warn "'$CurrentDir' is another than '$BaseDir'"; }
+    else{ infoV("Working from '$BaseDir'"); }
+    infoV("$FileName");
+    unless( $FileName =~ m~(?<localpath>.+?)[^/]+$~ ){ warn "Regex didn't match for local path"; Die(); }
+    my $ImagePath = $CurrentDir . "/" . $+{localpath};
+    debugV( "Imagepath is '$ImagePath'");
+
+    # Collect ImageStrings;
+    my @ImageStrings = $String =~ m~(<img[^>]+>)~sg;
+    unless( scalar @ImageStrings ){ warn "No imagestrings found in convertIMG2Text. Why is the sub called?"; return $String; }
+
+    my $counter = 0;
+    my %ImageStringsHandled;
+    IMAGESTRING: foreach my $ImageString( @ImageStrings){
+        # Deal with identical strings
+        if( $ImageStringsHandled{ $ImageString } ){ next; }
+        else{ $ImageStringsHandled{ $ImageString } = 1; }
+
+        $counter++;
+        if( $ImageString =~ m~alt="x([0-9A-Fa-f]+)"~ ){
+            infoV("Alternative expression for image is U+$1.");
+            # my $smiley_from_code_point = "\N{U+263a}";
+            my $Alt = chr( hex($1) );
+            if( $String =~ s~\Q$ImageString\E~$Alt~sg ){
+                infoV("Substituted imagestring '$ImageString' with '$Alt'");
+                next IMAGESTRING;
+            }
+            else{ warn "Regex substitution alternative expression doesn't work."; Die(); }
+        }
+        my @Sources = $ImageString =~ m~(\w*src="[^"]+")~sg;
+        unless( scalar @Sources ){ warn "No sources found in imagestring:\n'$ImageString'"; next; }
+
+        my %Sources;
+        foreach( @Sources ){
+            unless( m~(?<type>\w*src)="(?<imagename>[^"]+)"~s ){ warn "Regex sources doesn't work."; Die(); }
+            $Sources{ $+{"imagename"} } = $+{"type"};
+        }
+        my %SourceQuality = { "src" => 0, "hisrc" => 1, "lowsrc" => -1 };
+        sub sourceQuality{
+            # Filename to src/hisrc/losrc to 0/1/-1
+            # Descending sort so $a and $b are swapped.
+            $SourceQuality{ $Sources{ $b } } <=> $SourceQuality { $Sources { $a } }
+        }
+        my %Text;
+        SOURCE: foreach my $Source ( sort sourceQuality keys %Sources ){
+            $Source = $ImagePath . $Source;
+            if( exists $ValidatedOCRedImages{ $Source } ){
+                if( defined $ValidatedOCRedImages{ $Source } and $ValidatedOCRedImages{ $Source } ne "VALIDATED AS INCORRECT" ){
+                    unless ( $String =~ s~\Q$ImageString\E~$ValidatedOCRedImages{ $Source }~sg ){
+                        warn "ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Source }'.";
+                    }
+                    else{ infoV("ImageString '$ImageString' substituted with '$ValidatedOCRedImages{ $Source }'."); }
+                    next IMAGESTRING;
+                }
+            }
+            infoV( $Source ) if $counter < 600;
+            unless( -e $Source ){ warn "Image file '$Source' not found."; next; }
+            # No use in running the OCR twice.
+            my $text ;
+            if( exists $OCRedImages{ $Source } ){ $text = $OCRedImages{ $Source }; }
+            else{
+                $text = get_ocr( $Source, undef, "eng+equ --psm 10" );
+                chomp $text;
+                infoV( "Imagestring =\n'".$ImageString."'");
+                info( "Tesseract identified image '$Source' as '$text'");
+                $OCRedImages{ $Source } = $text;
+            }
+
+            if( $text ne '' ){ $Text{$Source} = $text; } # So %Text is a localized version of %OCRedImages;
+            elsif(!( exists $OCRedImages{ $Source } ) ){ debug("No result from OCR."); }
+        }
+
+        if( $isManualValidation and scalar keys %Text >= 1 ){
+            my (%Images, @Text);
+            foreach( sort sourceQuality keys %Text ){ $Images{ $Text{$_} } = $_; push @Text, $Text{$_}; }
+            foreach( @Text ){
+                if( exists $ValidatedOCRedImages{ $Images{$_} } ){ next; }
+                # ValidatedOCRedImages
+                system("feh -x -Z -g300x300 \"$Images{$_}\"&");
+                printGreen("\n\n--------->Is the image '$Images{$_}' correctly recognized as '$_'?\nPress enter to keep or provide a correction or quit[ENTER|PROVIDE CORRECTION|NO|QUIT]");
+                my $input = <STDIN>;
+                system( "killall feh 2>/dev/null");
+                chomp $input;
+                my $substitution = 0;
+                if( $input eq ''){ $ValidatedOCRedImages{ $Images{$_} } = $_; $substitution = 1}
+                elsif( $input =~ m~quit~i ){ $isManualValidation = 0; last; }
+                elsif( $input =~ m~no~i ){ $ValidatedOCRedImages{ $Images{$_} } = "VALIDATED AS INCORRECT"; $substitution = 0}
+                else{ $ValidatedOCRedImages{ $Images{$_} } = $input; $substitution = 1}
+                if( $substitution ){
+                    unless ( $String =~ s~\Q$ImageString\E~$ValidatedOCRedImages{ $Images{$_} }~sg ){
+                        warn "ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Images{$_} }'";
+                    }
+                    storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName); # To check whether filename is storable.
+                    next IMAGESTRING;
+                }
+            }
+        }
+    }
+    infoV("Leaving convertIMG2Text");
+    return $String;
+}
 sub convertHTML2XDXF{
 	# Converts html generated by KindleUnpack to xdxf
 	my $encoding = shift @_;
@@ -810,14 +960,15 @@ sub convertHTML2XDXF{
 		# </idx:entry>
 		# <div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif" /><br /></div>
 	# my @indexentries = $html=~m~<idx:entry scriptable="yes">((?:(?!</idx:entry>).)+)</idx:entry>~gs; # Only works for Duden
-	my @indexentries = $html=~m~<idx:entry[^>]*>((?:(?!<idx:entry).)+)~gs; # Collect from the start until the next starts.
+	# Clean images out of the html
+    if( $html =~ m~<img[^>]+>~s and $isConvertImagesUsingOCR ){ $html = convertIMG2Text( $html ); }
+        
+    my @indexentries = $html=~m~<idx:entry[^>]*>((?:(?!<idx:entry).)+)~gs; # Collect from the start until the next starts.
 	if($isTestingOn){ array2File("test_html_indexentries.html",map(qq/$_\n/,@indexentries)  ) ; }
 	my $number = 0;
 	my $lastkey = "";
 	my $lastInflectionEntries="";
-	my (%ConversionDebugStrings, %ReplacementImageStrings);
-	my $HashFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."hash";
-	if( -e $HashFileName ){ %ReplacementImageStrings = %{retrieve($HashFileName)}; }
+	my %ConversionDebugStrings;
 	waitForIt("Converting indexentries from HTML to XDXF.");
 	foreach (@indexentries){
 		$number++;
@@ -830,49 +981,11 @@ sub convertHTML2XDXF{
 		s~</?a[^>]*>|<betonung\s*/>|</idx:entry>|<br\s*/>|<hr\s*/>|<mmc:fulltext-word[^>]+>~~sg;
 		# Remove empty sup and sub-blocks
 		s~<sub>[\s]*</sub>|<sup>[\s]*</sup>|<b>[\s]*</b>~~sg;
-		# Remove or convert <img ../>, e.g. <img hspace="0" align="middle" hisrc="Images/image15907.gif" />
-		if( $isCodeImageBase64 and m~(<img[^>]+>)~s){
-			my @imagestrings = m~(<img[^>]+>)~sg;
-			debug("Number of imagestrings found is ", scalar @imagestrings) if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
-			my $replacement;
-			foreach my $imagestring(@imagestrings){
-				# debug('$ReplacementImageStrings{$imagestring}: ',$ReplacementImageStrings{$imagestring});
-				if ( exists $ReplacementImageStrings{$imagestring} ){
-					$replacement = $ReplacementImageStrings{$imagestring}
-				}
-				else{
-					# <img hspace="0" align="middle" hisrc="Images/image15907.gif"/>
-					$imagestring =~ m~hisrc="(?<image>[^"]*?\.(?<ext>gif|jpg|png|bmp))"~si;
-					debug("Found image named $+{image} with extension $+{ext}.") if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
-					my $imageName = $+{image};
-					my $imageformat = $+{ext};
-					if( -e "$FullPath/$imageName"){
-						if ( $isConvertGIF2PNG and $imageformat =~ m~gif~i){
-							# Convert gif to png
-							my $Command="convert \"$FullPath/$imageName\" \"$FullPath/$imageName.png\"";
-							debug("Executing command: $Command") if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
-							`$Command`;
-							$imageName = "$imageName.png";
-							$imageformat = "png";
-						}
-						my $image = join('', file2Array("$FullPath/$imageName", "raw", "quiet") );
-						my $encoded = encode_base64($image);
-						$encoded =~ s~\n~~sg;
-						$replacement = '<img src="data:image/'.$imageformat.';base64,'.$encoded.'" alt="'.$imageName.'"/>';
-						$replacement =~ s~\\\"~"~sg;
-						debug($replacement) if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
-						$ReplacementImageStrings{$imagestring} = $replacement;
-					}
-					else{
-						if( $isRealDead ){ debug("Can't find $FullPath/$imageName. Quitting."); die; }
-						else{ $replacement = ""; }
-					}
-
-				}
-				s~\Q$imagestring\E~$replacement~;
-			}
-		}
+		# Convert or remove <img...>, e.g. <img hspace="0" align="middle" hisrc="Images/image15907.gif" />
+        if( m~<img[^>]+>~s and $isConvertImagesUsingOCR ){ $_ = convertIMG2Text( $_ ); }
+		if( m~<img[^>]+>~s and $isCodeImageBase64 ){ $_ = convertImage2Base64( $_ ); }
 		else{  s~<img[^>]+>~~sg; }
+
 		# Include encoding conversion
 		while( $encoding eq "cp1252" and m~\&\#(\d+);~s ){
 			my $encoded = $1;
@@ -980,8 +1093,6 @@ sub convertHTML2XDXF{
 		# To allow inflection entries after the main entry
 		$lastInflectionEntries = $lastInflectionEntries.$InflectionEntries;
 	}
-	# Save hash for later use.
-	store(\%ReplacementImageStrings, $HashFileName) if scalar keys %ReplacementImageStrings;
 	foreach( sort keys %ConversionDebugStrings){ debug($ConversionDebugStrings{$_}); }
 	doneWaiting();
 	push @xdxf, $lastline_xdxf;
