@@ -2649,6 +2649,7 @@ sub retrieveHash{
             $value =~ s~,$~~;
             $value =~ s~^('|")~~;
             $value =~ s~('|")$~~;
+            $value =~ s~^\\(.)~$1~g; # Remove preceding slashes.
             debug_t("key is>$key<");
             debug_t("value is >$value<");
             my $check = 0;
