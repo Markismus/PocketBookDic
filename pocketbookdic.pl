@@ -144,7 +144,7 @@ if( $Just4Koreader and !$Just4PocketBook){
 
 	$unEscapeHTML = 0;
     $ForceConvertNumberedSequencesToChar = 1;
-    $ForceConvertBlockquote2Div = 1;
+    $ForceConvertBlockquote2Div = 0;
     $EscapeHTMLCharacters = 0;
 }
 if( $Just4PocketBook and !$Just4Koreader){
@@ -1048,7 +1048,7 @@ sub convertHTML2XDXF{
 		}
 		$TotalEncodingConversionTime += time - $start;
 		# Change div-blocks to spans
-		s~(</?)div[^>]*>~$1span>~sg;
+		if( $isConvertDiv2SpaninHTML2DXDF ){ s~(</?)div[^>]*>~$1span>~sg; }
 		my $round = 0;
 		# Change font- to spanblocks
         $start = time;
@@ -1057,7 +1057,7 @@ sub convertHTML2XDXF{
 			debug("font-blocks substituted with small-blocks in round $round.") if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
 		}
 		$round = 0;
-		while( s~<font[^>]*>((?:(?!</font).)*)</font>~<span>$1</span>~sg ){
+		while( s~<font(?<fontstyling>[^>]*)>(?<content>(?:(?!</font).)*)</font>~<span$+{"fontstyling"}>$+{"content"}</span>~sg ){
 			$round++;
 			debug("font-blocks substituted with span-blocks in round $round.") if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
 		}
