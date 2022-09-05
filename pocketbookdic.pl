@@ -1686,16 +1686,17 @@ sub generateXDXFTagBased{
             $a cmp $b}
         foreach( sort sorttags keys %tags ){
             if( m~</?a( |>)|</?i( |>)|</?b( |>)|</?font( |>)~i){ 
-                delete $tags{$_};     # Skip known styling.
                 unless( $DeletedTags{ substr($_, 0, 5) } ){ debug("Deleted '$_' from list of tags."); }
-                $DeletedTags{ substr($_, 0, 5) } = 1;                                       # Use of substr to prevent flooding with anchor references.
+                $DeletedTags{ substr($_, 0, 5) } = 1;  # Use of substr to prevent flooding with anchor references.
+                delete $tags{$_};     # Skip known styling.
             }
             elsif( m~^<img[^>]+>$~ and $$Info{ "isExcludeImgTags" } ){ delete $tags{$_}; }             # Remove img-tags if they're excluded
+            # This also eliminates low  frequency <div .....> even if there are high frequency <div>-tags, leading to different counts for start- and stop-tags.
             elsif ( $tags{$_} > $$Info{ "HigherFrequencyTags"} ){ print "\$tags{$_} = $tags{$_}\n";}  # Keep and print higher frequency tags
-            else{ 
-                delete $tags{$_};
+            elsif ( $$Info{ "isDeleteLowerFrequencyTagsinFilterTagsHash" } ){ 
                 unless( $LowerFrequencyTags{ $_ } ){ debug("Deleted '$_' from list of tags due to too low frequency ($tags{$_})."); }
                 $LowerFrequencyTags{ $_ } = 1;
+                delete $tags{$_};
             }
         }
 
