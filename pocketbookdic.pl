@@ -1701,8 +1701,8 @@ sub generateXDXFTagBased{
 
         my %RemovedTags;
         foreach (keys %tags){
-            if( m~</?mbp:~ or
-                m~</?body~
+            if( $$Info{"isRemoveMpbAndBodyTags"} and 
+                ( m~</?mbp:~ or m~</?body~ )
                 ){
                 unless( defined $RemovedTags{$_} ){ 
                     $rawml =~ s~\Q$_\E~~sg; 
@@ -1802,7 +1802,7 @@ sub generateXDXFTagBased{
         # Find stop-tags and match them to starting tags
         foreach my $key ( keys %$tags ){
             my $count = 0;
-            if( $key =~ m~</?a( |>)|</?i( |>)|</?b( |>)|</?font( |>)~i){ $SkippedTags{$key} = "known styling"; next; } # Skip known styling.
+            if( $$Info{ "isSkipKnownStylingTags" } and $key =~ m~</?a( |>)|</?i( |>)|</?b( |>)|</?font( |>)~i){ $SkippedTags{$key} = "known styling"; next; } # Skip known styling.
             if( ($$tags{$key} < $LowFrequencyCriterium ) and ($isgatherSetsVerbose == 0) ){ $SkippedTags{$key} = "too low frequency";  next; }
             unless( $key =~ m~^<\/~ ){  $SkippedTags{$key} = "not a stop tag"; next; }
             info("Reviewing endtag '$key' ($$tags{$key})");
