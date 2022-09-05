@@ -2638,7 +2638,7 @@ sub retrieveHash{
         foreach( @Dumpered ){
             $index++;
             # Skip first and last line.
-            if( m~\$VAR1 = \\\{$~ or m~^\s*\};$~ ){ next; }
+            if( m~\$VAR1 = \\?\{$~ or m~^\s*\};$~ ){ next; }
             debug_t( "[$index] $_" );
             chomp;
             s~^\s*~~;
@@ -2691,7 +2691,7 @@ sub storeHash{
     info("Entering sub storeHash.") if $isTestingOn ;
     foreach( @_ ){ debug( $_ ) if $isTestingOn ; }
     if( $_[0] -~ m~^HASH\(0x~ ){
-        my $Dump = Dumper( \$_[0]);
+        my $Dump = Dumper( $_[0]);
         debug( "DumperSuffix is '$DumperSuffix'") if $isTestingOn;
         my $FileName = "$_[1]$DumperSuffix";
         debug("Filename in sub storeHash is '$FileName'");
