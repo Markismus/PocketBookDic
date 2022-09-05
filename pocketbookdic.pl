@@ -9,6 +9,7 @@ use open ':std', ':utf8';
 use feature 'unicode_strings'; # You get funky results with the sub convertNumberedSequencesToChar without this.
 use feature 'say';
 use Data::Dumper;
+use Storable;
 ###########################################
 ### Beginning of manual control input   ###
 ###########################################
@@ -32,7 +33,7 @@ my $FileName;
 $FileName = "dict/Oxford English Dictionary 2nd Ed/Oxford English Dictionary 2nd Ed.xdxf";
 $FileName = "dict/stardict-Webster_s_Unabridged_3-2.4.2/Webster_s_Unabridged_3.ifo";
 
-
+my $DumperSuffix = ".Dumper.txt"; # Has to be declared before any call to storeHash or retrieveHash. Otherwise it is undefined, although no error is given.
 
 my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
 
@@ -208,9 +209,29 @@ if ($isCreatePocketbookDictionary and $isCodeImageBase64){
 	debug("Set \"\$isCreatePocketbookDictionary = 0;\" if you want imaged encoded inline for Stardict- and XDXF-format.");
 }
 # Load pragmas for image coding.
+# To store/load the hash %ReplacementImageStrings or %ValidatedOCRedImages.
+
+my (%ReplacementImageStrings, $ReplacementImageStringsHashFileName);
 if( $isCodeImageBase64 ){
 	use MIME::Base64;	# To encode into Bas64
-	use Storable;		# To store/load the hash %ReplacementImageStrings.
+	$ReplacementImageStringsHashFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."replacement.hash";
+    if( -e $ReplacementImageStringsHashFileName ){ %ReplacementImageStrings = %{ retrieveHash($ReplacementImageStringsHashFileName)}; }
+    storeHash(\%ReplacementImageStrings, $ReplacementImageStringsHashFileName); # To check whether filename is storable.
+    if( scalar keys %ReplacementImageStrings == 0 ){ unlink $ReplacementImageStringsHashFileName; }
+}
+
+my (%OCRedImages, %ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName);
+my $isManualValidation = 1;
+if( $isConvertImagesUsingOCR ){
+    use Image::OCR::Tesseract 'get_ocr';
+    $Image::OCR::Tesseract::DEBUG = 0;
+    $ValidatedOCRedImagesHashFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."validation.hash";
+    if( -e $ValidatedOCRedImagesHashFileName ){ %ValidatedOCRedImages = %{ retrieveHash($ValidatedOCRedImagesHashFileName)}; }
+    %OCRedImages = %ValidatedOCRedImages;
+    info("Number of imagestrings OCRed is ".scalar keys %ValidatedOCRedImages);
+    unless( storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName) ){ warn "Cannot store hash ValidatedOCRedImages."; Die();} # To check whether filename is storable.
+    if( scalar keys %ValidatedOCRedImages == 0 ){ unlink $ValidatedOCRedImagesHashFileName; }
+    else{ info("Mistakes in the validated values can be manually corrected by editing '$ValidatedOCRedImagesHashFileName'"); }
 }
 
 # Path checking and cleaning
@@ -282,6 +303,7 @@ my %roman2arabic = qw(I 1 V 5 X 10 L 50 C 100 D 500 M 1000);
 my %roman_digit = qw(1 IV 10 XL 100 CD 1000 MMMMMM);
 my @figure = reverse sort keys %roman_digit;
 $roman_digit{$_} = [split(//, $roman_digit{$_}, 2)] foreach @figure;
+
 sub isroman{
 	my $String= shift;
 
@@ -330,8 +352,6 @@ sub sortroman{
 }
 #End Localized Roman Package
 
-
-
 sub array2File {
     my ( $FileName, @Array ) = @_;
     if( $FileName =~ m~(?<dir>.*)/(?<file>[^/]+)~ ){
@@ -358,6 +378,7 @@ sub array2File {
     printGreen("Written $FileName. Exiting sub array2File\n") if $isDebugVerbose;
     return ("File written");}
 sub debug { $isDebug and printRed( @_, "\n" ); return(1);}
+sub debug_t { $isDebug and $isTestingOn and printRed( @_, "\n" ); return(1);}
 sub debugV { $isDebugVerbose and printBlue( @_, "\n" ); return(1);}
 sub debugVV { $isDebugVeryVerbose and printBlue( @_, "\n" ); return(1);}
 sub debugFindings {
@@ -1975,9 +1996,10 @@ sub getLoggingTime {
     my $nice_timestamp = sprintf ( "%04d%02d%02d %02d:%02d:%02d",
                                    $year+1900,$mon+1,$mday,$hour,$min,$sec);
     return $nice_timestamp;}
-sub info{   printCyan( join('',@_)."\n" ) if $isInfo;           }
-sub infoV{  printCyan( join('',@_)."\n" ) if $isInfoVerbose;    }
-sub infoVV{ printCyan( join('',@_)."\n" ) if $isInfoVeryVerbose;}
+sub info{   printCyan( join('',@_)."\n" ) if $isInfo;               }
+sub info_t{   printCyan( join('',@_)."\n" ) if $isInfo and $isTestingOn;}
+sub infoV{  printCyan( join('',@_)."\n" ) if $isInfoVerbose;        }
+sub infoVV{ printCyan( join('',@_)."\n" ) if $isInfoVeryVerbose;    }
 sub loadXDXF{
 	# Create the array @xdxf
 	my @xdxf;
@@ -2410,6 +2432,56 @@ sub removeInvalidChars{
 
     doneWaiting();
     return($xdxf); }
+sub retrieveHash{
+    info_t("Entering sub retrieveHash.") ;
+    foreach( @_ ){ debug_t( $_ ); }
+    debug_t( "DumperSuffix is '$DumperSuffix'");
+    my $FileName = "$_[0]$DumperSuffix";
+    debug_t("Filename in sub storeHash is '$FileName'");
+    if( -e $FileName ){
+        infoVV("Preferring '$_[0]$DumperSuffix', because it could contain manual edits");
+        my @Dumpered = file2Array( "$_[0]$DumperSuffix" );
+        my %Dumpered;
+        my $index = -1;
+        foreach( @Dumpered ){
+            $index++;
+            # Skip first and last line.
+            if( m~\$VAR1 = \\\{$~ or m~^\s*\};$~ ){ next; }
+            debug_t( "[$index] $_" );
+            chomp;
+            s~^\s*~~;
+            my ( $key, $value) = split( / => /, $_ );
+            debug_t("key is>$key<");
+            debug_t("value is >$value<");
+            $key =~ s~^'~~;
+            $key =~ s~'$~~;
+            $value =~ s~,$~~;
+            $value =~ s~^('|")~~;
+            $value =~ s~('|")$~~;
+            debug_t("key is>$key<");
+            debug_t("value is >$value<");
+            my $check = 0;
+            while( $value =~ m~\\x\{([0-9A-Fa-f]+)\}~ ){
+                $check++;
+                my $oldvalue = $value;
+                # $value = $`."\x{$1}".$';
+                debug_t("\$` is '$`'");
+                debug_t("\$' is '$''");
+                debug_t("\$1 is '$1'");
+                $value = $`.chr(hex($1)).$';
+                debug_t("'$oldvalue' is now '$value'");
+            }
+            if( $check ){ debug_t("updated value is '$value'") ;}
+            unless( $key and $value ){
+                warn "Line '$_' in returned array from '$_[0]$DumperSuffix' is not a simple hash structure";
+                return( retrieve (@_) );
+            }
+            else{ $Dumpered{ $key } = $value; }
+        }
+        if( scalar keys %Dumpered ){ return \%Dumpered; }
+        else{ warn "$_[0]$DumperSuffix is not an dumpered HASH"; }
+    }
+    return( retrieve( @_) );}
 sub startFromStop{ return ("<" . substr( $_[0], 2, (length( $_[0] ) - 3) ) . "( [^>]*>|>)"); }
 sub startTag{
     $_[0] =~ s~\s+~~s;
@@ -2423,6 +2495,19 @@ sub startTagReturnUndef{
 sub stopFromStart{
     unless( $_[0] =~ m~<(?<tag>\w+)( |>)~ ){ warn "Regex in stopFromStart doesn't match. Value given is '$_[0]'"; Die(); }
     return( "</" . $+{"tag"}.">" );}
+sub storeHash{
+    info("Entering sub storeHash.") if $isTestingOn ;
+    foreach( @_ ){ debug( $_ ) if $isTestingOn ; }
+    if( $_[0] -~ m~^HASH\(0x~ ){
+        my $Dump = Dumper( \$_[0]);
+        debug( "DumperSuffix is '$DumperSuffix'") if $isTestingOn;
+        my $FileName = "$_[1]$DumperSuffix";
+        debug("Filename in sub storeHash is '$FileName'");
+        debugV( $Dump );
+        array2File( $FileName, $Dump );
+        return 1;
+    }
+    else{ return( store( @_) ); }}
 sub string2File{
     my $FileName = shift;
     my @Array = split(/^/, shift);
@@ -2639,5 +2724,14 @@ if( $isCreateMDict ){
     debug("Length \$mdict is ", length($mdict));
     string2File($Renamed.".mdict.txt", $mdict);
 }
-
+chdir $BaseDir;
 array2File("XmlTidied.xml", @XMLTidied ) if $UseXMLTidy;
+# Save hash for later use.
+storeHash(\%ReplacementImageStrings, $ReplacementImageStringsHashFileName) if scalar keys %ReplacementImageStrings;
+
+if( scalar keys %ValidatedOCRedImages ){
+    unless( storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName) ){
+        warn "Cannot store hash ValidatedOCRedImages.";
+        Die();
+    } # To check whether filename is storable.
+}
