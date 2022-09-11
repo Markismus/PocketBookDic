@@ -205,6 +205,10 @@ if( defined($ARGV[2]) and ($ARGV[2] =~ m~^(.t)$~ or $ARGV[2] =~ m~^(.)$~) ){
     printYellow("Found a command line argument consisting of one character.\n Assuming \"$1\" is the CVS deliminator.\n");
     $CVSDeliminator = $ARGV[2];
 }
+elsif( defined($ARGV[2]) and $FileName =~ m~\.csv$~i ){ 
+    printYellow("Found a command line argument consisting of multiple characters and a cvs-extension in the filename.\n Assuming \"$ARGV[2]\" is the CVS deliminator.\n");
+    $CVSDeliminator = $ARGV[2];
+}
 
 # Determine operating system.
 my $OperatingSystem = "$^O";
