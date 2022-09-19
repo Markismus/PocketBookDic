@@ -2625,7 +2625,39 @@ sub removeInvalidChars{
     if( $isConvertMobiAltCodes ){ $xdxf = convertMobiAltCodes( $xdxf ); }
 
     my $check = 0 ;
-    if( $xdxf =~ s~(\x7f|\x1F|\x1E|\x1D|\x1C|\x1B|\x1A|\x19|\x18|\x17|\x16|\x15|\x14|\x13|\x12|\x11|\x10|\x0F|\x0E|\x0D|\x0C|\x0B|\x0A|\x09|\x08|\x07|\x06|\x05|\x04|\x03|\x02|\x01|\x00)~~sg ){ $check++; infoV( "Removed characters with codes U+007F or between U+0000 and U+001F.");}
+    # U+0000  0   000     Null character  NUL
+    # U+0001  1   001     Start of Heading    SOH / Ctrl-A
+    # U+0002  2   002     Start of Text   STX / Ctrl-B
+    # U+0003  3   003     End-of-text character   ETX / Ctrl-C1
+    # U+0004  4   004     End-of-transmission character   EOT / Ctrl-D2
+    # U+0005  5   005     Enquiry character   ENQ / Ctrl-E
+    # U+0006  6   006     Acknowledge character   ACK / Ctrl-F
+    # U+0007  7   007     Bell character  BEL / Ctrl-G3
+    # U+0008  8   010     Backspace   BS / Ctrl-H
+    # U+0009  9   011     Horizontal tab  HT / Ctrl-I
+    # U+000A  10  012     Line feed   LF / Ctrl-J4
+    # U+000B  11  013     Vertical tab    VT / Ctrl-K
+    # U+000C  12  014     Form feed   FF / Ctrl-L
+    # U+000D  13  015     Carriage return     CR / Ctrl-M5
+    # U+000E  14  016     Shift Out   SO / Ctrl-N
+    # U+000F  15  017     Shift In    SI / Ctrl-O6
+    # U+0010  16  020     Data Link Escape    DLE / Ctrl-P
+    # U+0011  17  021     Device Control 1    DC1 / Ctrl-Q7
+    # U+0012  18  022     Device Control 2    DC2 / Ctrl-R
+    # U+0013  19  023     Device Control 3    DC3 / Ctrl-S8
+    # U+0014  20  024     Device Control 4    DC4 / Ctrl-T
+    # U+0015  21  025     Negative-acknowledge character  NAK / Ctrl-U9
+    # U+0016  22  026     Synchronous Idle    SYN / Ctrl-V
+    # U+0017  23  027     End of Transmission Block   ETB / Ctrl-W
+    # U+0018  24  030     Cancel character    CAN / Ctrl-X10
+    # U+0019  25  031     End of Medium   EM / Ctrl-Y
+    # U+001A  26  032     Substitute character    SUB / Ctrl-Z11
+    # U+001B  27  033     Escape character    ESC
+    # U+001C  28  034     File Separator  FS
+    # U+001D  29  035     Group Separator     GS
+    # U+001E  30  036     Record Separator    RS
+    # U+001F  31  037     Unit Separator  US 
+    if( $xdxf =~ s~(\x7f|\x05|\x02|\x01|\x00)~~sg ){ $check++; info( "Removed characters with codes U+007F or between U+0000 and U+001F.");}
     if( $xdxf =~ s~(\x{0080})~Ç~sg ){ $check++; infoV(" Replaced U+0080 with 'Ç'"); }
     if( $xdxf =~ s~(\x{0091})~æ~sg ){ $check++; infoV(" Replaced U+0091 with 'æ'"); }
     if( $xdxf =~ s~(\x{0092})~Æ~sg ){ $check++; infoV(" Replaced U+0092 with 'Æ'"); }
