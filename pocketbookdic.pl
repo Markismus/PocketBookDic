@@ -653,7 +653,7 @@ sub cleanseAr{
     return( $Content );}
 sub convertBlockquote2Div{
     # return (@_);
-    waitForIt('Converting <blockquote-tags to <div style:"margin 0 0 0 1em;"-tags.');
+    waitForIt('Converting <blockquote-tags to <div style:"margin 0 0 0 1em;">-tags.');
     my $html = join('', @_);
 
     $html =~ s~</blockquote>~</div>~sg;
@@ -2817,7 +2817,7 @@ sub waitForIt{ printCyan(join('', @_)," This will take some time. ", getLoggingT
 # Fill array from file.
 my @xdxf;
 @xdxf = loadXDXF();
-array2File("testLoaded.xdxf", @xdxf) if $isTestingOn;
+array2File("testLoaded_line".__LINE__.".xdxf", @xdxf) if $isTestingOn;
 my $SizeOne = scalar @xdxf;
 debugV("\$SizeOne\t=\t$SizeOne");
 # Remove bloat from xdxf.
@@ -2830,35 +2830,36 @@ if( $FileName !~ m~_unbloated\.xdxf$~ ){
     }
 }
 my $SizeTwo = scalar @xdxf;
-if( $SizeTwo > $SizeOne){ debug("Unbloated \@xdxf ($SizeTwo) has more indices than before ($SizeOne"); }
+if( $SizeTwo > $SizeOne){ debug("Unbloated \@xdxf ($SizeTwo) has more indices than before ($SizeOne)."); }
 else{ debugV("\$SizeTwo\t=\t$SizeTwo");}
-array2File("testUnbloated.xdxf", @xdxf) if $isTestingOn;
+array2File("testUnbloated_line".__LINE__.".xdxf", @xdxf) if $isTestingOn;
 # filterXDXFforEntitites
 @xdxf = filterXDXFforEntitites(@xdxf);
 my $SizeThree = scalar @xdxf;
 if( $SizeThree > $SizeTwo){ debug("\$SizeThree ($SizeThree) is larger than \$SizeTwo ($SizeTwo"); }
 else{ debugV("\$SizeThree\t=\t$SizeThree");}
+array2File("testFiltered_line".__LINE__.".xdxf", @xdxf) if $isTestingOn;
 
-array2File("testFiltered.xdxf", @xdxf) if $isTestingOn;
 my @xdxf_reconstructed = reconstructXDXF( @xdxf );
 my $SizeFour = scalar @xdxf;
 if( $SizeFour > $SizeThree){ debug("\$SizeFour ($SizeFour) is larger than \$SizeThree ($SizeThree"); }
 else{ debugV("\$SizeFour\t=\t$SizeFour");}
 
-array2File("test_Constructed.xdxf", @xdxf_reconstructed) if $isTestingOn;
+array2File("test_Constructed_line".__LINE__.".xdxf", @xdxf_reconstructed) if $isTestingOn;
+
 # If SameTypeSequence is not "h", remove &#xDDDD; sequences and replace them with characters.
 if ( $SameTypeSequence ne "h" or $ForceConvertNumberedSequencesToChar ){
     @xdxf_reconstructed = convertNonBreakableSpacetoNumberedSequence( @xdxf_reconstructed );
-    array2File("test_convertednbsp.xdxf", @xdxf_reconstructed) if $isTestingOn;
+    array2File("test_convertednbsp_line".__LINE__.".xdxf", @xdxf_reconstructed) if $isTestingOn;
     @xdxf_reconstructed = convertNumberedSequencesToChar( @xdxf_reconstructed );
-    array2File("test_converted2char.xdxf", @xdxf_reconstructed) if $isTestingOn;
+    array2File("test_converted2char_line".__LINE__.".xdxf", @xdxf_reconstructed) if $isTestingOn;
 }
 if( $ForceConvertBlockquote2Div or $isCreatePocketbookDictionary ){
     @xdxf_reconstructed = convertBlockquote2Div( @xdxf_reconstructed );
-    array2File("test_converted2div.xdxf", @xdxf_reconstructed) if $isTestingOn;
+    array2File("test_converted2div_line".__LINE__.".xdxf", @xdxf_reconstructed) if $isTestingOn;
 }
 if ( $unEscapeHTML ){ @xdxf_reconstructed = unEscapeHTMLArray( @xdxf_reconstructed ); }
-array2File("test_unEscapedHTML.xdxf", @xdxf_reconstructed) if $isTestingOn;
+array2File("test_unEscapedHTML_line".__LINE__.".xdxf", @xdxf_reconstructed) if $isTestingOn;
 
 if( $UseXMLTidy ){
     @xdxf_reconstructed = tidyXMLArray( @xdxf_reconstructed);
@@ -2961,7 +2962,7 @@ if( $isCreateMDict ){
     string2File($Renamed.".mdict.txt", $mdict);
 }
 chdir $BaseDir;
-array2File("XmlTidied.xml", @XMLTidied ) if $UseXMLTidy;
+array2File("XmlTidied_line".__LINE__.".xml", @XMLTidied ) if $UseXMLTidy;
 # Save hash for later use.
 storeHash(\%ReplacementImageStrings, $ReplacementImageStringsHashFileName) if scalar keys %ReplacementImageStrings;
 
