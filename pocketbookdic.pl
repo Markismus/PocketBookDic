@@ -2904,7 +2904,8 @@ if( $isCreateStardictDictionary ){
     # my @dict_xml = split('/',$dict_xml);
     $dict_xml =~ s~(?<!\\) ~\ ~g;
     # $dict_xml = join('/', @dict_xml);
-
+    # check <bookname></bookname>
+    if( $StardictXMLreconstructed[4] =~ s~(<bookname>)\s*(</bookname>)~$1UnknownDictionary$2~ ){ warn "Empty dictionary name!"; }
     array2File($dict_xml, @StardictXMLreconstructed);
 
     # Convert reconstructed XML-file to binary
@@ -2916,25 +2917,27 @@ if( $isCreateStardictDictionary ){
         system($command);
         # Workaround for dictzip
         if( $dict_bin =~ m~ |\(|\)~ ){
-            debugV("Spaces or braces found, so dictzip will have failed. Running it again while masking the spaces.");
+            debug_t("Spaces or braces found, so dictzip will have failed. Running it again while masking the spaces.");
             if( $dict_bin !~ m~(?<filename>[^/]+)$~){ debug("Regex not working for dictzip workaround."); die if $isRealDead; }
             my $SpacedFileName = $+{filename};
             
             my $Path = $dict_bin;
             if( $Path =~ s~\Q$SpacedFileName\E~~ ){ debug("Changing to path $Path"); }
-            chdir $Path;        
-            
+            unless( chdir $Path ){ warn "Couldn't change directory to '$Path'"; }
+            else{ info_t("Directory change successfull."); }
+
             $SpacedFileName =~ s~ifo$~dict~;
             my $MaskedFileName = $SpacedFileName;
             $MaskedFileName =~ s~ ~__~g;
             $MaskedFileName =~ s~\(~___~g;
             $MaskedFileName =~ s~\)~____~g;
-            
-            rename "$SpacedFileName", "$MaskedFileName";
+
+            if( -e $SpacedFileName ){ rename "$SpacedFileName", "$MaskedFileName"; }
+            else{ warn "Couldn't find '$SpacedFileName'."; }
             my $command = "dictzip $MaskedFileName";
             printYellow("Running system command:\n$command\n");
             system($command);
-            rename "$MaskedFileName.dz", "$SpacedFileName.dz";
+            unless( rename "$MaskedFileName.dz", "$SpacedFileName.dz"){ warn "Couldn't rename '$MaskedFileName.dz'"; }
         }
         else{ debug("No spaces in filename."); debug("\$dict_bin is \'$dict_bin\'"); }
     }
