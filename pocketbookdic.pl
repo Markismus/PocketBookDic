@@ -42,8 +42,8 @@ my $isRealDead=1; # Some errors should kill the program. However, somtimes you j
 
 # Controls manual input: 0 disables.
 my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
-my $reformat_full_name = 1 ; # Value 1 demands user input for full_name tag.
-my $reformat_xdxf = 1 ; # Value 1 demands user input for xdxf tag.
+my $reformat_full_name  = 1 ; # Value 1 demands user input for full_name tag.
+my $reformat_xdxf       = 1 ; # Value 1 demands user input for xdxf tag.
 
 # Deliminator for CSV files, usually ",",";" or "\t"(tab).
 my $CVSDeliminator = ",";
@@ -289,7 +289,8 @@ if( $DoNotFilterDocType ){ $DocType = ''; }
 my @CleanHTMLTags = ( "<!--...-->", "<!DOCTYPE>", "<a>", "<abbr>", "<acronym>", "<address>", "<applet>", "<area>", "<aside>", "<audio>", "<b>", "<base>", "<basefont>", "<bdi>", "<bdo>", "<big>", "<blockquote>", "<body>", "<br>", "<button>", "<canvas>", "<caption>", "<center>", "<cite>", "<code>", "<col>", "<colgroup>", "<data>", "<datalist>", "<dd>", "<del>", "<details>", "<dfn>", "<dialog>", "<dir>", "<div>", "<dl>", "<dt>", "<em>", "<embed>", "<fieldset>", "<figcaption>", "<figure>", "<font>", "<footer>", "<form>", "<frame>", "<frameset>", "<h1>", "<header>", "<hr>", "<html>", "<i>", "<iframe>", "<img>", "<input>", "<ins>", "<kbd>", "<label>", "<legend>", "<li>", "<link>", "<main>", "<map>", "<mark>", "<meta>", "<meter>", "<nav>", "<noframes>", "<noscript>", "<object>", "<ol>", "<optgroup>", "<option>", "<output>", "<p>", "<param>", "<picture>", "<pre>", "<progress>", "<q>", "<rp>", "<rt>", "<ruby>", "<s>", "<samp>", "<script>", "<section>", "<select>", "<small>", "<source>", "<span>", "<strike>", "<strong>", "<style>", "<sub>", "<summary>", "<sup>", "<svg>", "<table>", "<tbody>", "<td>", "<template>", "<textarea>", "<tfoot>", "<th>", "<thead>", "<time>", "<title>", "<tr>", "<track>", "<tt>", "<u>", "<ul>", "<var>", "<video>", "<wbr>" );
 my @ExcludedHTMLTags = ( "<head>", "<article>", );
 
-my @xdxf_start = (     '<?xml version="1.0" encoding="UTF-8" ?>'."\n",
+my @xdxf_start = (
+                '<?xml version="1.0" encoding="UTF-8" ?>'."\n",
                 '<xdxf lang_from="" lang_to="" format="visual">'."\n",
                 '<full_name></full_name>'."\n",
                 '<description>'."\n",
@@ -297,18 +298,19 @@ my @xdxf_start = (     '<?xml version="1.0" encoding="UTF-8" ?>'."\n",
                 'Created with pocketbookdic.pl'."\n",
                 '</description>'."\n");
 my $lastline_xdxf = "</xdxf>\n";
-my @xml_start = (     '<?xml version="1.0" encoding="UTF-8" ?>'."\n",
-                    '<stardict xmlns:xi="http://www.w3.org/2003/XInclude">'."\n",
-                    '<info>'."\n",
-                    '<version>2.4.2</version>'."\n",
-                    '<bookname></bookname>'."\n",
-                    '<author>pocketbookdic.pl</author>'."\n",
-                    '<email>rather_open_issue@github.com</email>'."\n",
-                    '<website>https://github.com/Markismus/PocketBookDic</website>'."\n",
-                    '<description></description>'."\n",
-                    '<date>'.gmtime().'</date>'."\n",
-                    # '<dicttype></dicttype>'."\n",
-                    '</info>'."\n");
+my @xml_start = (
+                '<?xml version="1.0" encoding="UTF-8" ?>'."\n",                       #[0]
+                '<stardict xmlns:xi="http://www.w3.org/2003/XInclude">'."\n",           #[1]
+                '<info>'."\n",                                                          #[2]
+                '<version>2.4.2</version>'."\n",                                        #[3]
+                '<bookname></bookname>'."\n",                                           #[4]
+                '<author>pocketbookdic.pl</author>'."\n",                               #[5]
+                '<email>rather_open_issue@github.com</email>'."\n",                     #[6]
+                '<website>https://github.com/Markismus/PocketBookDic</website>'."\n",   #[7]
+                '<description></description>'."\n",                                     #[8]
+                '<date>'.gmtime().'</date>'."\n",                                       #[9]
+                # '<dicttype></dicttype>'."\n",
+                '</info>'."\n");                                                        #[10]
 my $lastline_xml = "</stardict>\n";
 
 # Localized Roman Package, because LCL uses lxxxx, which is strictly speaking not a roman number.
@@ -2198,10 +2200,10 @@ sub getLoggingTime {
     my $nice_timestamp = sprintf ( "%04d%02d%02d %02d:%02d:%02d",
                                    $year+1900,$mon+1,$mday,$hour,$min,$sec);
     return $nice_timestamp;}
-sub info{   printCyan( join('',@_)."\n" ) if $isInfo;               }
-sub info_t{   printCyan( join('',@_)."\n" ) if $isInfo and $isTestingOn;}
-sub infoV{  printCyan( join('',@_)."\n" ) if $isInfoVerbose;        }
-sub infoVV{ printCyan( join('',@_)."\n" ) if $isInfoVeryVerbose;    }
+sub info{   printCyan( join('',@_)."\n" ) if $isInfo;                   }
+sub info_t{ printCyan( join('',@_)."\n" ) if $isInfo and $isTestingOn;  }
+sub infoV{  printCyan( join('',@_)."\n" ) if $isInfoVerbose;            }
+sub infoVV{ printCyan( join('',@_)."\n" ) if $isInfoVeryVerbose;        }
 sub loadXDXF{
     # Create the array @xdxf
     my @xdxf;
@@ -2641,8 +2643,7 @@ sub removeEmptyTagPairs{
     }
     # info_t( Dumper( \%matches ) );
     doneWaiting();
-    return( $html );
-}
+    return( $html );}
 sub removeInvalidChars{
     my $xdxf = $_[0]; # Only a string or first entry of array is checked and returned.
     waitForIt("Removing invalid characters.");
