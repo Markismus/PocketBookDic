@@ -1040,8 +1040,8 @@ sub convertHTML2XDXF{
         my $start = time;
         # Remove <a />, </a>, </idx:entry>, <br/>, <hr />, <betonung/>, <mmc:fulltext-word ../> tags
         s~</?a[^>]*>|<betonung\s*/>|</idx:entry>|<br\s*/>|<hr\s*/>|<mmc:fulltext-word[^>]+>~~sg;
-        # Remove empty sup and sub-blocks
-        s~<sub>[\s]*</sub>|<sup>[\s]*</sup>|<b>[\s]*</b>~~sg;
+        # Remove empty tag-pairs
+        $_ = removeEmptyTagPairs( $_ );
         $TotalRemovalTime += time - $start;
         # Convert or remove <img...>, e.g. <img hspace="0" align="middle" hisrc="Images/image15907.gif" />
         $start = time;
