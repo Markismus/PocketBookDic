@@ -1403,8 +1403,27 @@ sub convertStardictXMLtoXDXF{
     if( $updateSameTypeSequence and $StardictXML =~ m~<definition type="(?<sametypesequence>\w)">~s){
         $SameTypeSequence = $+{sametypesequence};
     }
+    my $ExtraDescription = ".";
+    my $SourceAuthor = "";
+    my $SourceEmail = "";
+    my $SourceWebsite = "";
+    my $SourceDescription = "";
+    if( $StardictXML =~ m~<author>(?<sourceauthor>((?!</author>).)+)</author>~s ){
+        $SourceAuthor = " Source author is ". unEscapeHTMLString( $+{sourceauthor} ).".";
+    }
+    if( $StardictXML =~ m~<email>(?<sourceemail>((?!</email>).)+)</email>~s ){
+        $SourceEmail = " Source email is ". unEscapeHTMLString( $+{sourceemail} ).".";
+    }
+    if( $StardictXML =~ m~<website>(?<SourceWebsite>((?!</website>).)+)</website>~s ){
+        $SourceWebsite = " Source website is ". unEscapeHTMLString( $+{SourceWebsite} ).".";
+    }
+    if( $StardictXML =~ m~<description>(?<SourceDescription>((?!</description>).)+)</description>~s ){
+        $SourceDescription = " Source description is ". unEscapeHTMLString( $+{SourceDescription} );
+    }
+    $ExtraDescription .= $SourceAuthor.$SourceDescription.$SourceEmail.$SourceWebsite;
+    substr($xdxf[5], 29, 0 ) = $ExtraDescription;
 
-    waitForIt("Converting stardict xml to xdxf xml.");
+    waitForIt("Converting stardict-xml to xdxf-xml.");
     # Initialize variables for collection
     my ($key, $def, $article, $definition) = ("","", 0, 0);
     # Initialize variables for testing
@@ -1473,9 +1492,14 @@ sub convertXDXFtoStardictXML{
     if( $xdxf =~ m~<date>(?<date>((?!</date>).)+)</date>~s ){
         substr($xml[9], 6, 0) = $+{date};
     }
-    if( $xdxf =~ m~<xdxf (?<description>((?!>).)+)>~s ){
-        substr($xml[8], 13, 0) = $+{description};
+    my $Description="";
+    if( $xdxf =~ m~<xdxf (?<XDXFDescription>((?!>).)+)>~s ){
+        $Description .= $+{XDXFDescription};
     }
+    if( $xdxf =~ m~<description>(?<DescriptionBlock>((?!</description>).)+)</description>~s ){
+        $Description .= ". ".$+{DescriptionBlock};
+    }
+    substr($xml[8], 13, 0) = $Description;
     waitForIt("Converting xdxf-xml to Stardict-xml." );
     my @articles = $xdxf =~ m~<ar>((?:(?!</ar).)+)</ar>~sg ;
     printCyan("Finished getting articles at ", getLoggingTime(),"\n" );
