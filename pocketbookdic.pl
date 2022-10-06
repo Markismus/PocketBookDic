@@ -2209,11 +2209,7 @@ sub loadXDXF{
     my @xdxf;
     my $PseudoFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."xdxf";
     ## Load from xdxffile
-    if( $FileName =~ m~\.xdxf$~){
-        @xdxf = file2Array($FileName);
-        my $xdxf_try =  generateXDXFTagBased( join('', @xdxf ) );
-        if( $xdxf_try ){ @xdxf = @{ $xdxf_try }; }
-    }
+    if( $FileName =~ m~\.xdxf$~){ @xdxf = file2Array($FileName); }
     elsif( -e $PseudoFileName ){
         @xdxf = file2Array($PseudoFileName);
         # Check SameTypeSequence
