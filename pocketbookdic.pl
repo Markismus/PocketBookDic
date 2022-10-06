@@ -1022,6 +1022,12 @@ sub convertHTML2XDXF{
 
     # my @indexentries = $html=~m~<idx:entry scriptable="yes">((?:(?!</idx:entry>).)+)</idx:entry>~gs; # Only works for Duden
     my @indexentries = $html=~m~<idx:entry[^>]*>((?:(?!<idx:entry).)+)~gs; # Collect from the start until the next starts.
+
+    if( scalar @indexentries == 0 ){
+        warn "No idx-entry tags found in html. Trying convertRAWML2XDXF";
+        return( convertRAWML2XDXF( $html ) );
+    }
+
     if($isTestingOn){ array2File("test_html_indexentries.html",map(qq/$_\n/,@indexentries)  ) ; }
 
     waitForIt("Converting indexentries from HTML to XDXF.");
