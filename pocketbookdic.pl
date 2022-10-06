@@ -194,6 +194,7 @@ my $language_dir = "";
 if( defined($ARGV[1]) and $ARGV[1] !~ m~^.$~ and $ARGV[1] !~ m~^\\t$~ ){
     printYellow("Found command line argument: $ARGV[1].\nAssuming it is meant as language directory.\n");
     $language_dir = $ARGV[1];
+    $lang_from = $language_dir;
 }
 if ( defined($ARGV[1]) and ($ARGV[1] =~ m~^(\\t)$~ or $ARGV[1] =~ m~^(.)$~ )){
     debugFindings();
