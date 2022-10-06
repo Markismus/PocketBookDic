@@ -74,7 +74,13 @@ my $SameTypeSequence = "h"; # Either "h" or "m" or "x".
 my $updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
 my $isConvertColorNamestoHexCodePoints = 1; # Converting takes time.
 my $isConvertMobiAltCodes = 1; # Apparently, characters in the range of 1-31 are displayed as alt-codes in mobireader.
-my $isMakeKoreaderReady = 1; # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
+
+# Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
+my $isMakeKoreaderReady                         = 1 ; 
+my $isMakeKoreaderReady_SpanColor2Style         = 1 ;
+my $isMakeKoreaderReady_SpanWidth2Style         = 0 ;
+my $isMakeKoreaderReady_SpanStyleWidht2Padding  = 0 ;
+my $isMakeKoreaderReady_MergeStyles             = 0 ;
 
 # Controls for Pocketbook conversion
 my $isCreatePocketbookDictionary = 1; # Controls conversion to Pocketbook Dictionary dic-format
@@ -117,6 +123,10 @@ my $isConvertDiv2SpaninHTML2DXDF     = 0;
 my $UseXMLTidy                       = 0; # Enables or disables the use of the subroutine tidyXMLArray. Still experimental, so disable.
 my $isCutDoneWithTidyXML             = 0; # Enables or disables the cutting of a line for the pocketbook dictionary in cleanseAr. Still experimental, so disable.
 
+# Controls for html-conversion
+my $isConvertFont2Small         = 1 ;
+my $isConvertFont2Span          = 1 ;
+my $isConvertMMCFullText2Span   = 1 ;
 
 # Shortcuts to Collection of settings.
 # If you select both settings, they will be ignored.
@@ -1066,18 +1076,18 @@ sub convertHTML2XDXF{
         my $round = 0;
         # Change font- to spanblocks
         $start = time;
-        while( s~<font size="(?:2|-1)">((?:(?!</font).)+)</font>~<small>$1</small>~sg ){
+        while( $isConvertFont2Small and s~<font size="(?:2|-1)">((?:(?!</font).)+)</font>~<small>$1</small>~sg ){
             $round++;
             debug("font-blocks substituted with small-blocks in round $round.") if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
         }
         $round = 0;
-        while( s~<font(?<fontstyling>[^>]*)>(?<content>(?:(?!</font).)*)</font>~<span$+{"fontstyling"}>$+{"content"}</span>~sg ){
+        while( $isConvertFont2Span and s~<font(?<fontstyling>[^>]*)>(?<content>(?:(?!</font).)*)</font>~<span$+{"fontstyling"}>$+{"content"}</span>~sg ){
             $round++;
             debug("font-blocks substituted with span-blocks in round $round.") if m~<idx:orth value="$DebugKeyWordConvertHTML2XDXF"~;
         }
         # Change <mmc:no-fulltext> to <span>
         $round = 0;
-        while( s~<mmc:no-fulltext>((?:(?!</mmc:no-fulltext).)+)</mmc:no-fulltext>~<span> $1</span>~sg ){
+        while( $isConvertMMCFullText2Span and s~<mmc:no-fulltext>((?:(?!</mmc:no-fulltext).)+)</mmc:no-fulltext>~<span> $1</span>~sg ){
             $round++;
             debug("<mmc:no-fulltext>-blocks substituted with spans in round $round.") if $number<3;
         }
@@ -2448,6 +2458,13 @@ sub makeKoreaderReady{
     $html =~ s~<c>~<span>~sg;
     $html =~ s~<c c="~<span style="color:~sg;
     $html =~ s~</c>~</span>~sg;
+    # <span color="#0000ff"> $isMakeKoreaderReady_SpanColor2Style $isMakeKoreaderReady_SpanWidth2Style $isMakeKoreaderReady_SpanStyleWidht2Padding $isMakeKoreaderReady_MergeStyles
+    while( $isMakeKoreaderReady_SpanColor2Style        and $html =~ s~(<span[^>]+?) (color)="([^"]+"[^>]*>)~$1 style="$2:$3~sg ){ printGreen("."); }
+    while( $isMakeKoreaderReady_SpanWidth2Style        and $html =~ s~(<span[^>]+?) (width)="([^"]+"[^>]*>)~$1 style="$2:$3~sg ){ printRed( "."); }
+    while( $isMakeKoreaderReady_SpanStyleWidht2Padding and $html =~ s~style="width:-(\d+)"~style="padding-left:$1px"~sg ){ printMagenta( "."); }
+    # while( $html =~ s~(<[^>]+?) (size)="([^"]+"[^>]*>)~$1 style="$2:$3~sg ){ printGreen "."; }
+    # while( $html =~ s~(<[^>]+?) (height)="([^"]+"[^>]*>)~$1 style="$2:$3~sg ){ printGreen "."; }
+    while( $isMakeKoreaderReady_MergeStyles            and $html =~ s~(<[^>]+? style="[^"]*)("[^>]*?) style="([^"]*"[^>]*>)~$1;$2~ ){ printYellow("."); }
     # Things done with css-file
     my @css;
     my $FileNameCSS = join('', $FileName=~m~^(.+?)\.[^.]+$~)."_reconstructed.css";
