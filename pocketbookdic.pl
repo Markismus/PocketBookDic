@@ -38,7 +38,7 @@ $FileName = "dict/stardict-Webster_s_Unabridged_3-2.4.2/Webster_s_Unabridged_3.i
 
 my $DumperSuffix = ".Dumper.txt"; # Has to be declared before any call to storeHash or retrieveHash. Otherwise it is undefined, although no error is given.
 
-my $isRealDead=1; # Some errors should kill the program. However, somtimes you just want to convert.
+my $isRealDead = 1; # Some errors should kill the program. However, somtimes you just want to convert.
 
 # Controls manual input: 0 disables.
 my ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
@@ -1023,11 +1023,12 @@ sub convertHTML2XDXF{
     # my @indexentries = $html=~m~<idx:entry scriptable="yes">((?:(?!</idx:entry>).)+)</idx:entry>~gs; # Only works for Duden
     my @indexentries = $html=~m~<idx:entry[^>]*>((?:(?!<idx:entry).)+)~gs; # Collect from the start until the next starts.
     if($isTestingOn){ array2File("test_html_indexentries.html",map(qq/$_\n/,@indexentries)  ) ; }
+
+    waitForIt("Converting indexentries from HTML to XDXF.");
     my $number = 0;
     my $lastkey = "";
     my $lastInflectionEntries="";
     my %ConversionDebugStrings;
-    waitForIt("Converting indexentries from HTML to XDXF.");
     my ($TotalRemovalTime,$TotalImageConversion,$TotalEncodingConversionTime,$TotalConversion2SpanTime,$TotalArticleExtraction) = (0,0,0,0,0);
     foreach (@indexentries){
         my $TotalTime = 0;
@@ -2103,7 +2104,7 @@ sub generateXDXFTagBased{
     sub splitRawmlIntoArticles{
         # Usage: splitRawmlIntoArticles( \%Info );
         # Takes the hash keys "SkippedTags" and "filtered rawml" and generates the keys "articles" and "filtered SkippedTags", resp. an array- and a hash-reference.
-   
+
         my $Info = shift;
         my %SkippedTags = %{ $$Info{ "SkippedTags"    } };
         my $rawml       = ${ $$Info{ "filtered rawml" } };
@@ -2114,6 +2115,7 @@ sub generateXDXFTagBased{
             elsif( m~^<img[^>]+>$~ and $isExcludeImgTags ){ delete $SkippedTags{$_}; infoV("'$_' (".$SkippedTags{$_}.") didn't form a set"); }
             else{ info("'$_' (".$SkippedTags{$_}.") didn't form a set");}
         }
+
         debugV( Dumper \%SkippedTags );
         SKIPPEDTAG: foreach my $SplittingTag( keys %SkippedTags){
             my @chunks = split(/\Q$SplittingTag\E/, $rawml );
@@ -2173,7 +2175,7 @@ sub generateXDXFTagBased{
             info( "Articles were split.");
             last;
         }}   
-   
+
     # Get all tags
     my @tags = $rawml =~ m~(<[^>]*>)~sg;
     $Info{ "tags" } = \@tags;
@@ -2182,7 +2184,7 @@ sub generateXDXFTagBased{
     # Hash all tags with their frequency and filter them
     countTagsAndLowerCase( \%Info ); # Generates 2 hash references in %Info named "lowered stop-tags" and "counted tags hash".
     filterTagsHash( \%Info ); # Uses the hash key { "counted tags hash" }. Generates 4 keys in given hash, resp. "removed tags", "filtered rawml", "filtered tags hash" and "deleted tags".
-   
+
     # Gather the start- and stop tag sets.
     gatherSets( \%Info ); # Uses the hash key "filtered tags hash" and generates the keys "sets" and "SkippedTags", resp. an array- and a hash-reference.
 
@@ -2361,9 +2363,6 @@ sub loadXDXF{
         # Write it to disk so it hasn't have to be done again.
         array2File($FileName, @xdxf);
         # debug(@xdxf); # Check generated @xdxf
-
-
-    
     }
     elsif( $FileName =~ m~^(?<filename>((?!\.epub).)+)\.epub$~i ){
         debug("Found an epub-file. Unzipping.");
