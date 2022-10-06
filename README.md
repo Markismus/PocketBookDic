@@ -3,8 +3,17 @@ Script that originated to convert dictionaries to pocketbook dictionary dic-form
 However, since I moved away from Pocketbook devices, I am more focussed on converting to the intermediary xdxf-format and Stardict-format. Both formats are easily converted with other tools to custom formats. This script only incorporates the Pocketbook dic-format. For other formats I can recommend pyGlossary. 
 
 **pocketbookdic.pl** \
-Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml-, mobi- (via html- with KindleUnpack) and xdxf-format to pocketbook dic-, Stardict dict/idx/ifo-, xdxf- and Stardict xml-format. (The csv-file should be comma separated.)
-Currently starting to convert epub-dictionaries and rawml-files. (Rawml-files are unpacked mobi-files that KindleUnpack can't process further.)
+Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml-, mobi- (via html- with KindleUnpack) and xdxf-format to pocketbook dic-, Stardict dict/idx/ifo-, xdxf- and Stardict xml-format. (The csv-file should be comma separated or the delimiter should be given at the command line.) \
+The conversion to Pocketbook dic-format needs files that can be found in the repository [LanguageFilesPocketbookConverter](https://github.com/Markismus/LanguageFilesPocketbookConverter).
+Currently starting to convert epub-dictionaries and rawml-files. (Rawml-files are unpacked mobi-files that KindleUnpack can't process further.) \
+
+**Usage** \
+perl pocketbookdic.pl <path-to-dictionary-and-filename> <language-directory> <cvs delimiter>
+All command line variables are optional. However, you can't specify the next one without the previous one.\
+E.g. perl pocketbookdic.pl dict/myDictionary.cvs eng "|--|"
+E.g. perl pocketbookdic.pl dict/myDictionary.ifo 
+
+
 
 _Dependencies:_
 - Perl - It's a Perl script: Install Perl to run it! 
