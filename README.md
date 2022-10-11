@@ -6,6 +6,7 @@ However, since I moved away from Pocketbook devices, I am more focussed on conve
 Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml-, mobi- (via html- with KindleUnpack) and xdxf-format to pocketbook dic-, Stardict dict/idx/ifo-, xdxf- and Stardict xml-format. (The csv-file should be comma separated or the delimiter should be given at the command line.) \
 The conversion to Pocketbook dic-format needs files that can be found in the repository [LanguageFilesPocketbookConverter](https://github.com/Markismus/LanguageFilesPocketbookConverter).
 Currently starting to convert epub-dictionaries and rawml-files. (Rawml-files are unpacked mobi-files that KindleUnpack can't process further.) \
+First experiment done for conversion of PDF-dictionaries with OCR generated HTML-files.
 
 _Dependencies:_
 - Perl - It's a Perl script: Install Perl to run it! 
