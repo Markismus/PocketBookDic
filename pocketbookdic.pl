@@ -112,7 +112,7 @@ my $isExcludeImgTags    = 1 ; # <img.../>-tags are removed if toggle is positive
 my $isSkipKnownStylingTags = 1 ; # <b>-, <i>-tags and such are usually not relevant for structuring lemma/definition pairs. However, <font...>-tags sometimes are. So check.
 my $HigherFrequencyTags = 10 ; # Tags below this frequency, e.g. 10 times, are considered lower frequency.
 my $isDeleteLowerFrequencyTagsinFilterTagsHash = 0 ; # And the consequeces of that can be toggled, too.
-my $isRemoveMpbAndBodyTags = 1 ; # <mbp...> and <body>-tags are removed if toggle is positive.
+my $isRemoveMpbAndBodyTags = 0 ; # <mbp...> and <body>-tags are removed if toggle is positive.
 my $MinimumSetPercentage = 80 ; # A tag-set should be at least this percentage to be considered the outer tags for an article.
 
 # Create mdict dictionary
@@ -450,6 +450,8 @@ sub cleanOuterTags{
     my $Stop = stopFromStart( $Start );
     unless( $block =~ s~^$Start~~s ){ warn "Regex for removal of block start-tag doesn't match."; Die(); }
     unless( $block =~ s~$Stop$~~s ){ warn "Regex for removal of block stop-tag doesn't match."; Die(); }
+    $block =~ s~^\s+~~s;
+    $block =~ s~\s+$~~s;
     return $block;}
 sub cleanseAr{
     my @Content = @_;
@@ -2312,9 +2314,9 @@ sub generateEntityHashFromDocType{
 sub generateXDXFTagBased{
     info("\nEntering generateXDXFTagBased");
     my $rawml = join('', @_);
-    my %Info;
-    $rawml = removeEmptyTagPairs( $rawml );
+    # $rawml = removeEmptyTagPairs( $rawml ); # Don't because they can be deliminating, acting as a separator between articles.
    
+    my %Info;
     $Info{ "isExcludeImgTags" }     = $isExcludeImgTags;
     $Info{ "isSkipKnownStylingTags" } = $isSkipKnownStylingTags;
     $Info{ "HigherFrequencyTags"}   = $HigherFrequencyTags;
@@ -2322,6 +2324,7 @@ sub generateXDXFTagBased{
     $Info{ "isRemoveMpbAndBodyTags"} = $isRemoveMpbAndBodyTags;
     $Info{ "minimum set percentage"}= $MinimumSetPercentage;
     $Info{ "rawml" }                = \$rawml;
+
     sub countTagsAndLowerCase{
         # Generates 2 hash references in %Info named "lowered stop-tags" and "counted tags hash".
         # Usage: countTagsAndLowerCase( \%Info );
@@ -2414,9 +2417,11 @@ sub generateXDXFTagBased{
         #   },
         #
         # ]
+        infoVV("Entering findArticlesBySets.");
         my $Info = shift;
         my $SetInfo = $$Info{ "SetInfo" };
         my $rawml = ${$$Info{ "filtered rawml" }};
+        my $length_rawml = length ( $rawml );
         foreach( sort {-($$a{"percentage"} <=> $$b{"percentage"}) } @$SetInfo ){
             print "\n-----".$$_{"set"}[0]."------\n";
             debug($$_{"percentage"}."%");
@@ -2427,15 +2432,20 @@ sub generateXDXFTagBased{
             }
             my $test = $rawml;
             # # Remove start.
+            infoVV( "disjunction: ".Dumper( $$_{"disjunction"} ) );
             my $Start = qr~^(?<start>(?:(?!($$_{"disjunction"})).)+)~s;
             $test =~ s~$Start~~;
             # # Remove end.
             # # my $End = qr~(?<endregex>(?:(?<!($$_{"disjunction"})).)+)$~s; # Creates a Variable length negative lookbehind with capturing is experimental in regex;
+            infoVV( "set :".Dumper( $$_{"set"} ) );
             my $End = qr~(?<end>(?:(?<!($$_{"set"}[0])).)+)$~s; # Creates a Variable length negative lookbehind with capturing is experimental in regex;
             $test =~ s~$End~~;
+            infoVV( "regex :".Dumper( $$_{"regex"} ));
             my @articles = $test =~ m~($$_{"regex"})~sg;
-            $test =~ s~$$_{"regex"}\s+~~sg;
-            debug("length of the remaining test is ". length($test) );
+            $test =~ s~$$_{"regex"}~~sg;
+            my $length_test = length($test);
+            my $percentage_left = int( $length_test / $length_rawml * 100 );
+            debug("Length of the remaining test is $length_test ($percentage_left %)");
             debug(substr($test,0,2000));
             if( length($test) == 0 ){
                 info("Articles identified.");
@@ -2445,11 +2455,13 @@ sub generateXDXFTagBased{
                 info("2\n".$articles[2]);
                 $$Info{ "articles"} = \@articles;
                 $$Info{ "article stop tag"} = $$_{"set"}[0];
+                infoVV("Exiting findArticlesBySets with value 1.");
                 return 1;
             }
             else{ @articles = (); }
         }
         info("No articles found by using sets.");
+        infoVV("Exiting findArticlesBySets with value 0.");
         return 0;}
     sub gatherSets{
         info("\nEntering gatherSets");
@@ -2460,7 +2472,7 @@ sub generateXDXFTagBased{
         my $LowFrequencyCriterium = 100;
         $$Info{ "LowFrequencyCriterium"} = $LowFrequencyCriterium;
 
-        my @sets; # Used for storing references to arrays of a set. Each set starts with the endtag, followed by a frequency and continuous with start-tags accompagnied by their frequencies.
+        my @sets; # Used for storing references to arrays of a set. Each set starts with the endtag, followed by a frequency and continues with start-tags accompagnied by their frequencies.
         # [
         #   #0
         #   [
@@ -2479,7 +2491,7 @@ sub generateXDXFTagBased{
         my %SkippedTags;
         my @GatheredStartTags;
         # Find stop-tags and match them to starting tags
-        foreach my $key ( keys %$tags ){
+        foreach my $key ( sort keys %$tags ){
             my $count = 0;
             if( $$Info{ "isSkipKnownStylingTags" } and $key =~ m~</?a( |>)|</?i( |>)|</?b( |>)|</?font( |>)~i){ $SkippedTags{$key} = "known styling"; next; } # Skip known styling.
             if( ($$tags{$key} < $LowFrequencyCriterium ) and ($isgatherSetsVerbose == 0) ){ $SkippedTags{$key} = "too low frequency";  next; }
@@ -2525,7 +2537,53 @@ sub generateXDXFTagBased{
         $Data::Dumper::Indent = 3;
         infoVV( Dumper( \@sets ));
         foreach( @GatheredStartTags ){ if( exists $SkippedTags{ $_ } ){ delete $SkippedTags{ $_ }; } }
-        # printDumperFilered( \%SkippedTags, '<\?a ?' );
+
+        # Check whether there is a tag-pair that remains uniform troughout.
+        # So not more than one opening tag
+        # So each content must be equal, e.g. ''.
+        my $rawml = ${$$Info{"filtered rawml"}};
+        SET: for( my $j =0; $j < scalar @sets; $j++){
+            my $set = $sets[$j];
+            debug_t( "Loop SET, index $j: ".Dumper($set) );
+            PAIR: for( my $i = 2; $i< scalar @{$set}; $i+=2 ){
+                my $regex = "($$set[$i](?:(?!(?:$$set[$i]|$$set[0])).)*$$set[0])";
+                debug_t("regex :".$regex);
+                debug_t("length rawml used: ". length $rawml );
+                debugVV(substr( $rawml, 0, 2000 ) );
+                my @TagBlocks = $rawml =~ m~$regex~sg;
+                if( scalar @TagBlocks == 0 ){ warn "regex '$regex' didn't match!"; Die(); }
+                debugVV(@TagBlocks[0..99]);
+                my $TagBlock = shift @TagBlocks;
+                debug_t("Tag-block is '$TagBlock'");
+                foreach( @TagBlocks){
+                    if( $_ ne $TagBlock ){
+                        debug("TagBlock: $TagBlock");
+                        debug("TagBlock: $_");
+                        debug_t("Not all tag-blocks are the same. Next pair.");
+                        next PAIR;
+                    }
+                }
+                # All tag-blocks are identical!
+                debug("Tag-block '$TagBlock' are all identical. Moving it to skipped tags.");
+                # register $TagBlock as a skipped tag.
+                $SkippedTags{ $TagBlock } = "all identical";
+                debug_t( "Skipped tag '$TagBlock' has value '$SkippedTags{$TagBlock}.");
+                # Remove start-tag and set index 2 back
+                splice( @{$set}, $i, 2 );
+                debug_t( Dumper($set) );
+                $i -= 2;
+                # Remove stop-tag if no further start-tags remains
+                if( scalar @{$set} == 2 ){
+                    debug_t("Only the stop-tag and frequency remain. Removing set.");
+                    splice( @sets, $j, 1 );
+                    debug_t( Dumper( @sets ));
+                    $j--;
+                    next SET;
+                }
+            }
+        }
+
+        # printDumperFiltered( \%SkippedTags, '<\?a ?' );
         logSets( $FileName, \@sets );
         $Info{ "sets" }              = \@sets;
         $Info{ "SkippedTags" }       = \%SkippedTags;}
@@ -2593,26 +2651,25 @@ sub generateXDXFTagBased{
 
         for( my $set = 0; $set < scalar @sets; $set++ ){
             my $test = $rawml;
-            debugVV( $sets[$set] );
+            debug_t( Dumper($sets[$set]) );
             debugVV( scalar @{ $sets[$set] });
-            my $disjunction = $sets[$set][0]; # Set equal to stop-tag
-            debugVV("Name:disjunction", $disjunction);
-            my $regex;
+            my $disjunction = $sets[$set][2]; # Set equal to first start-tag
+            debug_t("disjunction: ", $disjunction);
             debugVV( scalar @{ $sets[$set]});
-            for( my $index = 2; $index < scalar @{ $sets[$set] }; $index += 2 ){
-                $regex = "$sets[$set][$index](?:(?!DISJUNCTION).)+$sets[$set][0]";
-                infoVV("set $set, index $index, regex: '$regex'");
+            for( my $index = 4; $index < scalar @{ $sets[$set] }; $index += 2 ){
                 $disjunction = "$sets[$set][$index]|$disjunction";
                 infoVV("set $set, index $index, disjunction: '$disjunction'");
             }
+            my $regex;
+            $regex = "(DISJUNCTION)(?:(?!DISJUNCTION|$sets[$set][0]).)+$sets[$set][0]";
             infoVV("Regex formed: '$regex'");
-            $regex =~ s~DISJUNCTION~$disjunction~;
+            $regex =~ s~DISJUNCTION~$disjunction~sg;
             infoVV("Regex formed: '$regex'");
             $test =~ s~$regex~~gs;
             my $percentage = int( 100 - length($test) / length($rawml) * 100 );
             $SetInfo[$set]{"set"}           = $sets[$set];      # Array of the keywords and their frequencies
             $SetInfo[$set]{"regex"}         = $regex;
-            $SetInfo[$set]{"disjunction"}   = $disjunction;
+            $SetInfo[$set]{"disjunction"}   = $disjunction."|$sets[$set][0]";
             $SetInfo[$set]{"percentage"}    = $percentage;
             $Percentages{$sets[$set][0]}    = $SetInfo[$set]{"percentage"};
             info("Removed stringlength is $percentage\% for $sets[$set][0] ($sets[$set][1])");
@@ -2633,10 +2690,12 @@ sub generateXDXFTagBased{
             debugVV( "----")
         }
         info("The maximum amount of string is ".$Percentages{ "max_amount" }."% and is removed with blocks that end with ".$Percentages{ "stop-tag" }."." );
-        $Info{ "SetInfo"} = \@SetInfo;}
+        $Info{ "SetInfo" } = \@SetInfo;
+        infoVV("Exiting sub sets2Percentages.");}
     sub splitArticlesIntoKeyAndDefinition{
         # Usage: splitArticlesIntoKeyAndDefinition(\%Info)
         # returns 1 on success.
+        infoVV("Entering splitArticlesIntoKeyAndDefinition.");
         my $Info = shift;
         my $articles = $$Info{ "articles" };
         debugV( Dumper $$Info{ "sets"} );
@@ -2655,7 +2714,7 @@ sub generateXDXFTagBased{
                 unless( $Stoptag eq stopFromStart( $Starttag ) ){ warn "Article stop-tag registered in %Info doesn't match start-tag"; die; }
                 $article = cleanOuterTags( $article );
             }
-            debug( "'$article'" ) if $counter < 6;
+            debug( "Article to be split is '$article'" ) if $counter < 6;
 
             # Check starting key-tag and check them against high frequency tags.
             my $KeyStartTag = startTag( $article );
@@ -2670,11 +2729,11 @@ sub generateXDXFTagBased{
             unless( $HighFrequencyTagRecognized ){ warn "Key start tag is not a high frequency tag."; Die(); }
             # Match key and definition. Push cleaned string to csv-array.
             unless( $article =~ m~\Q$KeyStartTag\E(?<key>.+?)\Q$KeyStopTag\E(?<definition>.+)$~s){ warn "Regex for key-block doesn't match."; die;}
-            infoV("Found a key and definition in article.");
-            my $Key         = cleanOuterTags( $+{ "key" } );
+            infoV("Found a key and definition in article.") if $counter < 6;
+            my $Key         = removeOuterTags( $+{ "key" } );
             my $Definition  = cleanOuterTags( $+{ "definition" } );
-            infoVV("Key is '$Key'");
-            infoVV("Definition is '$Definition'");
+            infoVV("Key is '$Key'") if $counter < 6;
+            infoVV("Definition is '$Definition'") if $counter < 6;
             push @csv, $Key.$CVSDeliminator.$Definition;
         }
         # Create xdxf-array and store csv- and xdxf-arrays in info hash.
@@ -2685,6 +2744,7 @@ sub generateXDXFTagBased{
         if( scalar @xdxf ){ $$Info{ "xdxf" } = \@xdxf; return 1; }
         else{ return 0; }}
     sub splitRawmlIntoArticles{
+        infoVV("Entering splitRawmlIntoArticles.");
         # Usage: splitRawmlIntoArticles( \%Info );
         # Takes the hash keys "SkippedTags" and "filtered rawml" and generates the keys "articles" and "filtered SkippedTags", resp. an array- and a hash-reference.
 
@@ -2693,62 +2753,125 @@ sub generateXDXFTagBased{
         my $rawml       = ${ $$Info{ "filtered rawml" } };
 
         # Filter SkippedTags
-        foreach( sort { $SkippedTags{$a} cmp $SkippedTags{$b} or $a cmp $b }keys %SkippedTags ){
-            if( $SkippedTags{$_} =~ m~known styling|too low frequency~ ){ delete $SkippedTags{$_}; infoV("'$_' (".$SkippedTags{$_}.") didn't form a set"); }
-            elsif( m~^<img[^>]+>$~ and $isExcludeImgTags ){ delete $SkippedTags{$_}; infoV("'$_' (".$SkippedTags{$_}.") didn't form a set"); }
-            else{ info("'$_' (".$SkippedTags{$_}.") didn't form a set");}
+        foreach( sort { $SkippedTags{$a} cmp $SkippedTags{$b} or $a cmp $b } keys %SkippedTags ){
+            if( $SkippedTags{$_} =~ m~known styling|too low frequency~ ){ infoV("'$_' (".$SkippedTags{$_}.") didn't form a set. Now deleted."); delete $SkippedTags{$_}; }
+            elsif( m~^<img[^>]+>$~ and $isExcludeImgTags ){ infoV("'$_' (".$SkippedTags{$_}.") didn't form a set. Now deleted."); delete $SkippedTags{$_}; }
+            else{ info("'$_' (".$SkippedTags{$_}.") didn't form a set. Retained for splitting.");}
         }
 
         debugV( Dumper \%SkippedTags );
-        SKIPPEDTAG: foreach my $SplittingTag( keys %SkippedTags){
+        SKIPPEDTAG: foreach my $SplittingTag( sort keys %SkippedTags){
+            infoVV("Evaluating '$SplittingTag' as a splitting tag.");
             my @chunks = split(/\Q$SplittingTag\E/, $rawml );
             my $FirstArticle = shift @chunks;
-            my $LastArticle = pop @chunks;
-            $LastArticle =~ s~^\s*~~;
-            my $counter = 0;
-            # Check that all chuncks start with a tag
+            my $LastArticleWithEndDictionary = pop @chunks;
+            $LastArticleWithEndDictionary =~ s~^\s*~~;
+            # Check that all chunks start with a tag
             my $StartTag = "unknown";
-            foreach my $chunk( @chunks ){
+            my $counter = 0;
+            my %StartTags;
+            for( my $i = 0; $i < scalar @chunks; $i++){
+                my $chunk = $chunks[$i];
                 $counter++;
+                if( ($counter % 100) eq 0 ){ printGreen(".");}
                 $chunk =~ s~^\s+~~;
-                debugV( "Chunk is\n'$chunk'") if $counter < 6;
+                if( $chunk eq '' ){
+                    # Empty chunk, chuck it.
+                    infoVV( "count is $counter");
+                    infoVV( "\$chunks[$i] is '$chunks[$i]'");
+                    splice ( @chunks, $i, 1);
+                    infoVV( "\$chunks[$i] is '$chunks[$i]'");
+                    infoVV( "\$chunks[$i+1] is '$chunks[$i+1]'");
+                    infoVV( "\$chunks[$i-1] is '$chunks[$i-1]'");
+                    $i--;
+                    next;
+                }
+                infoVV( "Chunk is\n'$chunk'") if $counter < 6;
                 my $NewStartTag = startTagReturnUndef( $chunk );
-                unless( defined $NewStartTag ){
+                $StartTags{ $NewStartTag } += 1;
+                infoVV( "The count for \$StartTags{$NewStartTag} is $StartTags{$NewStartTag}.") if $counter < 6;
+                unless( defined $StartTag ){
                     info("Chunk doesn't start with a tag. Skipping splitting tag '$SplittingTag'.");
                     next SKIPPEDTAG;
                 }
                 unless( $NewStartTag eq $StartTag or $StartTag eq "unknown"){
-                    info("Start-tags of chunks are different: '$StartTag' vs '$NewStartTag'. Skipping splitting tag '$SplittingTag'.");
-                    next SKIPPEDTAG;
+                    if( $NewStartTag =~ m~^<a ~ and # Were dealing with an anchor-tag
+                        $chunk =~ s~$NewStartTag~~ and startTagReturnUndef( $chunk ) eq $StartTag # But after removal it's still the same tag.
+                        ){
+                        $chunks[$i] = $chunk; # Update array after removal
+                    }
+                    else{
+                        info("Start-tags of chunks are different: '$StartTag' vs '$NewStartTag'. Skipping splitting tag '$SplittingTag'.");
+                        info("New chunk: '$chunks[$i]'");
+                        info("Old chunk: '$chunks[$i-1]'");
+                        info( Dumper(\%StartTags));
+                        next SKIPPEDTAG; 
+                    }
                 }
                 elsif( $StartTag eq "unknown" ){ $StartTag = $NewStartTag; }
             }
+            print "\n";
+            infoVV( "Finished checking chunks for uniformity in splitRawmlIntoArticles.");
             my $StopTag = stopFromStart( $StartTag );
             info("Found that splitting tag '$SplittingTag' results in an uniform key-block surrounded by '$StartTag....$StopTag'.");
-            # Fix first and last article
+
             infoV("First article:\n'$FirstArticle'");
-            $FirstArticle =~ m~$StartTag(?:(?!\Q$StartTag\E).)+$~s; # Match the last tag
-            $Info{ "start dictionary"} = $`;
-            unshift @chunks, $&;
-            infoV( "Start dictionary is\n'". $Info{ "start dictionary"} ."'");
-            infoV( "First article is \n'". $& ."'");
-            infoV("Last article:\n'$LastArticle'");
-            my @LastStopTags = $LastArticle =~ m~(</[^>]+>)~sg;
-            foreach my $LastStopTag (@LastStopTags){
-                my $LastStartTag = startFromStop( $LastStopTag );
-                unless( $LastArticle =~ m~^((?!\Q$LastStopTag\E).)*\Q$LastStartTag\E((?!\Q$LastStopTag\E).)*\Q$LastStopTag\E~ ){
-                    # No preceding start-tag: Cut at this last stop tag.
-                    $LastArticle =~ m~$LastStopTag~;
-                    $Info{ "end dictionary" } = $LastStopTag.$';
-                    push @chunks, $`;
-                    if( $chunks[-1] !~ m~^\Q$StartTag\E~ ){
-                        unless( $chunks[-1] =~ m~^\s*$~ ){ debug("Last article is not properly formed:\n'". $chunks[-1]."'"); }
-                        pop @chunks;
+            my @NumberofStartTags = $chunks[0] =~ m~($StartTag)~sg;
+            my $NumberofStartTags = scalar @NumberofStartTags;
+            infoVV("Found ". $NumberofStartTags ." start-tags");
+            if( $NumberofStartTags == 1 ){
+                infoVV("One start-tag '$StartTag' found in first chunk.");
+                # Fix first and last article
+                $FirstArticle =~ m~$StartTag(?:(?!\Q$StartTag\E).)+$~s; # Match the last tag
+                $Info{ "start dictionary"} = $`;
+                unshift @chunks, $&;
+                infoV( "Start dictionary is\n'". $Info{ "start dictionary"} ."'");
+                infoV( "First article is \n'". $& ."'");
+                infoV( "Last article:\n'$LastArticleWithEndDictionary'");
+                my @LastStopTags = $LastArticleWithEndDictionary =~ m~(</[^>]+>)~sg;
+                foreach my $LastStopTag (@LastStopTags){
+                    my $LastStartTag = startFromStop( $LastStopTag );
+                    unless( $LastArticleWithEndDictionary =~ m~^((?!\Q$LastStopTag\E).)*\Q$LastStartTag\E((?!\Q$LastStopTag\E).)*\Q$LastStopTag\E~ ){
+                        # No preceding start-tag: Cut at this last stop tag.
+                        $LastArticleWithEndDictionary =~ m~$LastStopTag~;
+                        $Info{ "end dictionary" } = $LastStopTag.$';
+                        push @chunks, $`;
+                        if( $chunks[-1] !~ m~^\Q$StartTag\E~ ){
+                            unless( $chunks[-1] =~ m~^\s*$~ ){ debug("Last article is not properly formed:\n'". $chunks[-1]."'"); }
+                            pop @chunks;
+                        }
+                        else{ infoV( "Last article is\n'".$`."'"); }
+                        infoV( "End dictionary is\n'". $LastStopTag.$'."'");
+                        unless( defined $Info{ "end dictionary" } ){ warn "Didn't separate end of dictionary from last article."; die; }
+                        last;
                     }
-                    else{ infoV( "Last article is\n'".$`."'"); }
-                    infoV( "End dictionary is\n'". $LastStopTag.$'."'");
+                }
+            }
+            elsif( $NumberofStartTags > 1 ){
+                infoVV("More than one ($NumberofStartTags) start-tag '$StartTag' found in first chunk.");
+                
+                # Fix first article
+                $FirstArticle =~ m~($StartTag.+)$~s; # Match from the first start-tag to the end
+                $Info{ "start dictionary"} = $`;
+                unshift @chunks, $&;
+                infoV( "Start dictionary is\n'". $Info{ "start dictionary"} ."'");
+                infoV( "First article is \n'". $& ."'");
+                # Fix last article
+                infoV("Start-tag is '$StartTag' which occurs $NumberofStartTags times in an article.");
+                if( $LastArticleWithEndDictionary =! m~$StartTag~s ){
+                    # No last article in the end of the Dictionary
+                    $Info{ "end dictionary" } = $LastArticleWithEndDictionary;
+                }
+                elsif( $chunks[0] =~ m~((?:$StartTag(?:(?!(?:$StartTag|StopTag)).)+$StopTag){$NumberofStartTags})~s ){
+                    # Not nested
+                    infoV("Last article with end of the dictionary:\n'$LastArticleWithEndDictionary'");
+                    my $regex = qr~^(?<last_article>(?:$StartTag(?:(?!(?:$StartTag|$StopTag)).)+$StopTag){$NumberofStartTags})(?<end_dictionary>.+)$~;
+                    unless ( $LastArticleWithEndDictionary =~ m~$regex~s ){ warn "Regex didn't work\n$regex"; Die();}
+                    $Info{ "end dictionary" } = $+{ "end_dictionary" }; 
+                    push @chunks, $+{"lastarticle"};
+                    infoV( "Last article is\n'". $chunks[-1] );
+                    infoV( "End dictionary is\n'" . $Info{"end dictionary"} . "'");
                     unless( defined $Info{ "end dictionary" } ){ warn "Didn't separate end of dictionary from last article."; die; }
-                    last;
                 }
             }
             unless( defined $Info{ "start dictionary" } ){ warn "Didn't separate start of dictionary from first article."; die; }
@@ -3289,6 +3412,20 @@ sub removeInvalidChars{
 
     doneWaiting();
     return($xdxf); }
+sub removeOuterTags{
+    my $block = shift;
+    $block =~ s~^\s+~~s;
+    $block =~ s~\s+$~~s;
+    if( $block !~ m~^<~ ){ infoV("No outer tag"); return $block; }
+    while( $block =~ m~^<~ ){
+        my $Start = startTag( $block );
+        my $Stop  = stopFromStart( $Start );
+        unless( $block =~ s~^$Start~~s ){ warn "Regex for removal of block start-tag doesn't match."; Die(); }
+        unless( $block =~ s~$Stop$~~s ){ warn "Regex for removal of block stop-tag doesn't match."; Die(); }
+        $block =~ s~^\s+~~s;
+        $block =~ s~\s+$~~s;
+    }
+    return $block;}
 sub retrieveHash{
     info_t("Entering sub retrieveHash.") ;
     foreach( @_ ){ debug_t( $_ ); }
@@ -3349,12 +3486,12 @@ sub shortenStrings4Debug{
     return( substr($String, 0, 1000)."\n".( ( "." x 80 )."\n") x 3 . substr($String, -1000, 1000) );}
 sub startFromStop{ return ("<" . substr( $_[0], 2, (length( $_[0] ) - 3) ) . "( [^>]*>|>)"); }
 sub startTag{
-    $_[0] =~ s~\s+~~s;
+    $_[0] =~ s~^\s+~~s;
     my $StartTag = startTagReturnUndef( $_[0]);
     unless( defined $StartTag ){ warn "Regex for key-start '$StartTag' doesn't match."; Die(); }
     return ( $StartTag );}
 sub startTagReturnUndef{
-    $_[0] =~ s~\s+~~s;
+    $_[0] =~ s~^\s+~~s;
     unless( $_[0] =~ m~^(?<StartTag><[^>]+>)~s ){ return undef; }
     return ( $+{"StartTag"} );}
 sub stopFromStart{
