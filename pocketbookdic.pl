@@ -49,11 +49,9 @@ my $reformat_xdxf       = 1 ; # Value 1 demands user input for xdxf tag.
 my $CVSDeliminator = ",";
 
 # Controls for debugging.
-my $isDebug = 1; # Toggles all debug messages
-my $isDebugVerbose = 0; # Toggles all verbose debug messages
-my $isDebugVeryVerbose = 0; # Toggles all verbose debug messages
-my ( $isInfo, $isInfoVerbose, $isInfoVeryVerbose ) = ( 1, 0 ,0 );  # Toggles info messages
-my ( $isgenerateXDXFTagBasedVerbose, $isgatherSetsVerbose ) = ( 0, 0 ); # Controls verbosity of tag functions
+my ( $isDebug, $isDebugVerbose, $isDebugVeryVerbose )       = ( 1, 0, 0 );  # Toggles verbosity debug messages
+my ( $isInfo, $isInfoVerbose, $isInfoVeryVerbose )          = ( 1, 0, 0 );  # Toggles verbosity info messages
+my ( $isgenerateXDXFTagBasedVerbose, $isgatherSetsVerbose ) = ( 0, 0 );     # Controls verbosity of tag functions
 my $DebugKeyWordConvertHTML2XDXF = "Gewirr"; # In convertHTML2XDXF only debug messages from this entry are shown. E.g. "Gewirr"
 my $DebugKeyWordCleanseAr = '<k>φλέως</k>'; # In cleanseAr only extensive debug messages for this entry are shown. E.g. '<k>φλέως</k>'
 my $NumberofCharactersShownFailedRawML = 4500;
@@ -414,44 +412,6 @@ sub array2File {
     $FileName =~ s/.+\/(.+)/$1/;
     printGreen("Written $FileName. Exiting sub array2File\n") if $isDebugVerbose;
     return ("File written");}
-sub debug { $isDebug and printRed( @_, "\n" ); return(1);}
-sub debug_t { $isDebug and $isTestingOn and printRed( @_, "\n" ); return(1);}
-sub debugV { $isDebugVerbose and printBlue( @_, "\n" ); return(1);}
-sub debugVV { $isDebugVeryVerbose and printBlue( @_, "\n" ); return(1);}
-sub debugFindings {
-    debugV();
-    if ( defined $1 )  { debugV("\$1 is: \"$1\"\n"); }
-    if ( defined $2 )  { debugV("\$2 is: \"$2\"\n"); }
-    if ( defined $3 )  { debugV("\$3 is: \"$3\"\n"); }
-    if ( defined $4 )  { debugV("\$4 is:\n $4\n"); }
-    if ( defined $5 )  { debugV("5 is:\n $5\n"); }
-    if ( defined $6 )  { debugV("6 is:\n $6\n"); }
-    if ( defined $7 )  { debugV("7 is:\n $7\n"); }
-    if ( defined $8 )  { debugV("8 is:\n $8\n"); }
-    if ( defined $9 )  { debugV("9 is:\n $9\n"); }
-    if ( defined $10 ) { debugV("10 is:\n $10\n"); }
-    if ( defined $11 ) { debugV("11 is:\n $11\n"); }
-    if ( defined $12 ) { debugV("12 is:\n $12\n"); }
-    if ( defined $13 ) { debugV("13 is:\n $13\n"); }
-    if ( defined $14 ) { debugV("14 is:\n $14\n"); }
-    if ( defined $15 ) { debugV("15 is:\n $15\n"); }
-    if ( defined $16 ) { debugV("16 is:\n $16\n"); }
-    if ( defined $17 ) { debugV("17 is:\n $17\n"); }
-    if ( defined $18 ) { debugV("18 is:\n $18\n"); }}
-sub Die{
-    sub showCallStack {
-      my ( $path, $line, $subr );
-      my $max_depth = 30;
-      my $i = 1;
-        debug("--- Begin stack trace ---");
-        while ( ( my @call_details = (caller($i++)) ) && ($i<$max_depth) ) {
-        debug("$call_details[1] line $call_details[2] in function $call_details[3]");
-        }
-        debug("--- End stack trace ---");
-    }
-
-    showCallStack();
-    die;}
 sub checkSameTypeSequence{
     my $FileName = $_[0];
     if(! $updateSameTypeSequence ){return;}
@@ -1235,8 +1195,7 @@ sub convertABBYY2XDXF{
     debugV("FailingExtraForms:");
     foreach(@FailingExtraForms){debugV($_);}
     $isABBYConverted = 1;
-    return( @xdxf_start, @articles, "</xdxf>" );
-}
+    return( @xdxf_start, @articles, "</xdxf>" );}
 sub convertBlockquote2Div{
     # return (@_);
     waitForIt('Converting <blockquote-tags to <div style:"margin 0 0 0 1em;">-tags.');
@@ -2143,6 +2102,44 @@ sub convertXDXFtoStardictXML{
     push @xml, "\n";
     doneWaiting();
     return(@xml);}
+sub debug   { $isDebug            and                  printRed(  shortenStrings4Debug(@_), "\n" ); return(1);}
+sub debug_t { $isDebug            and $isTestingOn and printRed(  shortenStrings4Debug(@_), "\n" ); return(1);}
+sub debugV  { $isDebugVerbose     and                  printBlue( shortenStrings4Debug(@_), "\n" ); return(1);}
+sub debugVV { $isDebugVeryVerbose and                  printBlue( shortenStrings4Debug(@_), "\n" ); return(1);}
+sub debugFindings {
+    debugV();
+    if ( defined $1 )  { debugV("\$1 is: \"$1\"\n"); }
+    if ( defined $2 )  { debugV("\$2 is: \"$2\"\n"); }
+    if ( defined $3 )  { debugV("\$3 is: \"$3\"\n"); }
+    if ( defined $4 )  { debugV("\$4 is:\n $4\n"); }
+    if ( defined $5 )  { debugV("5 is:\n $5\n"); }
+    if ( defined $6 )  { debugV("6 is:\n $6\n"); }
+    if ( defined $7 )  { debugV("7 is:\n $7\n"); }
+    if ( defined $8 )  { debugV("8 is:\n $8\n"); }
+    if ( defined $9 )  { debugV("9 is:\n $9\n"); }
+    if ( defined $10 ) { debugV("10 is:\n $10\n"); }
+    if ( defined $11 ) { debugV("11 is:\n $11\n"); }
+    if ( defined $12 ) { debugV("12 is:\n $12\n"); }
+    if ( defined $13 ) { debugV("13 is:\n $13\n"); }
+    if ( defined $14 ) { debugV("14 is:\n $14\n"); }
+    if ( defined $15 ) { debugV("15 is:\n $15\n"); }
+    if ( defined $16 ) { debugV("16 is:\n $16\n"); }
+    if ( defined $17 ) { debugV("17 is:\n $17\n"); }
+    if ( defined $18 ) { debugV("18 is:\n $18\n"); }}
+sub Die{
+    sub showCallStack {
+      my ( $path, $line, $subr );
+      my $max_depth = 30;
+      my $i = 1;
+        debug("--- Begin stack trace ---");
+        while ( ( my @call_details = (caller($i++)) ) && ($i<$max_depth) ) {
+        debug("$call_details[1] line $call_details[2] in function $call_details[3]");
+        }
+        debug("--- End stack trace ---");
+    }
+
+    showCallStack();
+    die;}
 sub doneWaiting{ printCyan("Done at ",getLoggingTime(),"\n");}
 sub escapeHTMLString{
     my $String = shift;
@@ -2796,10 +2793,10 @@ sub getLoggingTime {
     my $nice_timestamp = sprintf ( "%04d%02d%02d %02d:%02d:%02d",
                                    $year+1900,$mon+1,$mday,$hour,$min,$sec);
     return $nice_timestamp;}
-sub info{   printCyan( join('',@_)."\n" ) if $isInfo;                   }
-sub info_t{ printCyan( join('',@_)."\n" ) if $isInfo and $isTestingOn;  }
-sub infoV{  printCyan( join('',@_)."\n" ) if $isInfoVerbose;            }
-sub infoVV{ printCyan( join('',@_)."\n" ) if $isInfoVeryVerbose;        }
+sub info{   printCyan( join('',shortenStrings4Debug(@_))."\n" ) if $isInfo;                   }
+sub info_t{ printCyan( join('',shortenStrings4Debug(@_))."\n" ) if $isInfo and $isTestingOn;  }
+sub infoV{  printCyan( join('',shortenStrings4Debug(@_))."\n" ) if $isInfoVerbose;            }
+sub infoVV{ printCyan( join('',shortenStrings4Debug(@_))."\n" ) if $isInfoVeryVerbose;        }
 sub loadXDXF{
     # Create the array @xdxf
     my @xdxf;
@@ -3086,12 +3083,12 @@ sub makeKoreaderReady{
     doneWaiting();
     
     return(split(/$/, $html));}
-sub printBlue    { print color('blue') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
-sub printCyan    { print color('cyan') if $OperatingSystem eq "linux";    print @_; print color('reset') if $OperatingSystem eq "linux"; }
-sub printGreen   { print color('green') if $OperatingSystem eq "linux";   print @_; print color('reset') if $OperatingSystem eq "linux"; }
-sub printMagenta { print color('magenta') if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
-sub printRed     { print color('red') if $OperatingSystem eq "linux";     print @_; print color('reset') if $OperatingSystem eq "linux"; }
-sub printYellow  { print color('yellow') if $OperatingSystem eq "linux";  print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub printBlue    { print color('blue')      if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub printCyan    { print color('cyan')      if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub printGreen   { print color('green')     if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub printMagenta { print color('magenta')   if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub printRed     { print color('red')       if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub printYellow  { print color('yellow')    if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub reconstructXDXF{
     # Construct a new xdxf array to prevent converter.exe from crashing.
     ## Initial values
@@ -3341,6 +3338,13 @@ sub retrieveHash{
         else{ warn "$_[0]$DumperSuffix is not an dumpered HASH"; }
     }
     return( retrieve( @_) );}
+sub shortenStrings4Debug{
+    my $String = join('', @_);
+    if( $_[0] =~ m~no short~i or 
+        length($String)<2000 ){ 
+        return @_; 
+    }
+    return( substr($String, 0, 1000)."\n".( ( "." x 80 )."\n") x 3 . substr($String, -1000, 1000) );}
 sub startFromStop{ return ("<" . substr( $_[0], 2, (length( $_[0] ) - 3) ) . "( [^>]*>|>)"); }
 sub startTag{
     $_[0] =~ s~\s+~~s;
