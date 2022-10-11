@@ -1238,16 +1238,17 @@ sub convertCVStoXDXF{
     my @cvs = @_;
     my @xdxf = @xdxf_start;
     my $number= 0;
-    info("\$CVSDeliminator is \'$CVSDeliminator\'.") if $number<10;
+    my $Max_debuglines = 3;
+    info("\$CVSDeliminator is \'$CVSDeliminator\'.") if $number<$Max_debuglines;
     foreach(@cvs){
         $number++;
-        info("CVS line is: $_") if $number<10;
-        m~\Q$CVSDeliminator\E~;
+        info("CVS line is: $_") if $number<$Max_debuglines;
+        m~\Q$CVSDeliminator\E~s;
         my $key = $`; # Special variable $PREMATCH
         my $def = $'; # Special variable $POSTMATCH
-        info("key found: '$key'") if $number<10;
-        info("def found: '$def'") if $number<10;
-        unless( defined $key and defined $def ){
+        info("key found: '$key'") if $number<$Max_debuglines;
+        info("def found: '$def'") if $number<$Max_debuglines;
+        unless( defined $key and defined $def and $key ne '' and $def ne ''){
             warn "key and/or definition are undefined.";
             debug("CVSDeliminator is '$CVSDeliminator'");
             debug("CVS line is '$_'");
@@ -1261,6 +1262,7 @@ sub convertCVStoXDXF{
         debug("Pushed <ar><head><k>$key</k></head><def>$def</def></ar>") if $number<10;
     }
     push @xdxf, $lastline_xdxf;
+    if( $isTestingOn ){ array2File( "test_CVSConversion".__LINE__.".xdxf", @xdxf ); }
     return(@xdxf);}
 sub convertImage2Base64{
     $_ =  shift;
