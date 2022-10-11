@@ -2062,6 +2062,8 @@ sub convertXDXFtoStardictXML{
     }
     if( $xdxf =~ m~<description>(?<DescriptionBlock>((?!</description>).)+)</description>~s ){
         $Description .= ". ".$+{DescriptionBlock};
+        $Description =~ s~<date></date>\n*~~s;
+        $Description =~ s~<date>(?<sourcedate>((?!</date>).)+)</date>~Date Source: $+{sourcedate}~;
     }
     substr($xml[8], 13, 0) = $Description;
     waitForIt("Converting xdxf-xml to Stardict-xml." );
