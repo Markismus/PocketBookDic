@@ -1,5 +1,5 @@
 # PocketBookDic
-Script that originated to convert dictionaries to pocketbook dictionary dic-format. 
+Script that originated to convert dictionaries to pocketbook dictionary dic-format. \
 However, since I moved away from Pocketbook devices, I am more focussed on converting to the intermediary xdxf-format and Stardict-format. Both formats are easily converted with other tools to custom formats. Only this script incorporates the Pocketbook dic-format. For other formats I can recommend pyGlossary. 
 
 **pocketbookdic.pl** \
@@ -38,6 +38,6 @@ _Usage:_
     - `perl pocketbookdic.pl path_to_and_filename_of_your_dictionary_with_extention`
     - `perl pocketbookdic.pl path_to_and_filename_of_your_dictionary_with_extention language_folder_name`
     - `perl pocketbookdic.ok path_to_and_filename_of_your_dictionary_with_extention language_folder_name cvs-delimiter`
-- All command line variables are optional. However, you can't specify the next one without the previous one.\
+- All command line variables are optional. However, you can't specify the next one without the previous one. \
     - E.g. `perl pocketbookdic.pl dict/myDictionary.cvs eng "|--|"`
     - E.g. `perl pocketbookdic.pl dict/myDictionary.ifo`
