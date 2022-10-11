@@ -54,7 +54,6 @@ my ( $isInfo, $isInfoVerbose, $isInfoVeryVerbose )          = ( 1, 0, 0 );  # To
 my ( $isgenerateXDXFTagBasedVerbose, $isgatherSetsVerbose ) = ( 0, 0 );     # Controls verbosity of tag functions
 my $DebugKeyWordConvertHTML2XDXF = "Gewirr"; # In convertHTML2XDXF only debug messages from this entry are shown. E.g. "Gewirr"
 my $DebugKeyWordCleanseAr = '<k>φλέως</k>'; # In cleanseAr only extensive debug messages for this entry are shown. E.g. '<k>φλέως</k>'
-my $NumberofCharactersShownFailedRawML = 4500;
 
 my $isTestingOn = 0; # Toggles intermediary output of xdxf-array.
 if ( $isTestingOn ){ use warnings; }
@@ -1781,7 +1780,12 @@ sub convertRAWML2XDXF{
         @indexentries = $rawml=~m~(<h(?:$headervalue)>(?:(?!<hr|<mbp).)+)<hr ?/>~gs; # Collect from the start until the next starts.
         if( @indexentries > 10 ){ last; }
     }
-    unless( @indexentries ){ debug("No indexentries found in rawml-string."); debug(substr($rawml, 0, $NumberofCharactersShownFailedRawML)); goto DONE;}
+    unless( @indexentries ){ 
+        warn("No indexentries found in rawml-string. Quitting"); 
+        debug($rawml); 
+        Die();
+        goto DONE; # In case $isRealDead = 0
+    }
     else{ info("Found ".scalar @indexentries." indexentries.\n"); }
     waitForIt("Converting indexentries from RAWML to XDXF.");
     my $isLoopDebugging = 1;
