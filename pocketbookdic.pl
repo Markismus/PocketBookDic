@@ -82,6 +82,17 @@ my $isMakeKoreaderReady_SpanWidth2Style         = 0 ;
 my $isMakeKoreaderReady_SpanStyleWidht2Padding  = 0 ;
 my $isMakeKoreaderReady_MergeStyles             = 0 ;
 
+# Global variables for the conversion of ABBYY-generated HTML.
+my @ABBYY_CSS; # Becomes defined by sub convertABBYY2XDXF
+my $isABBYYWordlistNeeded   = 1; # Controls creation of an ABBYYWordlist.txt file.
+my $isABBYYAllCleared       = 0; # Controls creation of a hash-file.
+my $isABBYYConverterReuse   = 0; # Controls the check for already generated xdxf-file
+my $isABBYConverted         = 0; # Global variable that gets set to 1 if convertABBYY2XDXF returns an xdxf-array.
+my @ABBYYConverterPauseFor = (
+# E.g.,
+    # 'égard',
+    # 'ète',
+);
 # Controls for Pocketbook conversion
 my $isCreatePocketbookDictionary = 1; # Controls conversion to Pocketbook Dictionary dic-format
 my $remove_color_tags = 0; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably. Relevant for pocketbook dictionary.
@@ -664,6 +675,568 @@ sub cleanseAr{
     }
 
     return( $Content );}
+sub convertABBYY2XDXF{
+    # Usage: @xdxf = convertABBYY2XDXF( $html );
+    if( $isABBYYConverterReuse ){
+        my $XDXFFileName = $FileName;
+        $XDXFFileName =~ s~\.\w+$~~;
+        $XDXFFileName.".xdxf";
+        if( -e $XDXFFileName ){
+            $isABBYConverted = 1;
+            return ( file2Array( $XDXFFileName ) );
+        }
+    }
+    my $html = shift;
+    use HTML::TreeBuilder 5 -weak; # Ensure weak references in use
+    if( $html =~ m~<style type="text/css">(?<css>((?!</style>).)+)</style>~s ){
+        push @ABBYY_CSS, $+{css};
+    }
+    info("Start parsing dictionary '$FileName'");
+    my $tree = HTML::TreeBuilder->new; # empty tree
+    if( -e $FileName.'.tree' ){
+        $tree = retrieve ( $FileName.'.tree' );
+        info( "Retrieved tree from '".$FileName.".tree'"); }
+    else{ $tree->parse($html); }
+    store( $tree, $FileName.'.tree' );
+    info("End parsing");
+
+    info("Starting look_down for body-tag");
+    my $body = $tree->look_down('_tag', 'body');
+    info("Found body-tag");
+
+    my $counter = 0;
+    my(@articles, $article, @ImpossibleKeywords, %ImpossibleKeywords);
+    my @FailingExtraForms;
+    sub checkExtraForms{
+        my $PossibleKey = shift;
+        if( $PossibleKey =~ m~,~){
+            $PossibleKey = $`;
+            my $ExtraForm = cleanKey($');
+            my @ExtraForms = split(/,/, $ExtraForm);
+            pushArticle();
+            foreach my $Form( @ExtraForms){
+                $Form = cleanKey( $Form );
+                $Form =~ s~^-~~;
+                $Form =~ s~ ~~;
+                $Form =~ s~\s*\[~~;
+                # Sometimes the given key is a sentence.
+                my $Key = $PossibleKey;
+                my @Key = split(/ /, $Key);
+                $Key = $Key[-1];
+                if( $Form =~ m~(?<MaleEnd>\w+)(?<FormEnd>e)$~){
+                    my $MaleEnd = $+{"MaleEnd"};
+                    my $FormEnd = $+{"FormEnd"};
+                    if( $Key =~ m~$MaleEnd$~ ){ $Form = $FormEnd; }
+                }
+                if( $Form eq 'e' or
+                    $Form eq 'ë' or
+                    0 ){
+                     pushReferenceArticle( $PossibleKey.$Form, $PossibleKey );
+                }
+                elsif(
+                    $Form eq 'es' or
+                    $Form eq 'gue' or
+                    $Form =~ m~^(e|i)sse$~ or
+                    $Form eq 'uë' or
+                    $Form eq 'ite' or
+                    $Form eq 'ote' or
+                    $Form eq 'a' or
+                    0 ){
+                     pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 1 )) .$Form, $PossibleKey );
+                }
+                elsif(
+                    $Form eq 'aux' or
+                    $Form eq 'ère' or
+                    $Form eq 'als' or
+                    $Form eq 'aque' or
+                    $Form eq 'ouse' or
+                    $Form eq 'igné' or
+                    $Form eq 'use' or
+                    $Form eq 'ca' or
+                    $Form eq 'ique' or
+                    $Form =~ m~(î|i|ï)(v|n)e~ or
+                    $Form =~ m~^(e|o|i|a)(tt|ll|nn)e$~ or
+                    $Form =~ m~(è|e|é)t(è|e|é)~ or
+                    $Form eq 'ées' or
+                    $Form eq 'aude' or
+                    0 ){
+                     pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 2 )) .$Form, $PossibleKey );
+                }
+                elsif(
+                    $Form eq 'eu se' or
+                    $Form eq 'euse' or
+                    $Form eq 'eresse' or
+                    $Form eq 'elles' or
+                    $Form eq 'ante' or
+                    $Form eq "ienne" or
+                    $Form eq "ière" or
+                    $Form eq "eille" or
+                    $Form eq "oute" or
+                    0 ){
+                    pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 3 )) .$Form, $PossibleKey );
+                }
+                elsif(
+                    $Form eq "douce" or
+                    $Form =~ m~tr(î|i)ce~ or
+                    $Form eq "turque" or
+                    $Form eq "grecque" or
+                    0 ){
+                    pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 4 )) .$Form, $PossibleKey );
+                }
+                elsif( $Form =~ m~^\Q$Key\E~ or $Key =~ m~^\Q$Form\E~ ){
+                    # E.g. adonc, adoncques
+                    pushReferenceArticle( $Form, $PossibleKey );
+                }
+                elsif(
+                    substr($Form,-3, 3) eq substr($Key, -3, 3) or
+                    substr($Form, 0, 2) eq substr($Key, 0, 2)
+                    ){
+                    # E.g. aiche, èche
+                    pushReferenceArticle( $Form, $PossibleKey );
+                }
+                elsif(
+                    $Form !~ m~^\Q$Key\E~ and
+                    substr($Form,-3, 3) ne substr($Key, -3, 3) and
+                    length($Form) > length($Key)
+                    ){
+                    # Treating it as an unknown plural. E.g auquel, auxquels, auxquelles
+                    pushReferenceArticle( $Form, $PossibleKey );
+                }
+                elsif( length($Form) == length($Key) ){
+                    # E.g. lez, lès
+                    pushReferenceArticle( $Form, $PossibleKey );
+                }
+                else{
+                    push @FailingExtraForms, $PossibleKey."____".$Form;
+                    debug(length($Form));
+                    warn "Not a known variant of form from '$PossibleKey': '$Form'.";
+                    debug("last 3 letters of '$PossibleKey': ". substr($PossibleKey, -3, 3) );
+                    debug("last 3 letters of '$Form': ". substr($Form, -3, 3) );
+                }
+            }
+        }
+        return $PossibleKey;
+    }
+    sub cleanKey{
+        my $Key = shift;
+        $Key =~ s~\<br\/\>~~g;
+        $Key =~ s~♦~~g;
+        $Key =~ s~\([^)]*\)?~~g;
+        $Key =~ s~\[[^\]]*\]~~g;
+        $Key =~ s~\]\s*$~~g;
+        $Key =~ s~\)$~~g;
+        $Key =~ s~^\+~~;
+        $Key =~ s~^\.~~;
+        $Key =~ s~\s+$~~g;
+        $Key =~ s~^\s+~~g;
+        $Key =~ s~,+$~~g;
+
+        return $Key;
+    }
+    my %PauseFor;
+    foreach( @ABBYYConverterPauseFor ){ $PauseFor{ $_ } =  1; }
+
+    my $Pre = '! |\(|\([^)]+\)(\.|,)? |\? ';
+    my @AllowedFollowers = (
+        '^<span[^>]*>('.$Pre.')?\[',
+        '^<span[^>]*>\(devant',
+        '^<span[^>]*>\(Acad',
+        '^<span[^>]*>n\. ?(m|f|V)?\.?',
+        '^<span[^>]*>\(marque déposée\)',
+        '^<span[^>]*>('.$Pre.')?adj\.',
+        '^<span[^>]*>v\. (pr|(in)?tr)\.',
+        '^<span[^>]*>('.$Pre.')?adv\.( V\.)?',
+        '^<span[^>]*>('.$Pre.')?loc\. (adv|prép|conj|lat|adj)(\.|,)',
+        '^<span[^>]*>('.$Pre.')?préf\.',
+        '^<span[^>]*>('.$Pre.')?conj\.',
+        'pers. sing. de',
+        '^<span[^>]*>('.$Pre.')?pron\. (dém|interr)\.',
+        '^<span[^>]*>('.$Pre.')?((A|a)brév\.|Abréviation|(S|s)igle|symbole)',
+        '^<span[^>]*>('.$Pre.')?interj\.',
+        '^<span[^>]*>pr\. rei\. V\.',
+        '^<span[^>]*>éléments? tirés? du',
+        '^<span[^>]*>((m|f)\. )?V\.',
+        '^\d\. Premier élément',
+        '^premiers? éléments?',
+        '^<span[^>]*>v. impers,',
+        '^<span[^>]*>part, passé\.',
+        '^<span[^>]*>\(rarem.',
+        );
+    my $AllowedFollowersRegex = shift @AllowedFollowers;
+    foreach(@AllowedFollowers){ $AllowedFollowersRegex .= "|".$_; }
+    my $AllowedFollowersPlainTextRegex = $AllowedFollowersRegex;
+    $AllowedFollowersPlainTextRegex =~ s~<span\[\^>\]\*>~~sg;
+
+    sub followsKeyword{
+        # Returns value of criterium
+        # Is given een HTML::ELement containing a span-block
+        my $content = shift;
+        infoVV("followsKeyword is given '$content'") if 0;
+        unless( $content =~ m~^HTML::Element=HASH~ ){ return 0; }
+        return ( $content->tag eq "span" and $content->as_HTML('<>&') =~ m~$AllowedFollowersRegex~ );
+    }
+    sub followsKeywordinPlainText{
+        # Returns value of criterium
+        # Is given a contents-range of HTML::Element
+        my $content;
+        foreach( @_ ){
+            unless( m~^HTML::Element=HASH~ ){ return 0; }
+            $content .= $_->as_text;
+        }
+        return ( $content !~ m~^HTML::Element=HASH~ and $content =~ m~$AllowedFollowersPlainTextRegex~ );
+    }
+    sub moreKeywords{
+        my $content = shift;
+        return(
+            $content =~ m~^HTML::Element~ and
+            $content->tag eq "span" and
+            (
+                $content->as_HTML('<>&') =~ m~<span[^>]*>($Pre)?ou~ or
+                $content->as_HTML('<>&') =~ m~<span[^>]*>($Pre)?plur\.~ or
+                $content->as_HTML('<>&') =~ m~<span[^>]*>($Pre)?anc\.~
+            )
+        );
+    }
+    sub pushArticle{ if( defined $article ){
+        $article .= '</def></ar>\n';
+        push @articles, $article."\n";
+        $article = undef; } }
+    sub pushReferenceArticle{
+        my $ReferringKey = shift;
+        my $Referent = shift;
+        infoV("Pushing referring key '$ReferringKey'");
+        # E.g. <ar><head><k>abaissante</k></head><def>abaissant</def></ar>
+        my $article = '<ar><head><k>'.$ReferringKey.'</k></head><def>'.$Referent.'</def></ar>'."\n";
+        push @articles, $article;
+    }
+    sub setArticle{
+        $article = '<ar><head><k>'.$_[0] .'</k></head><def>' . $_[1];
+    }
+    TAGBLOCK: foreach my $TagBlock ( ($body->content_list) ){
+        $counter++;
+        # last if $counter > 50;
+        if( $TagBlock =~ m~^HTML::Element~ ){
+            debugV( "[$counter] tag: '".$TagBlock->tag."'");
+            if( $TagBlock->tag eq 'p'){
+                my @content = $TagBlock->content_list();
+                if( scalar @content == 0){ infoVV("No content.Skipping."); next TAGBLOCK;}
+                unless( $content[0] =~ m~^HTML::Element=HASH~ ){
+                    if( $content[0] !~ m~<|>~ ){
+                        # Plain text. An p-subblock appears unencapsulated
+                        infoVV("Found plain text. Adding whole p-block to article.");
+                        unless( defined $article ){ warn "Found plain text outside of article."; Die(); }
+                        $article .= $TagBlock->as_HTML('<>&');
+                        next TAGBLOCK;
+                    }
+                    else{ warn "Unknown p-block."; die; }
+                }
+                my $Html = $content[0]->as_HTML('<>&');
+                debugV( "'$Html'");
+
+                if( scalar @content == 1){
+                    if( $content[0]->tag eq "span" and
+                        $Html =~ m~<span[^>]*>\w</span>~){
+                        # Chapter title, e.g. A.
+                        # Finish previous article?
+                        infoVV("Found chapter title. Skipping.");
+                        pushArticle();
+                        next TAGBLOCK;
+                    }
+                    if( $content[0]->tag eq "span" and
+                        (
+                            $Html =~ m~style="font-weight:bold;"~ or
+                            (
+                                $Html =~ m~font-style:italic;"~ and
+                                $Html =~ m~<span[^>]*>[’,'.\?\!\-()[\] «»\p{Uppercase}]+</span>~
+                            ) or
+                            $html =~ m~font-variant:small-caps;~
+                        )
+                        ){
+                        # Single entry in @contents. Probably a title in an article
+                        infoVV("Found a title. Adding to article.");
+                        $article .= $TagBlock->as_HTML('<>&');
+                        next TAGBLOCK;
+                    }
+                    if( $content[0]->tag eq "span" and
+                        (
+                            $Html !~ m~style="~ or
+                            (
+                                (
+                                    $Html =~ m~font-style:italic;"~ and
+                                    $Html =~ m~<span[^>]*>\p{Uppercase}[’,'.\?\!\-()[\] «»\p{Lower}\p{Uppercase}]+</span>~
+                                ) or
+                                $Html =~ m~style="font-style:italic;"~ or
+                                (
+                                    $Html =~ m~style="font-weight:bold;~ and
+                                    $Html =~ m~<span[^>]*>[’,'.\?\!\-()[\] «»\p{Lower}]+</span>~
+                                )
+                            )
+
+                        )
+                            ){
+                        # Simple p-block, just add it to article.
+                        infoVV("Found a simple p-block. Adding to article.");
+                        $article .= $TagBlock->as_HTML('<>&');
+                        next TAGBLOCK;
+                    }
+                    if( $content[0]->tag eq "a"){
+                        # Bookmark
+                        infoVV("Found a bookmark a-block. Adding to article.");
+                        $article .= $TagBlock->as_HTML('<>&');
+                        next TAGBLOCK;
+                    }
+                    # Unknown instance
+                    warn "One content entry: No clue";
+                    die;
+                }
+                if( scalar @content > 1 ){
+                    if( $content[0]->tag eq "span" and
+                        $Html =~ m~style="font-weight:bold;"~ and
+                        $Html =~ m~<span[^>]*>(?<key>((?!</?span>).)+)</span>~ ){
+                        my $PossibleKey = cleanKey( $+{"key"} );
+                        my $CorrectMissingBracket = 0;
+                        my $temp = undef;
+                        my $SecondKey = undef;
+                        my $ThirdKey = undef;
+                        if( exists $PauseFor{ $PossibleKey } ){
+                            debug("as_HTML: '".$TagBlock->as_HTML('<>&')."'");
+                            debug("as_text: '".$TagBlock->as_text."'");
+                            debug("AFPTregex: '$AllowedFollowersPlainTextRegex'");
+                            debug("AFregex: '$AllowedFollowersRegex'");
+                            print "Press ENTER to continu.";
+                            <STDIN>;
+                        }
+                        if( $content[1] =~ m~^HTML::Element~ and
+                            (
+                                followsKeyword( $content[1] ) or
+                                followsKeywordinPlainText( @content[1..$#content] ) or
+                                # Bracket appears in the same span as keyword
+                                $PossibleKey =~ s~\s*\[$\s*~~ or
+                                # Missing left bracket in text
+                                (
+                                    $content[1]->as_HTML('<>&') =~ m~^<span[^>]*>(\w+\]|\w+, -\w+\])~ and
+                                    $CorrectMissingBracket = 1
+                                ) or
+                                # Categorization appears in the same span as keyword
+                                (
+                                    $PossibleKey =~ s~\s+((n|V|adj)\.\s*)$~~ and
+                                    $temp = $1 . $content[1]->as_text and
+                                    $temp =~ m~^($AllowedFollowersPlainTextRegex)~
+                                )
+                            )
+                            ){
+                            # Key followed by bracket fullfills criterium
+                            pushArticle();
+                            # Check for extra forms
+                            infoVV("Found start of new article with key '$PossibleKey'.");
+                            my $TBaHtml = $TagBlock->as_HTML('<>&');
+                            if( $CorrectMissingBracket ){
+                                unless ( $TBaHtml =~ s~^(?<start><p><span[^>]*>((?!</?span>).)+</span><span[^>]*>)(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
+                                    warn "Regex didn't work for '$TBaHtml'";
+                                    die;
+                                }
+                            }
+                            $PossibleKey = checkExtraForms( $PossibleKey );
+                            setArticle( $PossibleKey, $TBaHtml );
+                            if( exists $PauseFor{ $PossibleKey } ){
+                                debug("Article: '$article'");
+                                print "Press ENTER to continu.";
+                                <STDIN>;
+                            }
+                            next TAGBLOCK;
+                        }
+                        # Two keys separated by ou
+                        # E.g. <p><span class="font2" style="font-weight:bold;">abadir </span><span class="font11">ou </span><span class="font2" style="font-weight:bold;">abbadir </span><span class="font11">[abadir] n. m. (origine<br>inconnue ; 1690, Furetière). Nom donné à<br>une pierre sacrée chez les Phéniciens et<br>considérée comme venant du ciel : </span>
+                        # E.g. <p><span class="font2" style="font-weight:bold;">aïeul, e, </span><span class="font11">plur. </span><span class="font2" style="font-weight:bold;">aïeuls, es </span><span class="font11">[ajœl] n. (lat.<br>pop. </span><span class="font11" style="font-style:italic;">*aviolus,</span><span class="font11"> dimin. du lat. class. </span>
+                        elsif(
+                            $content[1] =~ m~^HTML::Element~ and
+                            $content[2] =~ m~^HTML::Element~ and
+                            moreKeywords( $content[1] ) and
+                            (
+                                (
+                                    $content[2]->as_HTML('<>&') =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ and
+                                    $temp = $+{keysecond} and
+                                    $temp =~ m~\s*\[\s*$~
+                                ) or
+                                (
+                                    $content[3] =~ m~^HTML::Element~ and
+                                    (
+                                        followsKeyword( $content[3] ) or
+                                        followsKeywordinPlainText( @content[3..$#content] )
+                                    )
+
+                                ) or
+                                # Missing left bracket in text
+                                (
+                                    $content[3] =~ m~^HTML::Element~ and
+                                    $content[3]->as_HTML('<>&') =~ m~^<span[^>]*>(\w+\])~ and
+                                    $CorrectMissingBracket = 1
+                                )
+                            ) and
+                            $content[2]->tag eq "span" and
+                            $content[2]->as_HTML('<>&') =~ m~style="font-weight:bold;"~ and
+                            $content[2]->as_HTML('<>&') =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ ){
+                            # Key followed another key by bracket fullfills criterium
+                            my $SecondKey = cleanKey( $+{"keysecond"} );
+                            $SecondKey =~ s~\s*\[\s*$~~;
+                            pushArticle();
+                            $PossibleKey = checkExtraForms( $PossibleKey );
+                            $SecondKey = checkExtraForms( $SecondKey );
+                            my $TBaHtml = $TagBlock->as_HTML('<>&');
+                            if( $CorrectMissingBracket ){
+                                # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
+                                unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
+                                    warn "Regex didn't work for '$TBaHtml'";
+                                    die;
+                                }
+                            }
+                            infoVV("Found start of new article with key '$PossibleKey'.");
+                            infoVV("Also found another form of this key '$SecondKey'.");
+                            # E.g. <ar><head><k>abaissante</k></head><def>abaissant</def></ar>
+                            pushReferenceArticle( $SecondKey, $PossibleKey);
+                            setArticle( $PossibleKey, $TBaHtml );
+                            if( exists $PauseFor{ $PossibleKey } ){
+                                debug("Article: '$article'");
+                                print "Press ENTER to continu.";
+                                <STDIN>;
+                            }
+                            next TAGBLOCK;
+                        }
+                        # Three keys separated by ou
+                        # E.g. <p><span class="font4" style="font-weight:bold;">copayer, </span><span class="font29">ou </span><span class="font4" style="font-weight:bold;">copaïer, </span><span class="font29">ou </span><span class="font4" style="font-weight:bold;">copahier </span><span class="font29">[kopaje] n. m. (du tupi-guarani </span><span class="font29" style="font-style:italic;">copaïba, </span><span class="font29">arbre qui produit le copahu, par changement de suff. ; 1783, </span><span class="font29" style="font-style:italic;">Encycl. méthodique, </span><span class="font29">écrit </span><span class="font29" style="font-style:italic;">copaïer; copayer,</span><span class="font29"> 1835, Acad. ; </span><span class="font29" style="font-style:italic;">copahier,</span><span class="font29"> 1866, Larousse). Arbre à suc résineux et balsamique, d’Amérique et d’Afrique tropicales.</span></p>
+                        elsif( scalar @content >= 6 and
+                            $content[1] =~ m~^HTML::Element~ and
+                            $content[2] =~ m~^HTML::Element~ and
+                            $content[3] =~ m~^HTML::Element~ and
+                            $content[4] =~ m~^HTML::Element~ and
+                            $content[5] =~ m~^HTML::Element~ and
+                            $content[6] =~ m~^HTML::Element~ and
+                            # $content[1]->tag eq "span" and
+                            # $content[1]->as_HTML('<>&') =~ m~<span[^>]*>(! |\()?ou~ or
+                            # $content[1]->as_HTML('<>&') =~ m~<span[^>]*>(! |\()?plur\.~ or
+                            # $content[1]->as_HTML('<>&') =~ m~<span[^>]*>(! |\()?anc\.~
+                            moreKeywords( $content[1] ) and
+                            moreKeywords( $content[3] ) and
+                            (
+                                (
+                                    $content[2]->as_HTML('<>&') =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ and
+                                    $SecondKey = $+{keysecond} and
+                                    $SecondKey =~ m~\s*\[\s*$~ and
+                                    $content[4]->as_HTML('<>&') =~ m~<span[^>]*>(?<keythird>((?!</?span>).)+)</span>~ and
+                                    $ThirdKey = $+{keythird} and
+                                    $ThirdKey =~ m~\s*\[\s*$~
+                                ) or
+                                (
+                                    $content[5] =~ m~^HTML::Element~ and
+                                    (
+                                        followsKeyword( $content[5] ) or
+                                        followsKeywordinPlainText( @content[5..$#content] )
+                                    )
+
+                                ) or
+                                # Missing left bracket in text
+                                (
+                                    $content[5] =~ m~^HTML::Element~ and
+                                    $content[5]->as_HTML('<>&') =~ m~^<span[^>]*>(\w+\])~ and
+                                    $CorrectMissingBracket = 1
+                                )
+                            ) and
+                            $content[2]->tag eq "span" and
+                            $content[2]->as_HTML('<>&') =~ m~style="font-weight:bold;"~ and
+                            $content[4]->tag eq "span" and
+                            $content[4]->as_HTML('<>&') =~ m~style="font-weight:bold;"~
+                            ){
+                            # Key followed two keys by bracket fullfills criterium
+                            $SecondKey = cleanKey( $SecondKey );
+                            $SecondKey =~ s~\s*\[\s*$~~;
+                            $ThirdKey = cleanKey( $ThirdKey );
+                            $ThirdKey =~ s~\s*\[\s*$~~;
+                            pushArticle();
+                            $PossibleKey = checkExtraForms( $PossibleKey );
+                            $SecondKey = checkExtraForms( $SecondKey );
+                            $ThirdKey = checkExtraForms( $ThirdKey );
+                            my $TBaHtml = $TagBlock->as_HTML('<>&');
+                            if( $CorrectMissingBracket ){
+                                # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
+                                unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
+                                    warn "Regex didn't work for '$TBaHtml'";
+                                    die;
+                                }
+                            }
+                            infoVV("Found start of new article with key '$PossibleKey'.");
+                            infoVV("Also found another form of this key '$SecondKey'.");
+                            pushReferenceArticle( $SecondKey, $PossibleKey );
+                            pushReferenceArticle( $ThirdKey,  $PossibleKey );
+                            setArticle( $PossibleKey, $TBaHtml );
+                            if( exists $PauseFor{ $PossibleKey } ){
+                                debug("Article: '$article'");
+                                print "Press ENTER to continu.";
+                                <STDIN>;
+                            }
+                            next TAGBLOCK;
+                        }
+                        else{
+                            # Criterium not met. Current block taken as a continuation of previous article.
+                            infoVV("Found a possible key '$PossibleKey', but it wasn't followed by one of the allowed symbols.");
+                            push @ImpossibleKeywords, $PossibleKey;
+                            $ImpossibleKeywords{ $PossibleKey } = $TagBlock->as_HTML('<>&');
+                            infoVV("Adding block to current article.");
+                            $article .= $TagBlock->as_HTML('<>&');
+                            if( exists $PauseFor{ $PossibleKey } ){
+                                debug("Article: '$article'");
+                                print "Press ENTER to continu.";
+                                <STDIN>;
+                            }
+                            next TAGBLOCK;
+                        }
+                    }
+                    else{
+                        # Criterium not met. Current block taken as a continuation of previous article.
+                        infoVV("Adding block to current article.");
+                        $article .= $TagBlock->as_HTML('<>&');
+                        next TAGBLOCK;
+                    }
+                }
+            }
+            else{
+                # Add block to article
+                infoVV("Adding block to current article.");
+                $article .= $TagBlock->as_HTML('<>&');
+                next TAGBLOCK;
+            }
+
+        }
+        else{ debugV("[$counter] '$_'");}
+    }
+    debugV("Keywords that didn't fit in the criteria.");
+    my $HashStorageAlreadyClearedImpossibleKeywords = "StorageAlreadyClearedImpossibleKeywords.hash";
+    my %StorageAlreadyClearedImpossibleKeywords;
+    if( -e $HashStorageAlreadyClearedImpossibleKeywords ){
+        %StorageAlreadyClearedImpossibleKeywords = %{ retrieve( $HashStorageAlreadyClearedImpossibleKeywords ) };
+    }
+    my $None = 1;
+    my @CurrentlyShown;
+    foreach(@ImpossibleKeywords){
+        if( exists $StorageAlreadyClearedImpossibleKeywords{ $_} ){ next; }
+        else{
+            debugV($_."________".$ImpossibleKeywords{$_}."\n\n");
+            $StorageAlreadyClearedImpossibleKeywords{ $_ } =  1;
+            $None = 0;
+            push @CurrentlyShown,$_;
+        }
+    }
+
+    if( $None ){ debugV("None") ; }
+    if( $isABBYYAllCleared ){ store \%StorageAlreadyClearedImpossibleKeywords, $HashStorageAlreadyClearedImpossibleKeywords; }
+    my $ABBYYWordlist = 'ABBYYWordlist.txt';
+    array2File( $ABBYYWordlist, @articles) if $isABBYYWordlistNeeded;
+    debugV("Summary CurrentlyShown:");
+    foreach(sort @CurrentlyShown){ debugV($_);}
+    debugV("FailingExtraForms:");
+    foreach(@FailingExtraForms){debugV($_);}
+    $isABBYConverted = 1;
+    return( @xdxf_start, @articles, "</xdxf>" );
+}
 sub convertBlockquote2Div{
     # return (@_);
     waitForIt('Converting <blockquote-tags to <div style:"margin 0 0 0 1em;">-tags.');
@@ -1022,10 +1595,15 @@ sub convertHTML2XDXF{
 
     # my @indexentries = $html=~m~<idx:entry scriptable="yes">((?:(?!</idx:entry>).)+)</idx:entry>~gs; # Only works for Duden
     my @indexentries = $html=~m~<idx:entry[^>]*>((?:(?!<idx:entry).)+)~gs; # Collect from the start until the next starts.
-
     if( scalar @indexentries == 0 ){
+        if ($html =~ m~<meta name="generator" content="ABBYY FineReader 15">~s){
+            warn "Found meta content to be ABBYY FineReader 15. Trying convertABBYY2XDXF";
+            return( convertABBYY2XDXF( $html ) );
+        }
+        else{
         warn "No idx-entry tags found in html. Trying convertRAWML2XDXF";
         return( convertRAWML2XDXF( $html ) );
+        }
     }
 
     if($isTestingOn){ array2File("test_html_indexentries.html",map(qq/$_\n/,@indexentries)  ) ; }
@@ -2268,7 +2846,7 @@ sub loadXDXF{
     }
     elsif(    $FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ or
             $FileName =~ m~^(?<filename>((?!\.azw3?).)+)\.azw3?$~ or
-            $FileName =~ m~^(?<filename>((?!\.html).)+)\.html$~    ){
+            $FileName =~ m~^(?<filename>((?!\.html?).)+)\.html?$~    ){
         # Use full path and filename
         my $InputFile = "$BaseDir/$FileName";
         my $OutputFolder = substr($InputFile, 0, length($InputFile)-5);
@@ -2338,7 +2916,7 @@ sub loadXDXF{
             debug("Full path for generated html is \'$FullPath\'.");
             debug("Filename for generated html is \'$FileName\'.");
         }
-        elsif( $FileName =~ m~^(?<filename>((?!\.html).)+)\.html$~    ){
+        elsif( $FileName =~ m~^(?<filename>((?!\.html?).)+)\.html?$~    ){
             $HTMLConversion = 1;
         }
 
@@ -2474,6 +3052,7 @@ sub makeKoreaderReady{
     my @css;
     my $FileNameCSS = join('', $FileName=~m~^(.+?)\.[^.]+$~)."_reconstructed.css";
     # Remove large blockquote margins
+    if( scalar @ABBYY_CSS ){ @css = @ABBYY_CSS };
     push @css, "blockquote { margin: 0 0 0 1em }\n";
     # Remove images
     # $html =~ s~<img[^>]+>~~sg;
