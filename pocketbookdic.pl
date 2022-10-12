@@ -78,6 +78,7 @@ my $isMakeKoreaderReady_SpanColor2Style         = 1 ;
 my $isMakeKoreaderReady_SpanWidth2Style         = 0 ;
 my $isMakeKoreaderReady_SpanStyleWidht2Padding  = 0 ;
 my $isMakeKoreaderReady_MergeStyles             = 0 ;
+my $isChangeTable2Div4Koreader                  = 1 ; # Adds lines to lua-file
 
 # Global variables for the conversion of ABBYY-generated HTML.
 my @ABBYY_CSS; # Becomes defined by sub convertABBYY2XDXF
@@ -3201,10 +3202,19 @@ sub makeKoreaderReady{
     # html = html:gsub(' [Ss][Tt][Yy][Ll][Ee]=', ' zzztyle=')
     # return html
     # end
+    my @ChangeTable2Div = (
+        q~html = html:gsub("(<table[^>]+>.-)</?p[^>]*>(.-</table>)", "%1%2")~,
+        q~html = html:gsub("<table[^>]+>", '<div style="display:table;>')~,
+        q~html = html:gsub("<tr[^>]+>", '<div style="display:table-row;">')~,
+        q~html = html:gsub("<td[^>]+>", '<div style="display:table-cell;">')~,
+        q~-- html = html:gsub("<tr[^>]+>", '<div style="width=100%;">')~,
+        q~-- html = html:gsub("<td[^>]+>", '<div style="display:inline-block;float:left;>')~,
+        q~html = html:gsub("</table>|</tr>|</td>", '</div>')~ );
     my $lua_start = "return function(html)\n";
     my $lua_end = "return html\nend\n";
     # Remove images
     push @lua, "html = html:gsub('<img[^>]+>', '')\n";
+    if( $isChangeTable2Div4Koreader ){ push @lua, @ChangeTable2Div; }
     if(scalar @lua>0){
         unshift @lua, $lua_start;
         push @lua, $lua_end;
