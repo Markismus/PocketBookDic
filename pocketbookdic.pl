@@ -660,7 +660,7 @@ sub convertABBYY2XDXF{
         info( "Retrieved tree from '".$FileName.".tree'"); }
     else{ 
         $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
-t        $tree->parse($html); 
+        $tree->parse($html); 
     }
     store( $tree, $FileName.'.tree' );
     info("End parsing");
@@ -774,7 +774,7 @@ t        $tree->parse($html);
                 else{
                     push @FailingExtraForms, $PossibleKey."____".$Form;
                     debug(length($Form));
-                    warn "Not a known variant of form from '$PossibleKey': '$Form'.";
+                    warn "Not a known variant of form for '$PossibleKey': '$Form'.";
                     debug("last 3 letters of '$PossibleKey': ". substr($PossibleKey, -3, 3) );
                     debug("last 3 letters of '$Form': ". substr($Form, -3, 3) );
                 }
@@ -784,7 +784,7 @@ t        $tree->parse($html);
     }
     sub cleanKey{
         my $Key = shift;
-        $Key =~ s~\<br\/\>~~g;
+        $Key =~ s~<br/>~~gs;
         $Key =~ s~♦~~g;
         $Key =~ s~\([^)]*\)?~~g;
         $Key =~ s~\[[^\]]*\]~~g;
