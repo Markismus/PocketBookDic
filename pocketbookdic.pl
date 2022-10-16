@@ -658,7 +658,10 @@ sub convertABBYY2XDXF{
     if( -e $FileName.'.tree' ){
         $tree = retrieve ( $FileName.'.tree' );
         info( "Retrieved tree from '".$FileName.".tree'"); }
-    else{ $tree->parse($html); }
+    else{ 
+        $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
+t        $tree->parse($html); 
+    }
     store( $tree, $FileName.'.tree' );
     info("End parsing");
 
@@ -835,7 +838,7 @@ sub convertABBYY2XDXF{
         my $content = shift;
         infoVV("followsKeyword is given '$content'") if 0;
         unless( $content =~ m~^HTML::Element=HASH~ ){ return 0; }
-        return ( $content->tag eq "span" and $content->as_HTML('<>&') =~ m~$AllowedFollowersRegex~ );
+        return ( $content->tag eq "span" and $content->as_HTML('<>&', "	", {}) =~ m~$AllowedFollowersRegex~ );
     }
     sub followsKeywordinPlainText{
         # Returns value of criterium
@@ -853,9 +856,9 @@ sub convertABBYY2XDXF{
             $content =~ m~^HTML::Element~ and
             $content->tag eq "span" and
             (
-                $content->as_HTML('<>&') =~ m~<span[^>]*>($Pre)?ou~ or
-                $content->as_HTML('<>&') =~ m~<span[^>]*>($Pre)?plur\.~ or
-                $content->as_HTML('<>&') =~ m~<span[^>]*>($Pre)?anc\.~
+                $content->as_HTML('<>&', "	", {}) =~ m~<span[^>]*>($Pre)?ou~ or
+                $content->as_HTML('<>&', "	", {}) =~ m~<span[^>]*>($Pre)?plur\.~ or
+                $content->as_HTML('<>&', "	", {}) =~ m~<span[^>]*>($Pre)?anc\.~
             )
         );
     }
@@ -887,12 +890,12 @@ sub convertABBYY2XDXF{
                         # Plain text. An p-subblock appears unencapsulated
                         infoVV("Found plain text. Adding whole p-block to article.");
                         unless( defined $article ){ warn "Found plain text outside of article."; Die(); }
-                        $article .= $TagBlock->as_HTML('<>&');
+                        $article .= $TagBlock->as_HTML('<>&', "	", {});
                         next TAGBLOCK;
                     }
                     else{ warn "Unknown p-block."; die; }
                 }
-                my $Html = $content[0]->as_HTML('<>&');
+                my $Html = $content[0]->as_HTML('<>&', "	", {});
                 debugV( "'$Html'");
 
                 if( scalar @content == 1){
@@ -916,7 +919,7 @@ sub convertABBYY2XDXF{
                         ){
                         # Single entry in @contents. Probably a title in an article
                         infoVV("Found a title. Adding to article.");
-                        $article .= $TagBlock->as_HTML('<>&');
+                        $article .= $TagBlock->as_HTML('<>&', "	", {});
                         next TAGBLOCK;
                     }
                     if( $content[0]->tag eq "span" and
@@ -938,13 +941,13 @@ sub convertABBYY2XDXF{
                             ){
                         # Simple p-block, just add it to article.
                         infoVV("Found a simple p-block. Adding to article.");
-                        $article .= $TagBlock->as_HTML('<>&');
+                        $article .= $TagBlock->as_HTML('<>&', "	", {});
                         next TAGBLOCK;
                     }
                     if( $content[0]->tag eq "a"){
                         # Bookmark
                         infoVV("Found a bookmark a-block. Adding to article.");
-                        $article .= $TagBlock->as_HTML('<>&');
+                        $article .= $TagBlock->as_HTML('<>&', "	", {});
                         next TAGBLOCK;
                     }
                     # Unknown instance
@@ -961,7 +964,7 @@ sub convertABBYY2XDXF{
                         my $SecondKey = undef;
                         my $ThirdKey = undef;
                         if( exists $PauseFor{ $PossibleKey } ){
-                            debug("as_HTML: '".$TagBlock->as_HTML('<>&')."'");
+                            debug("as_HTML: '".$TagBlock->as_HTML('<>&', "	", {})."'");
                             debug("as_text: '".$TagBlock->as_text."'");
                             debug("AFPTregex: '$AllowedFollowersPlainTextRegex'");
                             debug("AFregex: '$AllowedFollowersRegex'");
@@ -976,7 +979,7 @@ sub convertABBYY2XDXF{
                                 $PossibleKey =~ s~\s*\[$\s*~~ or
                                 # Missing left bracket in text
                                 (
-                                    $content[1]->as_HTML('<>&') =~ m~^<span[^>]*>(\w+\]|\w+, -\w+\])~ and
+                                    $content[1]->as_HTML('<>&', "	", {}) =~ m~^<span[^>]*>(\w+\]|\w+, -\w+\])~ and
                                     $CorrectMissingBracket = 1
                                 ) or
                                 # Categorization appears in the same span as keyword
@@ -991,7 +994,7 @@ sub convertABBYY2XDXF{
                             pushArticle();
                             # Check for extra forms
                             infoVV("Found start of new article with key '$PossibleKey'.");
-                            my $TBaHtml = $TagBlock->as_HTML('<>&');
+                            my $TBaHtml = $TagBlock->as_HTML('<>&', "	", {});
                             if( $CorrectMissingBracket ){
                                 unless ( $TBaHtml =~ s~^(?<start><p><span[^>]*>((?!</?span>).)+</span><span[^>]*>)(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
                                     warn "Regex didn't work for '$TBaHtml'";
@@ -1016,7 +1019,7 @@ sub convertABBYY2XDXF{
                             moreKeywords( $content[1] ) and
                             (
                                 (
-                                    $content[2]->as_HTML('<>&') =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ and
+                                    $content[2]->as_HTML('<>&', "	", {}) =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ and
                                     $temp = $+{keysecond} and
                                     $temp =~ m~\s*\[\s*$~
                                 ) or
@@ -1031,20 +1034,20 @@ sub convertABBYY2XDXF{
                                 # Missing left bracket in text
                                 (
                                     $content[3] =~ m~^HTML::Element~ and
-                                    $content[3]->as_HTML('<>&') =~ m~^<span[^>]*>(\w+\])~ and
+                                    $content[3]->as_HTML('<>&', "	", {}) =~ m~^<span[^>]*>(\w+\])~ and
                                     $CorrectMissingBracket = 1
                                 )
                             ) and
                             $content[2]->tag eq "span" and
-                            $content[2]->as_HTML('<>&') =~ m~style="font-weight:bold;"~ and
-                            $content[2]->as_HTML('<>&') =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ ){
+                            $content[2]->as_HTML('<>&', "	", {}) =~ m~style="font-weight:bold;"~ and
+                            $content[2]->as_HTML('<>&', "	", {}) =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ ){
                             # Key followed another key by bracket fullfills criterium
                             my $SecondKey = cleanKey( $+{"keysecond"} );
                             $SecondKey =~ s~\s*\[\s*$~~;
                             pushArticle();
                             $PossibleKey = checkExtraForms( $PossibleKey );
                             $SecondKey = checkExtraForms( $SecondKey );
-                            my $TBaHtml = $TagBlock->as_HTML('<>&');
+                            my $TBaHtml = $TagBlock->as_HTML('<>&', "	", {});
                             if( $CorrectMissingBracket ){
                                 # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
                                 unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
@@ -1074,17 +1077,17 @@ sub convertABBYY2XDXF{
                             $content[5] =~ m~^HTML::Element~ and
                             $content[6] =~ m~^HTML::Element~ and
                             # $content[1]->tag eq "span" and
-                            # $content[1]->as_HTML('<>&') =~ m~<span[^>]*>(! |\()?ou~ or
-                            # $content[1]->as_HTML('<>&') =~ m~<span[^>]*>(! |\()?plur\.~ or
-                            # $content[1]->as_HTML('<>&') =~ m~<span[^>]*>(! |\()?anc\.~
+                            # $content[1]->as_HTML('<>&', "	", {}) =~ m~<span[^>]*>(! |\()?ou~ or
+                            # $content[1]->as_HTML('<>&', "	", {}) =~ m~<span[^>]*>(! |\()?plur\.~ or
+                            # $content[1]->as_HTML('<>&', "	", {}) =~ m~<span[^>]*>(! |\()?anc\.~
                             moreKeywords( $content[1] ) and
                             moreKeywords( $content[3] ) and
                             (
                                 (
-                                    $content[2]->as_HTML('<>&') =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ and
+                                    $content[2]->as_HTML('<>&', "	", {}) =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ and
                                     $SecondKey = $+{keysecond} and
                                     $SecondKey =~ m~\s*\[\s*$~ and
-                                    $content[4]->as_HTML('<>&') =~ m~<span[^>]*>(?<keythird>((?!</?span>).)+)</span>~ and
+                                    $content[4]->as_HTML('<>&', "	", {}) =~ m~<span[^>]*>(?<keythird>((?!</?span>).)+)</span>~ and
                                     $ThirdKey = $+{keythird} and
                                     $ThirdKey =~ m~\s*\[\s*$~
                                 ) or
@@ -1099,14 +1102,14 @@ sub convertABBYY2XDXF{
                                 # Missing left bracket in text
                                 (
                                     $content[5] =~ m~^HTML::Element~ and
-                                    $content[5]->as_HTML('<>&') =~ m~^<span[^>]*>(\w+\])~ and
+                                    $content[5]->as_HTML('<>&', "	", {}) =~ m~^<span[^>]*>(\w+\])~ and
                                     $CorrectMissingBracket = 1
                                 )
                             ) and
                             $content[2]->tag eq "span" and
-                            $content[2]->as_HTML('<>&') =~ m~style="font-weight:bold;"~ and
+                            $content[2]->as_HTML('<>&', "	", {}) =~ m~style="font-weight:bold;"~ and
                             $content[4]->tag eq "span" and
-                            $content[4]->as_HTML('<>&') =~ m~style="font-weight:bold;"~
+                            $content[4]->as_HTML('<>&', "	", {}) =~ m~style="font-weight:bold;"~
                             ){
                             # Key followed two keys by bracket fullfills criterium
                             $SecondKey = cleanKey( $SecondKey );
@@ -1117,7 +1120,7 @@ sub convertABBYY2XDXF{
                             $PossibleKey = checkExtraForms( $PossibleKey );
                             $SecondKey = checkExtraForms( $SecondKey );
                             $ThirdKey = checkExtraForms( $ThirdKey );
-                            my $TBaHtml = $TagBlock->as_HTML('<>&');
+                            my $TBaHtml = $TagBlock->as_HTML('<>&', "	", {});
                             if( $CorrectMissingBracket ){
                                 # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
                                 unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
@@ -1141,9 +1144,9 @@ sub convertABBYY2XDXF{
                             # Criterium not met. Current block taken as a continuation of previous article.
                             infoVV("Found a possible key '$PossibleKey', but it wasn't followed by one of the allowed symbols.");
                             push @ImpossibleKeywords, $PossibleKey;
-                            $ImpossibleKeywords{ $PossibleKey } = $TagBlock->as_HTML('<>&');
+                            $ImpossibleKeywords{ $PossibleKey } = $TagBlock->as_HTML('<>&', "	", {});
                             infoVV("Adding block to current article.");
-                            $article .= $TagBlock->as_HTML('<>&');
+                            $article .= $TagBlock->as_HTML('<>&', "	", {});
                             if( exists $PauseFor{ $PossibleKey } ){
                                 debug("Article: '$article'");
                                 print "Press ENTER to continu.";
@@ -1155,7 +1158,7 @@ sub convertABBYY2XDXF{
                     else{
                         # Criterium not met. Current block taken as a continuation of previous article.
                         infoVV("Adding block to current article.");
-                        $article .= $TagBlock->as_HTML('<>&');
+                        $article .= $TagBlock->as_HTML('<>&', "	", {});
                         next TAGBLOCK;
                     }
                 }
@@ -1163,7 +1166,7 @@ sub convertABBYY2XDXF{
             else{
                 # Add block to article
                 infoVV("Adding block to current article.");
-                $article .= $TagBlock->as_HTML('<>&');
+                $article .= $TagBlock->as_HTML('<>&', "	", {});
                 next TAGBLOCK;
             }
 
