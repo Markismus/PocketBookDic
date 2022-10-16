@@ -3206,13 +3206,17 @@ sub makeKoreaderReady{
     # return html
     # end
     my @ChangeTable2Div = (
-        q~html = html:gsub("(<table[^>]+>.-)</?p[^>]*>(.-</table>)", "%1%2")~,
-        q~html = html:gsub("<table[^>]+>", '<div style="display:table;>')~,
-        q~html = html:gsub("<tr[^>]+>", '<div style="display:table-row;">')~,
-        q~html = html:gsub("<td[^>]+>", '<div style="display:table-cell;">')~,
-        q~-- html = html:gsub("<tr[^>]+>", '<div style="width=100%;">')~,
-        q~-- html = html:gsub("<td[^>]+>", '<div style="display:inline-block;float:left;>')~,
-        q~html = html:gsub("</table>|</tr>|</td>", '</div>')~ );
+        q~while html:find("(<table[^>]+>.-)</?p[^>]*>(.-</table>)") do~,
+        q~    html  = html:gsub("(<table[^>]+>.-)</?p[^>]*>(.-</table>)", "%1%2")~,
+        q~end~,
+        q~html = html:gsub("<table[^>]+>", '<p></p><div style="display:table;>')~,
+        q~html = html:gsub("<tr[^>]+>", '<p><div style="display:table-row;">')~,
+        q~html = html:gsub("<td[^>]+>", '<div style="display:table-cell;">|') -- ｜~,
+        q~html = html:gsub("</td>", '</div>')~,
+        q~html = html:gsub("</tr>", '</div></p><hr style="height:3px;color:black;" />')~,
+        q~html = html:gsub("</table>", '</div><p></p>')~,
+        q~return html~,
+        q~end~, );
     my $lua_start = "return function(html)\n";
     my $lua_end = "return html\nend\n";
     # Remove images
