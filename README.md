@@ -1,6 +1,7 @@
 # PocketBookDic
 Script that originated to convert dictionaries to pocketbook dictionary dic-format. \
 However, since I moved away from Pocketbook devices, I am more focussed on converting to the intermediary xdxf-format and Stardict-format. Both formats are easily converted with other tools to custom formats. Only this script incorporates the Pocketbook dic-format. For other formats I can recommend pyGlossary. 
+Examples of the results can be found on [pCloud](https://e1.pcloud.link/publink/show?code=kZDhJ7ZBRkwNE50R4hz731AWB2RAb2Gmg3X).
 
 **pocketbookdic.pl** \
 Script to convert from csv-, Stardict dict-, Stardict dictdz-, Textual Stardict xml-, mobi- (via html- with KindleUnpack) and xdxf-format to pocketbook dic-, Stardict dict/idx/ifo-, xdxf- and Stardict xml-format. (The csv-file should be comma separated or the delimiter should be given at the command line.) \
