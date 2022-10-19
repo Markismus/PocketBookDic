@@ -70,6 +70,25 @@ sub convertABBYY2XDXF{
     my $counter = 0;
     our (@articles, $article, @ImpossibleKeywords, %ImpossibleKeywords);
     our @FailingExtraForms;
+    sub addArticle{
+        my $TagBlock = shift;
+        infoVV("Entering addArticle.");
+        my $html = asHTML($TagBlock);
+        my @check = checkAddedHTML4StartArticle( $html );
+        if( scalar @check == 3 ){
+            addArticle( $check[0]);
+            pushArticle();
+            setArticle( $check[1], $check[2] );
+        }
+        elsif( defined $article ){
+            $article .= $html;
+            infoVV("Added to article:\n'$html'");
+        }
+        else{
+            infoV("No defined article, so nothing to add to.");
+            infoV("Ignored content:\n'$html'");
+        }
+    }
     sub asHTML{
         my $content = shift;
         unless( $content =~ m~^HTML::Element=HASH~ ){
@@ -307,8 +326,9 @@ sub convertABBYY2XDXF{
             )
         );}
     sub pushArticle{ if( defined $article ){
-        $article .= '</def></ar>\n';
-        push @articles, $article."\n";
+        $article .= '</def></ar>'."\n";
+        infoV("Pushing article '$article'");
+        push @articles, $article;
         $article = undef; } }
     sub pushReferenceArticle{
         my $ReferringKey = shift;
@@ -344,7 +364,7 @@ sub convertABBYY2XDXF{
                         # Plain text. An p-subblock appears unencapsulated
                         infoVV("Found plain text. Adding whole p-block to article.");
                         unless( defined $article ){ warn "Found plain text outside of article."; Die(); }
-                        $article .= $TagBlock->as_HTML('<>&', " ", {});
+                        addArticle( $TagBlock );
                         next TAGBLOCK;
                     }
                     else{ warn "Unknown p-block."; die; }
@@ -372,8 +392,8 @@ sub convertABBYY2XDXF{
                         )
                         ){
                         # Single entry in @contents. Probably a title in an article
-                        infoVV("Found a title. Adding to article.");
-                        $article .= $TagBlock->as_HTML('<>&', " ", {});
+                        infoVV("Found a title.");
+                        addArticle( $TagBlock );
                         next TAGBLOCK;
                     }
                     if( $content[0]->tag eq "span" and
@@ -394,14 +414,14 @@ sub convertABBYY2XDXF{
                         )
                             ){
                         # Simple p-block, just add it to article.
-                        infoVV("Found a simple p-block. Adding to article.");
-                        $article .= $TagBlock->as_HTML('<>&', " ", {});
+                        infoVV("Found a simple p-block.");
+                        addArticle( $TagBlock );
                         next TAGBLOCK;
                     }
                     if( $content[0]->tag eq "a"){
                         # Bookmark
-                        infoVV("Found a bookmark a-block. Adding to article.");
-                        $article .= $TagBlock->as_HTML('<>&', " ", {});
+                        infoVV("Found a bookmark a-block.");
+                        addArticle( $TagBlock );
                         next TAGBLOCK;
                     }
                     # Unknown instance
@@ -413,6 +433,11 @@ sub convertABBYY2XDXF{
                         $Html =~ m~style="font-weight:bold;"~ and
                         $Html =~ m~<span[^>]*>(?<key>((?!</?span>).)+)</span>~ ){
                         my $PossibleKey = cleanKey( $+{"key"} );
+                        if( $PossibleKey =~ m~^(♦|•|\||[ILVX]+\.|\d?°|—|■)~ ){
+                            infoVV("Subkey '$PossibleKey' starting with '$1' found.");
+                            addArticle( $TagBlock );
+                            next TAGBLOCK;
+                        }
                         my $CorrectMissingBracket = 0;
                         my $temp = undef;
                         my $SecondKey = undef;
@@ -599,8 +624,7 @@ sub convertABBYY2XDXF{
                             infoVV("Found a possible key '$PossibleKey', but it wasn't followed by one of the allowed symbols.");
                             push @ImpossibleKeywords, $PossibleKey;
                             $ImpossibleKeywords{ $PossibleKey } = asHTML( $TagBlock );
-                            infoVV("Adding block to current article.");
-                            $article .= $TagBlock->as_HTML('<>&', " ", {});
+                            addArticle( $TagBlock );
                             if( exists $PauseFor{ $PossibleKey } ){
                                 debug("Article: '$article'");
                                 print "Press ENTER to continu.";
@@ -611,16 +635,14 @@ sub convertABBYY2XDXF{
                     }
                     else{
                         # Criterium not met. Current block taken as a continuation of previous article.
-                        infoVV("Adding block to current article.");
-                        $article .= $TagBlock->as_HTML('<>&', " ", {});
+                        addArticle( $TagBlock );
                         next TAGBLOCK;
                     }
                 }
             }
             else{
                 # Add block to article
-                infoVV("Adding block to current article.");
-                $article .= $TagBlock->as_HTML('<>&', " ", {});
+                addArticle( $TagBlock );
                 next TAGBLOCK;
             }
 
