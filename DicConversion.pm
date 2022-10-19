@@ -250,8 +250,7 @@ sub convertABBYY2XDXF{
     }
     sub cleanKey{
         my $Key = shift;
-        $Key =~ s~<br/>~~gs;
-        $Key =~ s~♦~~g;
+        $Key =~ s~<br ?/?>~~gs;
         $Key =~ s~\([^)]*\)?~~g;
         $Key =~ s~\[[^\]]*\]~~g;
         $Key =~ s~\]\s*$~~g;
