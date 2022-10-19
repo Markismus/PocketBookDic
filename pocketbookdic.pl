@@ -17,7 +17,6 @@ use DicToggles;
 use DicFileUtils;
 use DicHelpUtils;
 use DicPrepare;
-use DicRoman;
 
 if ( $isTestingOn ){ use warnings; }
 

@@ -8,6 +8,7 @@ use Exporter;
 
 use DicGlobals;
 use Dic2Screen;
+use DicRoman; 
 
 our @ISA = ('Exporter');
 our @EXPORT = (
@@ -31,6 +32,12 @@ our @EXPORT = (
 
     'unEscapeHTMLArray',
     'unEscapeHTMLString',
+    # Export the whole DicRoman module
+    'isroman',
+    'arabic',
+    'Roman',
+    'roman',
+    'sortroman',
 );
 
 
