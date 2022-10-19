@@ -5,7 +5,6 @@ use utf8;
 use open IO => ':utf8';
 use open ':std', ':utf8';
 use feature 'unicode_strings'; # You get funky results with the sub convertNumberedSequencesToChar without this.
-use feature 'say';
 use Time::HiRes qw/ time /;
 
 use lib '/home/mark/git/PocketBookDic/';
