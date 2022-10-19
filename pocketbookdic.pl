@@ -909,7 +909,7 @@ if( $UseXMLTidy ){
 }
 # Save reconstructed XDXF-file
 my $dict_xdxf=$FileName;
-if( $dict_xdxf !~ s~\.xdxf$~_reconstructed\.xdxf~ ){ debug("Filename substitution did not work for : \"$dict_xdxf\""); die if $isRealDead; }
+if( $dict_xdxf !~ s~\.xdxf$~_reconstructed\.xdxf~ ){ debug("Filename substitution did not work for : \"$dict_xdxf\""); Die(); }
 array2File($dict_xdxf, @xdxf_reconstructed);
 
 # Convert colors to hexvalues
@@ -920,7 +920,8 @@ if( $isCreateStardictDictionary ){
     # Save reconstructed XML-file
     my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_reconstructed);
     my $dict_xml = $FileName;
-    if( $dict_xml !~ s~\.xdxf$~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); die if $isRealDead; }
+    if( $dict_xml !~ s~\.xdxf$~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); Die(); }
+
     # Remove spaces in filename
     # my @dict_xml = split('/',$dict_xml);
     $dict_xml =~ s~(?<!\\) ~\ ~g;

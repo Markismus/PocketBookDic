@@ -88,7 +88,7 @@ sub Die{
     }
 
     showCallStack();
-    die;}
+    die if $isRealDead;}
 
 sub doneWaiting{ printCyan("Done at ",getLoggingTime(),"\n");}
 

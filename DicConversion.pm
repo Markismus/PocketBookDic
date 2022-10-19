@@ -939,7 +939,7 @@ sub convertImage2Base64{
                 $ReplacementImageStrings{$imagestring} = $replacement;
             }
             else{
-                if( $isRealDead ){ debug("Can't find $FullPath/$imageName. Quitting."); die; }
+                if( $isRealDead ){ debug("Can't find $FullPath/$imageName. Quitting."); Die(); }
                 else{ $replacement = ""; }
             }
         }
@@ -1288,12 +1288,13 @@ sub convertStardictXMLtoXDXF{
             ($key, $def, $article) = ("","",0);
             debug("Article stop tag found at line $counter.\n") if $test_loop;
         }
-        die if $counter==$max_counter and $test_loop and $isRealDead;
+        Die() if $counter==$max_counter and $test_loop;
     }
     doneWaiting();
     push @xdxf, $lastline_xdxf;
     return(@xdxf);}
 sub convertXDXFtoStardictXML{
+    # Usage: my @xml = convertXDXFtoStardictXML( @xdxf );
     my $xdxf = join('',@_);
     $xdxf = removeInvalidChars( $xdxf );
     my @xml = @xml_start;
