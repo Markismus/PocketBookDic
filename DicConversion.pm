@@ -19,6 +19,7 @@ our @EXPORT = (
     'convertRAWML2XDXF',
     'convertStardictXMLtoXDXF',
     'convertXDXFtoStardictXML',
+    'convertXML2Binary',
     'generateXDXFTagBased',
 
     '%ReplacementImageStrings', 
@@ -1364,6 +1365,47 @@ sub convertXDXFtoStardictXML{
     doneWaiting();
     return(@xml);}
 
+sub convertXML2Binary{
+    # Convert reconstructed XML-file to binary
+    # Usage: convertXML2Binary( Filename-with-extension-xml );
+    if ( $OperatingSystem eq "linux"){
+        my $dict_xml = shift;
+        my $dict_bin = $dict_xml;
+        $dict_bin =~ s~\.xml~\.ifo~;
+        my $command = "stardict-text2bin \"$BaseDir/$dict_xml\" \"$BaseDir/$dict_bin\" ";
+        printYellow("Running system command:\n$command\n");
+        system($command);
+        # Workaround for dictzip
+        if( $dict_bin =~ m~ |\(|\)~ ){
+            debug_t("Spaces or braces found, so dictzip will have failed. Running it again while masking the spaces.");
+            if( $dict_bin !~ m~(?<filename>[^/]+)$~){ debug("Regex not working for dictzip workaround."); Die(); }
+            my $SpacedFileName = $+{filename};
+            
+            my $Path = $dict_bin;
+            if( $Path =~ s~\Q$SpacedFileName\E~~ ){ debug("Changing to path $Path"); }
+            unless( chdir $Path ){ warn "Couldn't change directory to '$Path'"; }
+            else{ info_t("Directory change successfull."); }
+
+            $SpacedFileName =~ s~ifo$~dict~;
+            my $MaskedFileName = $SpacedFileName;
+            $MaskedFileName =~ s~ ~__~g;
+            $MaskedFileName =~ s~\(~___~g;
+            $MaskedFileName =~ s~\)~____~g;
+
+            if( -e $SpacedFileName ){ rename "$SpacedFileName", "$MaskedFileName"; }
+            else{ warn "Couldn't find '$SpacedFileName'."; }
+            my $command = "dictzip $MaskedFileName";
+            printYellow("Running system command:\n$command\n");
+            system($command);
+            unless( rename "$MaskedFileName.dz", "$SpacedFileName.dz"){ warn "Couldn't rename '$MaskedFileName.dz'"; }
+        }
+        else{ debug("No spaces in filename."); debug("\$dict_bin is \'$dict_bin\'"); }
+    }
+    else{
+        debug("Not linux, so the script created an XML Stardict dictionary.");
+        debug("You'll have to convert it to binary manually using Stardict editor.")
+    }
+}
 sub generateXDXFTagBased{
     info("\nEntering generateXDXFTagBased");
     my $rawml = join('', @_);

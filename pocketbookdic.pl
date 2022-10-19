@@ -185,50 +185,14 @@ if( $isCreateStardictDictionary ){
     if( $dict_xml !~ s~\.xdxf$~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); Die(); }
 
     # Remove spaces in filename
-    # my @dict_xml = split('/',$dict_xml);
     $dict_xml =~ s~(?<!\\) ~\ ~g;
-    # $dict_xml = join('/', @dict_xml);
+
     # check <bookname></bookname>
     if( $StardictXMLreconstructed[4] =~ s~(<bookname>)\s*(</bookname>)~$1UnknownDictionary$2~ ){ warn "Empty dictionary name!"; }
     array2File($dict_xml, @StardictXMLreconstructed);
 
-    # Convert reconstructed XML-file to binary
-    if ( $OperatingSystem eq "linux"){
-        my $dict_bin = $dict_xml;
-        $dict_bin =~ s~\.xml~\.ifo~;
-        my $command = "stardict-text2bin \"$BaseDir/$dict_xml\" \"$BaseDir/$dict_bin\" ";
-        printYellow("Running system command:\n$command\n");
-        system($command);
-        # Workaround for dictzip
-        if( $dict_bin =~ m~ |\(|\)~ ){
-            debug_t("Spaces or braces found, so dictzip will have failed. Running it again while masking the spaces.");
-            if( $dict_bin !~ m~(?<filename>[^/]+)$~){ debug("Regex not working for dictzip workaround."); die if $isRealDead; }
-            my $SpacedFileName = $+{filename};
-            
-            my $Path = $dict_bin;
-            if( $Path =~ s~\Q$SpacedFileName\E~~ ){ debug("Changing to path $Path"); }
-            unless( chdir $Path ){ warn "Couldn't change directory to '$Path'"; }
-            else{ info_t("Directory change successfull."); }
+    convertXML2Binary( $dict_xml );
 
-            $SpacedFileName =~ s~ifo$~dict~;
-            my $MaskedFileName = $SpacedFileName;
-            $MaskedFileName =~ s~ ~__~g;
-            $MaskedFileName =~ s~\(~___~g;
-            $MaskedFileName =~ s~\)~____~g;
-
-            if( -e $SpacedFileName ){ rename "$SpacedFileName", "$MaskedFileName"; }
-            else{ warn "Couldn't find '$SpacedFileName'."; }
-            my $command = "dictzip $MaskedFileName";
-            printYellow("Running system command:\n$command\n");
-            system($command);
-            unless( rename "$MaskedFileName.dz", "$SpacedFileName.dz"){ warn "Couldn't rename '$MaskedFileName.dz'"; }
-        }
-        else{ debug("No spaces in filename."); debug("\$dict_bin is \'$dict_bin\'"); }
-    }
-    else{
-        debug("Not linux, so you the script created an xml Stardict dictionary.");
-        debug("You'll have to convert it to binary manually using Stardict editor.")
-    }
     # Remove oft-file from old dictionary
     unlink join('', $FileName=~m~^(.+?)\.[^.]+$~)."_reconstructed.idx.oft" if $isTestingOn;
 }
