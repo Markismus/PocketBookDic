@@ -68,8 +68,7 @@ sub convertABBYY2XDXF{
     info("Found body-tag");
 
     my $counter = 0;
-    our (@articles, $article, @ImpossibleKeywords, %ImpossibleKeywords);
-    our @FailingExtraForms;
+    our ( @articles, $article, @ImpossibleKeywords, %ImpossibleKeywords, @FailingExtraForms );
     sub addArticle{
         my $TagBlock = shift;
         infoVV("Entering addArticle.");
