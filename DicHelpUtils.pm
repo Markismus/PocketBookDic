@@ -9,9 +9,11 @@ use Exporter;
 use DicGlobals;
 use Dic2Screen;
 use DicRoman; 
+use DicFileUtils;
 
 our @ISA = ('Exporter');
 our @EXPORT = (
+    'checkSameTypeSequence',
     'convertBlockquote2Div',
     'convertColorName2HexValue',
     'convertMobiAltCodes',
@@ -21,6 +23,12 @@ our @EXPORT = (
     
     'escapeHTMLString',
 
+    'filterXDXFforEntitites',
+    'fixPrefixes',
+
+    'generateEntityHashFromDocType',
+
+    'removeBloat',
     'removeEmptyTagPairs',
     'removeInvalidChars',
     'removeOuterTags',
@@ -30,8 +38,11 @@ our @EXPORT = (
     'startTagReturnUndef',
     'stopFromStart',
 
+    'tidyXMLArray',
+
     'unEscapeHTMLArray',
     'unEscapeHTMLString',
+    '@XMLTidied',
     # Export the whole DicRoman module
     'isroman',
     'arabic',
@@ -41,6 +52,27 @@ our @EXPORT = (
 );
 
 
+sub checkSameTypeSequence{
+    my $FileName = $_[0];
+    if(! $updateSameTypeSequence ){return;}
+    elsif( -e substr($FileName, 0, (length($FileName)-4)).".ifo"){
+        my $ifo = join( '',  file2Array(substr($FileName, 0, (length($FileName)-4)).".ifo") ) ;
+        if($ifo =~ m~sametypesequence=(?<sametypesequence>\w)~s){
+            printGreen("Initial sametypesequence was \"$SameTypeSequence\".");
+            $SameTypeSequence = $+{sametypesequence};
+            printGreen(" Updated to \"$SameTypeSequence\".\n");
+        }
+    }
+    elsif( -e substr($FileName, 0, (length($FileName)-4)).".xml"){
+        my $xml = join( '',  file2Array(substr($FileName, 0, (length($FileName)-4)).".xml") );
+        # Extract sametypesequence from Stardict XML
+        if( $xml =~ m~<definition type="(?<sametypesequence>\w)">~s){
+            printGreen("Initial sametypesequence was \"$SameTypeSequence\".");
+            $SameTypeSequence = $+{sametypesequence};
+            printGreen(" Updated to \"$SameTypeSequence\".\n");
+        }
+    }
+    return;}
 our %AlreadyMentionedStylingHTMLTags;
 sub cleanOuterTags{
     my $block = shift;
@@ -218,6 +250,82 @@ sub escapeHTMLString{
     $String =~ s~"~\&quot;~sg;
     return $String;}
 
+sub filterXDXFforEntitites{
+    my( @xdxf ) = @_;
+    my @Filteredxdxf;
+    if( scalar keys %EntityConversion == 0 ){
+        debugV("No \%EntityConversion hash defined");
+        return(@xdxf);
+    }
+    else{debug("These are the keys:", keys %EntityConversion);}
+    $cycle_dotprinter = 0 ;
+    waitForIt("Filtering entities based on DOCTYPE.");
+    foreach my $line (@xdxf){
+        $cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
+        foreach my $EntityName(keys %EntityConversion){
+            $line =~ s~(\&$EntityName;)~$EntityConversion{$EntityName}~g;
+        }
+        push @Filteredxdxf, $line;
+    }
+    doneWaiting();
+    return (@Filteredxdxf);}
+sub fixPrefixes{
+    my( $PreviousDefinition, $CurrentDefinition ) = @_;
+    debugV("\$CurrentDefinition:\n\"", $CurrentDefinition,"\"");
+    debugV("\$PreviousDefinition:\n\"", $PreviousDefinition,"\"");
+
+    my( $CurrentDefinitionPrefix, $PreviousDefinitionPrefix) = ( "", "");
+
+    my @PossiblePrefixes = $PreviousDefinition =~ m~<sup>[ivx]+\.</sup>~gs;
+    if( scalar @PossiblePrefixes > 0 ){
+        debugV("\@PossiblePrefixes\t=\t@PossiblePrefixes");
+        debugV("Multiple entries found.");
+        my $LastPrefix = $PossiblePrefixes[-1];
+        $LastPrefix =~ s~<sup>|</sup>|\.~~sg;
+        debugV("\$LastPrefix:\t=\t$LastPrefix");
+        my $LastPrefixArabic = arabic($LastPrefix);
+        $LastPrefixArabic++;
+        $CurrentDefinitionPrefix = "<sup>".roman($LastPrefixArabic).".</sup>";
+        debugV("\$CurrentDefinitionPrefix\t=\t$CurrentDefinitionPrefix");
+    }
+    else{
+        $PreviousDefinitionPrefix = '<sup>i.</sup>';
+        $CurrentDefinitionPrefix = '<sup>ii.</sup>';
+    }
+
+    $PreviousDefinition = $PreviousDefinitionPrefix.$PreviousDefinition;
+    $CurrentDefinition  = $CurrentDefinitionPrefix.$CurrentDefinition;
+
+    my $UpdatedDefinition = $PreviousDefinition."\n".$CurrentDefinition;
+    debugV("\$UpdatedDefinition:\n\"", $UpdatedDefinition, "\"");
+    return( $UpdatedDefinition);}
+
+sub generateEntityHashFromDocType{
+    my $String = $_[0]; # MultiLine DocType string. Not Array!!!
+    my %EntityConversion=( );
+    while($String =~ s~<!ENTITY\s+(?<name>[^\s]+)\s+"(?<meaning>.+?)">~~s){
+        debugV("$+{name} --> $+{meaning}");
+        $EntityConversion{$+{name}} = $+{meaning};
+    }
+    return(%EntityConversion);}
+
+sub removeBloat{
+    my $xdxf = join('',@_);
+    debugV("Removing bloat from dictionary...");
+    my $Round = "First";
+    while ( $xdxf =~ s~<blockquote>(?<content><blockquote>(?!<blockquote>).*?</blockquote>)</blockquote>~$+{content}~sg ){ debugV("$Round round (removing double nested blockquotes)"); $Round = "Another"; }
+    while( $xdxf =~ s~<ex>\s*</ex>|<ex></ex>|<blockquote></blockquote>|<blockquote>\s*</blockquote>~~sg ){ debugV("And another (removing empty blockquotes and examples)"); }
+    while( $xdxf =~ s~\n\n~\n~sg ){ debugV("Finally then..(removing empty lines)");}
+    while( $xdxf =~ s~</blockquote>\s+<blockquote>~</blockquote><blockquote>~sg ){ debugV("...another one (removing EOLs between blockquotes)"); }
+    while( $xdxf =~ s~</blockquote>\s+</def>~</blockquote></def>~sg ){ debugV("...and another one (removing EOLs between blockquotes and definition stop tags)"); }
+    # This a tricky one.
+    # OALD9 has a strange string [s]key.bmp[/s] that keeps repeating. No idea why!
+    while( $xdxf =~ s~\[s\].*?\.bmp\[/s\]~~sg ){ debugV("....cleaning house (removing s-blocks with .bmp at the end.)"); }
+    while( my $count = $xdxf =~ s~(\w+)-<br ?/?>(\w+)~$1$2~sg ){ debugV("...removed $count break-tags inside hyphenated words."); }
+    while( my $count = $xdxf =~ s~([\w,.;:'"\])!\?]+)<br ?/?>(\w+|<)~$1 $2~sg ){ debugV("...removed $count break-tags between words."); }
+    while( my $count = $xdxf =~ s~(<br[^>]*>)~~sg ){ debugV("...removed $count break-tags."); }
+    debugV("...done!");
+    return( split(/^/, $xdxf) );}
 sub removeEmptyTagPairs{
     waitForIt("Removing empty tag pairs");
     my $html = shift;
@@ -321,6 +429,56 @@ sub stopFromStart{
     unless( $_[0] =~ m~<(?<tag>\w+)( |>)~ ){ warn "Regex in stopFromStart doesn't match. Value given is '$_[0]'"; Die(); }
     return( "</" . $+{"tag"}.">" );}
 
+our @XMLTidied;
+sub tidyXMLArray{
+    my $UseXMLTidyHere = 0;
+    my $UseXMLLibXMLPrettyPrint = 0;
+    my $UseXMLBlockArray = 0;
+    if( $UseXMLTidyHere ){
+        use XML::Tidy;
+        use warnings;
+        array2File("tobetidied.xml", @_) ;
+
+        # create new   XML::Tidy object by loading:  MainFile.xml
+        my $tidy_obj = XML::Tidy->new('filename' => 'tobetidied.xml');
+
+        # tidy  up  the  indenting
+       $tidy_obj->tidy();
+
+        # write out changes back to MainFile.xml
+        $tidy_obj->write();
+        my @ReturnedXML = file2Array( "tobetidied.xml" );
+        my @TidiedXML;
+        foreach( @ReturnedXML){
+            if( $_ eq "\n" or $_ eq '<?xml version="1.0" encoding="utf-8"?>'."\n"){ next;}
+            push @TidiedXML, $_;
+        }
+        return( @TidiedXML );    }
+    elsif($UseXMLLibXMLPrettyPrint){
+        use XML::LibXML;
+        array2File("tobetidied.xml", @_);
+        my $document = XML::LibXML->new->parse_file('tobetidied.xml');
+        my $pp = XML::LibXML::PrettyPrint->new(indent_string => "  ");
+        $pp->pretty_print($document); # modified in-place
+        return( split(/^/,$document->toString ) );
+    }
+    elsif( $UseXMLBlockArray ){
+        my $xml = join('', @_);
+        $xml =~ s~(?<!\n)(</?blockquote[^>]*>)~$1\n$2~sg;
+        $xml =~ s~(</?blockquote[^>]*>)(?>!\n)~$1\n$2~sg;
+        $xml =~ s~\n\n~\n~sg;
+        if(scalar @_ > 1){ return (split( /^/, $xml) ); }
+        else{ return $xml;}
+    }
+    else{
+        my $xml = join('', @_);
+        $xml =~ s~(?!\n)(</?blockquote[^>]*>)~$1\n$2~sg;
+        $xml =~ s~(</?blockquote[^>]*>)(?!\n)~$1\n$2~sg;
+        $xml =~ s~\n\n~\n~sg;
+        push @XMLTidied, $xml;
+        if(scalar @_ > 1){ return (split( /^/, $xml) ); }
+        else{ return $xml;}
+    }}
 
 sub unEscapeHTMLArray{
     my $String = unEscapeHTMLString( join('', @_) );
