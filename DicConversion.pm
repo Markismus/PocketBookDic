@@ -79,6 +79,46 @@ sub convertABBYY2XDXF{
         }
         return( $content->as_HTML('<>&', "    ", {}) );
     }
+    sub checkAddedHTML4StartArticle{
+        # Usage: @checks = checkAddedHTML4StartArticle( $html );
+        # The sub returns either an array of scalar 3 or of 1;
+        # If it returns 3 values, they are the start of the article before the break, the new keyword and the start of the new article.
+        # If it returns 1 value, it is just the given html-string.
+        infoVV("Entering checkAddedHTML4StartArticle");
+        my $html = shift;
+        # <p><span class="font0" style="font-weight:bold;">unipolaire </span><span class="font2">[ynipoler] adj. (de wm-2etde<br></span><span class="font2" style="font-style:italic;">polaire ;</span><span class="font2"> 1845, Bescherelle, au sens 1 ; sens 2,<br>1877, Littré). </span><span class="font0" style="font-weight:bold;">1. </span><span class="font2">Qui n’a qu’un pôle élec-<br>trique : </span><span class="font2" style="font-style:italic;">Appareil, interrupteur unipolaire.<br></span><span class="font0" style="font-weight:bold;">|| 2. </span><span class="font2">Se dit d’un neurone dont le corps cel-<br>lulaire porte un seul prolongement, comme<br>les neurones en T des ganglions spinaux,<br></span><span class="font0" style="font-weight:bold;">unique </span><span class="font2">[ynik] adj. (lat. </span><span class="font2" style="font-style:italic;">unicus,</span><span class="font2"> unique,<br>seul, sans égal, de </span><span class="font2" style="font-style:italic;">unus,</span><span class="font2"> un [seul] ; fin du<br>xv<sup>e</sup> s., Molinet, au sens 1 </span><span class="font2" style="font-style:italic;">[seul et unique,<br></span><span class="font2">1751, </span><span class="font2" style="font-style:italic;">Encyclopédie —</span><span class="font2"> discours prélimi-<br>naire; </span><span class="font2" style="font-style:italic;">...fils... unique,</span><span class="font2"> 1668, Molière] ; sens2,<br>1876, Larousse [art. </span><span class="font2" style="font-style:italic;">voie —</span><span class="font2"> sur une route,<br>xx<sup>e</sup> s. ; </span><span class="font2" style="font-style:italic;">sens unique,</span><span class="font2"> janv. 1914, </span><span class="font2" style="font-style:italic;">la Science et<br>la Vie,</span><span class="font2"> p. 31] ; sens 3,1640, Corneille ; sens 4,<br>av. 1696, La Bruyère ; sens 5,1758, Diderot).</span></p>
+        # Multiple strings match.
+        my @BreakBoldSpans = $html =~ m~(<br[^>]*></span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
+        if( scalar @BreakBoldSpans == 0 ){ infoVV("No break followed by bold span found."); return $html; }
+        else{
+            infoV("Found break followed by span tag, that has bold styling.");
+            infoV("\@BreakBoldSpans:");
+            foreach(@BreakBoldSpans){debug_t("'$_'");}
+        }
+        foreach my $PossibleKeySpan( @BreakBoldSpans ){
+            infoVV("PossibleKeySpan: '$PossibleKeySpan'");
+            $html =~ m~\Q$PossibleKeySpan\E~s;
+            my $BeforeBreak = $`.'</span>';
+            debug_t("BeforeBreak: '$BeforeBreak'");
+            my $AfterBreak = $';
+            debug_t("AfterBreak: '$AfterBreak'");
+            $PossibleKeySpan =~ s~^<br[^>]*></span>~~;
+            debug_t("PossibleKeySpan: '$PossibleKeySpan'");
+            unless( $PossibleKeySpan =~ m~^<span[^>]+>(?<key>((?!</?span>).)+)</span>~s ){ warn "Regex didn't work for:'$PossibleKeySpan'"; next; }
+            my $KeyAfterBreak = cleanKey($+{key});
+            infoVV("Possible key after break is '$KeyAfterBreak'");
+            if( followsKeywordinPlainText( stripTags( $AfterBreak ) ) ){
+                # Found another keyword.
+                infoV("Found another keyword '$KeyAfterBreak'. Returning three values");
+                return ( $BeforeBreak, $KeyAfterBreak, $PossibleKeySpan.$AfterBreak );
+            }
+            else{
+                debug_t("No keyword found");
+                debug_t("Plain text after break:\n'".stripTags( $AfterBreak )."'");
+            }
+        }
+        return ($html);
+    }
     sub checkExtraForms{
         my $PossibleKey = shift;
         if( $PossibleKey =~ m~,~){
@@ -278,8 +318,19 @@ sub convertABBYY2XDXF{
         my $article = '<ar><head><k>'.$ReferringKey.'</k></head><def>'.$Referent.'</def></ar>'."\n";
         push @articles, $article;}
     sub setArticle{
-        $article = '<ar><head><k>'.$_[0] .'</k></head><def>' . $_[1];
-    }
+        infoVV("Entering setArticle");
+        my $HeadK = shift;
+        my $Def = shift;
+        infoVV("HeadK: '$HeadK'");
+        infoVV("Def: '$Def'");
+        pushArticle();
+        my @Check = checkAddedHTML4StartArticle( $Def );
+        if( scalar @Check == 3 ){
+            setArticle( $HeadK, $Check[0] );
+            pushArticle();
+            setArticle( $Check[1], $Check[2] );
+        }
+        else{ $article = '<ar><head><k>'.$HeadK .'</k></head><def>' . $Def; }}
     TAGBLOCK: foreach my $TagBlock ( ($body->content_list) ){
         $counter++;
         # last if $counter > 50;

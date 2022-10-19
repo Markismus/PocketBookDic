@@ -168,6 +168,7 @@ our @ABBYYConverterPauseFor = (
 # E.g.,
     # 'égard',
     # 'ète',
+    # 'unipolaire',
 );
 # Controls for Pocketbook conversion
 our $isCreatePocketbookDictionary = 1; # Controls conversion to Pocketbook Dictionary dic-format
