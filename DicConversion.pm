@@ -2,7 +2,12 @@
 
 package DicConversion;
 use strict;
+use utf8;
+use open IO => ':utf8';
+use open ':std', ':utf8';
+use feature 'unicode_strings'; # You get funky results with the sub convertNumberedSequencesToChar without this.
 use lib '/home/mark/git/PocketBookDic/';
+
 use DicGlobals;
 use Dic2Screen;
 use Exporter;
