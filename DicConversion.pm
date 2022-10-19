@@ -1363,8 +1363,7 @@ sub convertXDXFtoStardictXML{
     push @xml, $lastline_xml;
     push @xml, "\n";
     doneWaiting();
-    return(@xml);}
-
+    return( checkXMLBookname( @xml ) );}
 sub convertXML2Binary{
     # Convert reconstructed XML-file to binary
     # Usage: convertXML2Binary( Filename-with-extension-xml );

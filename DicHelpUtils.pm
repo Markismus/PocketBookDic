@@ -14,6 +14,7 @@ use DicFileUtils;
 our @ISA = ('Exporter');
 our @EXPORT = (
     'checkSameTypeSequence',
+    'checkXMLBookname',
     'convertBlockquote2Div',
     'convertColorName2HexValue',
     'convertMobiAltCodes',
@@ -76,6 +77,10 @@ sub checkSameTypeSequence{
         }
     }
     return;}
+sub checkXMLBookname{
+    # check <bookname></bookname>
+    if( $_[4] =~ s~(<bookname>)\s*(</bookname>)~$1UnknownDictionary$2~ ){ warn "Empty dictionary name! Replaced it with 'UnknownDictionary'"; }
+    return @_;}
 our %AlreadyMentionedStylingHTMLTags;
 sub cleanOuterTags{
     my $block = shift;
