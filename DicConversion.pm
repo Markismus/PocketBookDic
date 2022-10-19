@@ -15,7 +15,7 @@ use DicFileUtils;
 use DicHelpUtils;
 if( $isTestingOn ){ use warnings; }
 our @ISA = ('Exporter');
-our @EXPORT = ( 
+our @EXPORT = (
     'convertABBYY2XDXF',
     'convertCVStoXDXF',
     'convertHTML2XDXF',
@@ -27,10 +27,10 @@ our @EXPORT = (
     'convertXML2Binary',
     'generateXDXFTagBased',
 
-    '%ReplacementImageStrings', 
+    '%ReplacementImageStrings',
     '$ReplacementImageStringsHashFileName',
-    '%OCRedImages', 
-    '%ValidatedOCRedImages', 
+    '%OCRedImages',
+    '%ValidatedOCRedImages',
     '$ValidatedOCRedImagesHashFileName',
     '$isManualValidation',
 );
@@ -56,9 +56,9 @@ sub convertABBYY2XDXF{
     if( -e $FileName.'.tree' ){
         $tree = retrieve ( $FileName.'.tree' );
         info( "Retrieved tree from '".$FileName.".tree'"); }
-    else{ 
+    else{
         $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
-        $tree->parse($html); 
+        $tree->parse($html);
     }
     store( $tree, $FileName.'.tree' );
     info("End parsing");
@@ -254,8 +254,7 @@ sub convertABBYY2XDXF{
             unless( m~^HTML::Element=HASH~ ){ return 0; }
             $content .= $_->as_text;
         }
-        return ( $content !~ m~^HTML::Element=HASH~ and $content =~ m~$AllowedFollowersPlainTextRegex~ );
-    }
+        return ( $content !~ m~^HTML::Element=HASH~ and $content =~ m~$AllowedFollowersPlainTextRegex~ );}
     sub moreKeywords{
         my $content = shift;
         return(
@@ -266,8 +265,7 @@ sub convertABBYY2XDXF{
                 $content->as_HTML('<>&', "  ", {}) =~ m~<span[^>]*>($Pre)?plur\.~ or
                 $content->as_HTML('<>&', "  ", {}) =~ m~<span[^>]*>($Pre)?anc\.~
             )
-        );
-    }
+        );}
     sub pushArticle{ if( defined $article ){
         $article .= '</def></ar>\n';
         push @articles, $article."\n";
@@ -278,8 +276,7 @@ sub convertABBYY2XDXF{
         infoV("Pushing referring key '$ReferringKey'");
         # E.g. <ar><head><k>abaissante</k></head><def>abaissant</def></ar>
         my $article = '<ar><head><k>'.$ReferringKey.'</k></head><def>'.$Referent.'</def></ar>'."\n";
-        push @articles, $article;
-    }
+        push @articles, $article;}
     sub setArticle{
         $article = '<ar><head><k>'.$_[0] .'</k></head><def>' . $_[1];
     }
@@ -743,9 +740,9 @@ sub convertHTML2XDXF{
         # </idx:entry>
         # <div height="10" align="center"><img hspace="0" vspace="0" align="middle" losrc="Images/image15903.gif" hisrc="Images/image15904.gif" src="Images/image15905.gif" /><br /></div>
     # Clean images out of the html
-    if( $html =~ m~<img[^>]+>~s and $isConvertImagesUsingOCR ){ 
-        $html = convertIMG2Text( $html ); 
-        if( $isTestingOn ){ 
+    if( $html =~ m~<img[^>]+>~s and $isConvertImagesUsingOCR ){
+        $html = convertIMG2Text( $html );
+        if( $isTestingOn ){
             my $ConvertedIMG2TextHTML = $FileName;
             debug_t( $FileName );
             unless( $ConvertedIMG2TextHTML =~ s~html$~test.html~ ){ warn "Regex for filename for test.html does not match."; Die(); }
@@ -813,7 +810,7 @@ sub convertHTML2XDXF{
             elsif( ord($decoded) == 12 ){ $decoded = "\n";}
             my $DebugString = "Encoding is $encoding. Encoded is $encoded. Decoded is \'$decoded\' of length ".length($decoded).", numbered ".ord($decoded);
             $ConversionDebugStrings{$encoded} = $DebugString;
-            s~\&\#$encoded;~$decoded~sg;                
+            s~\&\#$encoded;~$decoded~sg;
         }
         $TotalEncodingConversionTime += time - $start;
         # Change div-blocks to spans
@@ -860,7 +857,7 @@ sub convertHTML2XDXF{
                 $InflectionEntries = $InflectionEntries.$ExtraEntry;
             }
         }
-        
+
         # Remove leftover empty lines.
         s~  ~ ~sg;
         s~\t\t~\t~sg;
@@ -913,7 +910,7 @@ sub convertHTML2XDXF{
         }
         infoVV("Total time in loop: $TotalTime");
     }
-   
+
     foreach( sort keys %ConversionDebugStrings){ debug($ConversionDebugStrings{$_}); }
     doneWaiting();
     push @xdxf, $lastline_xdxf;
@@ -1075,7 +1072,7 @@ sub convertIMG2Text{
                     $substitution = 1;
                 }
                 storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName);
-               
+
                 if( $substitution ){
                     unless ( $String =~ s~\Q$ImageString\E~$ValidatedOCRedImages{ $Source }~sg ){
                         warn "ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Source }'";
@@ -1154,9 +1151,9 @@ sub convertRAWML2XDXF{
         @indexentries = $rawml=~m~(<h(?:$headervalue)>(?:(?!<hr|<mbp).)+)<hr ?/>~gs; # Collect from the start until the next starts.
         if( @indexentries > 10 ){ last; }
     }
-    unless( @indexentries ){ 
-        warn("No indexentries found in rawml-string. Quitting"); 
-        debug($rawml); 
+    unless( @indexentries ){
+        warn("No indexentries found in rawml-string. Quitting");
+        debug($rawml);
         Die();
         goto DONE; # In case $isRealDead = 0
     }
@@ -1392,7 +1389,7 @@ sub convertXML2Binary{
             debug_t("Spaces or braces found, so dictzip will have failed. Running it again while masking the spaces.");
             if( $dict_bin !~ m~(?<filename>[^/]+)$~){ debug("Regex not working for dictzip workaround."); Die(); }
             my $SpacedFileName = $+{filename};
-            
+
             my $Path = $dict_bin;
             if( $Path =~ s~\Q$SpacedFileName\E~~ ){ debug("Changing to path $Path"); }
             unless( chdir $Path ){ warn "Couldn't change directory to '$Path'"; }
@@ -1422,7 +1419,7 @@ sub generateXDXFTagBased{
     info("\nEntering generateXDXFTagBased");
     my $rawml = join('', @_);
     # $rawml = removeEmptyTagPairs( $rawml ); # Don't because they can be deliminating, acting as a separator between articles.
-   
+
     my %Info;
     $Info{ "isExcludeImgTags" }     = $isExcludeImgTags;
     $Info{ "isSkipKnownStylingTags" } = $isSkipKnownStylingTags;
@@ -1458,7 +1455,7 @@ sub generateXDXFTagBased{
         # Usage: filterTagsHash( \%Info );
         # Uses the hash keys "counted tags hash" and "rawml".
         # Generates 4 keys in given hash, resp. "removed tags", "filtered rawml", "filtered tags hash" and "deleted tags".
-   
+
         my $Info = shift;
         my %tags = %{ $$Info{ "counted tags hash" } };
         my $rawml = ${ $$Info{ "rawml with lowered stop-tags"} };
@@ -1728,7 +1725,7 @@ sub generateXDXFTagBased{
         info("\nEntering sets2Percentages");
         # Usage: sets2Percentages( \%Info );
         # Uses the hash keys "sets" and "filtered rawml" to generate the key "SetInfo", an array-reference.
-   
+
         my $Info = shift;
         my @sets = @{ $$Info{ "sets" } };
         my $rawml   =   ${ $$Info{ "filtered rawml"} };
@@ -1912,7 +1909,7 @@ sub generateXDXFTagBased{
                         info("New chunk: '$chunks[$i]'");
                         info("Old chunk: '$chunks[$i-1]'");
                         info( Dumper(\%StartTags));
-                        next SKIPPEDTAG; 
+                        next SKIPPEDTAG;
                     }
                 }
                 elsif( $StartTag eq "unknown" ){ $StartTag = $NewStartTag; }
@@ -1956,7 +1953,7 @@ sub generateXDXFTagBased{
             }
             elsif( $NumberofStartTags > 1 ){
                 infoVV("More than one ($NumberofStartTags) start-tag '$StartTag' found in first chunk.");
-                
+
                 # Fix first article
                 $FirstArticle =~ m~($StartTag.+)$~s; # Match from the first start-tag to the end
                 $Info{ "start dictionary"} = $`;
@@ -1974,7 +1971,7 @@ sub generateXDXFTagBased{
                     infoV("Last article with end of the dictionary:\n'$LastArticleWithEndDictionary'");
                     my $regex = qr~^(?<last_article>(?:$StartTag(?:(?!(?:$StartTag|$StopTag)).)+$StopTag){$NumberofStartTags})(?<end_dictionary>.+)$~;
                     unless ( $LastArticleWithEndDictionary =~ m~$regex~s ){ warn "Regex didn't work\n$regex"; Die();}
-                    $Info{ "end dictionary" } = $+{ "end_dictionary" }; 
+                    $Info{ "end dictionary" } = $+{ "end_dictionary" };
                     push @chunks, $+{"lastarticle"};
                     infoV( "Last article is\n'". $chunks[-1] );
                     infoV( "End dictionary is\n'" . $Info{"end dictionary"} . "'");
@@ -1987,7 +1984,7 @@ sub generateXDXFTagBased{
             $$Info{ "articles"} = \@chunks;
             info( "Articles were split.");
             last;
-        }}   
+        }}
 
     # Get all tags
     our @tags = $rawml =~ m~(<[^>]*>)~sg;
@@ -2009,8 +2006,8 @@ sub generateXDXFTagBased{
 
     # Is there a high frequency tag that doesn't have a partner, e.g. <hr /> or <hr/>? Splitting at such a tag could give uniform chunks;
     unless( exists $Info{ "articles" } ){ splitRawmlIntoArticles( \%Info ); } # Takes the hash keys "SkippedTags" and "filtered rawml" and generates the keys "articles" and "filtered SkippedTags", resp. an array- and a hash-reference.
-   
-   
+
+
     if( exists $Info{ "articles" } ){
         info( "Articles were found.");
         if( splitArticlesIntoKeyAndDefinition(\%Info) ){
