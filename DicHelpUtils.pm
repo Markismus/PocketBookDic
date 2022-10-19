@@ -13,6 +13,7 @@ use DicFileUtils;
 
 our @ISA = ('Exporter');
 our @EXPORT = (
+    'changeFileExtension',
     'checkSameTypeSequence',
     'checkXMLBookname',
     'convertBlockquote2Div',
@@ -21,7 +22,7 @@ our @EXPORT = (
     'convertNonBreakableSpacetoNumberedSequence',
     'convertNumberedSequencesToChar',
     'cleanOuterTags',
-    
+
     'escapeHTMLString',
 
     'filterXDXFforEntitites',
@@ -33,7 +34,7 @@ our @EXPORT = (
     'removeEmptyTagPairs',
     'removeInvalidChars',
     'removeOuterTags',
-    
+
     'startFromStop',
     'startTag',
     'startTagReturnUndef',
@@ -47,6 +48,7 @@ our @EXPORT = (
     'updateFullPath',
 
     '@XMLTidied',
+
     # Export the whole DicRoman module
     'isroman',
     'arabic',
@@ -55,7 +57,12 @@ our @EXPORT = (
     'sortroman',
 );
 
-
+sub changeFileExtension{
+    my $FileName = shift;
+    my $Extention2 = shift;
+    unless( $FileName =~ s~\.[^.]+$~\.\Q$Extention2\E~ ){ warn "Regex didn't work"; Die(); }
+    else{ infoVV("Returned file name: '$FileName'"); }
+    return $FileName;}
 sub checkSameTypeSequence{
     my $FileName = $_[0];
     if(! $updateSameTypeSequence ){return;}
