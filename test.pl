@@ -10,6 +10,10 @@ my $isDebugVeryVerbose = 1; # Toggles all verbose debug messages
 my ( $isInfo, $isInfoVerbose, $isInfoVeryVerbose ) = ( 1, 1 ,1 );  # Toggles info messages
 my $BaseDir="/home/mark/Downloads/PocketbookDic";
 my $isTestingOn = 1; # Toggles intermediary output of xdxf-array.
+updateLocalPath();
+updateFullPath();
+chdir $BaseDir;
+
 if ( $isTestingOn ){ use warnings; }
 my $OperatingSystem = "$^O";
 if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}

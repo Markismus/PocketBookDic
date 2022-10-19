@@ -58,8 +58,8 @@ elsif( defined($ARGV[2]) and $FileName =~ m~\.csv$~i ){
 if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
 else{ print "Operating system is $OperatingSystem: Not linux, so I am assuming Windows!\n";}
 
-$LocalPath = join('', $FileName=~ m~^(.+?)/[^/]+$~); # Update value with command line argument.
-$FullPath = "$BaseDir/$LocalPath";                   # Update value with command line argument.
+updateLocalPath();
+updateFullPath();
 
 # Checks for inline base64 coding.
 # Image inline coding won't work for pocketbook dictionary.

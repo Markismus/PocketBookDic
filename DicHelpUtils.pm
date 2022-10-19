@@ -42,6 +42,9 @@ our @EXPORT = (
 
     'unEscapeHTMLArray',
     'unEscapeHTMLString',
+    'updateLocalPath',
+    'updateFullPath',
+
     '@XMLTidied',
     # Export the whole DicRoman module
     'isroman',
@@ -480,6 +483,8 @@ sub tidyXMLArray{
         else{ return $xml;}
     }}
 
+sub updateLocalPath{ $LocalPath = join('', $FileName=~ m~^(.+?/)[^/]+$~); }
+sub updateFullPath{ $FullPath = "$BaseDir/$LocalPath"; }
 sub unEscapeHTMLArray{
     my $String = unEscapeHTMLString( join('', @_) );
     return( split(/^/, $String) ); }
