@@ -360,8 +360,13 @@ sub convertABBYY2XDXF{
                 unless( $content[0] =~ m~^HTML::Element=HASH~ ){
                     if( $content[0] !~ m~<|>~ ){
                         # Plain text. An p-subblock appears unencapsulated
-                        infoVV("Found plain text. Adding whole p-block to article.");
-                        unless( defined $article ){ warn "Found plain text outside of article."; Die(); }
+                        infoVV("Found plain text.");
+                        unless( defined $article ){
+                            debug("$content[0]");
+                            foreach(@content){ debug( asHTML( $_ ) ); }
+                            warn "Found plain text outside of article.";
+                            Die();
+                        }
                         addArticle( $TagBlock );
                         next TAGBLOCK;
                     }
@@ -482,7 +487,7 @@ sub convertABBYY2XDXF{
                             setArticle( $PossibleKey, $TBaHtml );
                             if( exists $PauseFor{ $PossibleKey } ){
                                 debug("Article: '$article'");
-                                print "Press ENTER to continu.";
+                                print "At line ".__LINE__.". Press ENTER to continu.";
                                 <STDIN>;
                             }
                             next TAGBLOCK;
