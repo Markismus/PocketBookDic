@@ -48,7 +48,6 @@ our ( $isInfo,  $isInfoVerbose,  $isInfoVeryVerbose );    # Toggles verbosity in
 ( $isDebug, $isDebugVerbose, $isDebugVeryVerbose )       = ( 1, 0, 0 );
 ( $isInfo, $isInfoVerbose, $isInfoVeryVerbose )          = ( 1, 0, 0 );
 
-
 sub debug   { $isDebug            and                  printRed(  shortenStrings4Debug(@_), "\n" ); return(1);}
 sub debug_t { $isDebug            and $isTestingOn and printRed(  shortenStrings4Debug(@_), "\n" ); return(1);}
 sub debugV  { $isDebugVerbose     and                  printBlue( shortenStrings4Debug(@_), "\n" ); return(1);}
@@ -94,8 +93,8 @@ sub doneWaiting{ printCyan("Done at ",getLoggingTime(),"\n");}
 
 sub info{   printCyan( join('',shortenStrings4Debug(@_))."\n" ) if $isInfo;                   }
 sub info_t{ printCyan( join('',shortenStrings4Debug(@_))."\n" ) if $isInfo and $isTestingOn;  }
-sub infoV{  printCyan( join('',shortenStrings4Debug(@_))."\n" ) if $isInfoVerbose;            }
-sub infoVV{ printCyan( join('',shortenStrings4Debug(@_))."\n" ) if $isInfoVeryVerbose;        }
+sub infoV{  printGreen( join('',shortenStrings4Debug(@_))."\n" ) if $isInfoVerbose;            }
+sub infoVV{ printBlue( join('',shortenStrings4Debug(@_))."\n" ) if $isInfoVeryVerbose;        }
 
 sub getLoggingTime {
 
