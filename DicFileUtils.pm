@@ -20,10 +20,15 @@ use Dic2Screen;
 our @ISA = ('Exporter');
 our @EXPORT = (
     'array2File',
+    'decode_utf8',
+    'encode',
     'file2Array',
+    'retrieve',
     'retrieveHash',
+    'store',
     'storeHash',
     'string2File',
+    'stripTags',
  );
 
 sub array2File {
