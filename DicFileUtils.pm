@@ -220,5 +220,9 @@ sub string2File{
     my $FileName = shift;
     my @Array = split(/^/, shift);
     array2File( $FileName, @Array);}
+sub stripTags{
+    my $html = shift;
+    $html =~ s~<[^>]+>~~sg;
+    return( $html );}
 
 1;

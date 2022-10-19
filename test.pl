@@ -1,11 +1,7 @@
 #!/bin/perl
 use strict;
-use Data::Dumper;
-use Encode;
 use utf8;
-$Data::Dumper::Sortkeys = 1;
 use HTML::TreeBuilder 5 -weak; # Ensure weak references in use
-use Storable;
 use Term::ANSIColor;    #Color display on terminal
 use open ":std", ":encoding(UTF-8)";
 my $isDebug = 1; # Toggles all debug messages
