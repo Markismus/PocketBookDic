@@ -649,6 +649,7 @@ sub convertABBYY2XDXF{
         }
         else{ debugV("[$counter] '$_'");}
     }
+    pushArticle();
     debugV("Keywords that didn't fit in the criteria.");
     my $HashStorageAlreadyClearedImpossibleKeywords = "StorageAlreadyClearedImpossibleKeywords.hash";
     my %StorageAlreadyClearedImpossibleKeywords;
