@@ -56,30 +56,7 @@ sub array2File {
     $FileName =~ s/.+\/(.+)/$1/;
     printGreen("Written $FileName. Exiting sub array2File\n") if $isDebugVerbose;
     return ("File written");}
-sub file2ArrayOld {
 
-    #This subroutine expects a path-and-filename in one and returns an array
-    my $FileName = $_[0];
-    my $encoding = $_[1];
-    my $verbosity = $_[2];
-    my $isBinMode = 0;
-    if(defined $encoding and $encoding eq "raw"){
-        undef $encoding;
-        $isBinMode = 1;
-    }
-    if(!defined $FileName){debug("File name in file2Array is not defined. Quitting!");Die() if $isRealDead;}
-    if( defined $encoding){ open( FILE, "<:encoding($encoding)", $FileName )
-      || (warn "Cannot open $FileName: $!\n" and Die());}
-    else{    open( FILE, "$FileName" )
-      || (warn "Cannot open $FileName: $!\n" and Die());
-  }
-      if( $isBinMode ){
-          binmode FILE;
-      }
-    my @ArrayLines = <FILE>;
-    close(FILE);
-    printBlue("Read $FileName, returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
-    return (@ArrayLines);}
 sub file2Array{
     #This subroutine expects a path-and-filename in one and returns an array
     my $FileName = $_[0];
@@ -157,6 +134,31 @@ sub file2Array{
     printBlue("Read $FileName, returning array of size ".@ReturnArray.". Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
 
     return @ReturnArray;}
+sub file2ArrayOld {
+
+    #This subroutine expects a path-and-filename in one and returns an array
+    my $FileName = $_[0];
+    my $encoding = $_[1];
+    my $verbosity = $_[2];
+    my $isBinMode = 0;
+    if(defined $encoding and $encoding eq "raw"){
+        undef $encoding;
+        $isBinMode = 1;
+    }
+    if(!defined $FileName){debug("File name in file2Array is not defined. Quitting!");Die();}
+    if( defined $encoding){ open( FILE, "<:encoding($encoding)", $FileName )
+      || (warn "Cannot open $FileName: $!\n" and Die());}
+    else{    open( FILE, "$FileName" )
+      || (warn "Cannot open $FileName: $!\n" and Die());
+  }
+      if( $isBinMode ){
+          binmode FILE;
+      }
+    my @ArrayLines = <FILE>;
+    close(FILE);
+    printBlue("Read $FileName, returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
+    return (@ArrayLines);}
+
 sub retrieveHash{
     info_t("Entering sub retrieveHash.") ;
     foreach( @_ ){ debug_t( $_ ); }
@@ -208,6 +210,7 @@ sub retrieveHash{
         else{ warn "$_[0]$DumperSuffix is not an dumpered HASH"; }
     }
     return( retrieve( @_) );}
+
 sub storeHash{
     info("Entering sub storeHash.") if $isTestingOn ;
     foreach( @_ ){ debug( $_ ) if $isTestingOn ; }
