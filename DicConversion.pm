@@ -251,8 +251,8 @@ sub convertABBYY2XDXF{
         # Is given a contents-range of HTML::Element
         my $content;
         foreach( @_ ){
-            unless( m~^HTML::Element=HASH~ ){ return 0; }
-            $content .= $_->as_text;
+            if( m~^HTML::Element=HASH~ ){ $content .= $_->as_text; }
+            else{ $content .= stripTags($_);}
         }
         return ( $content !~ m~^HTML::Element=HASH~ and $content =~ m~$AllowedFollowersPlainTextRegex~ );}
     sub moreKeywords{
