@@ -23,7 +23,7 @@ updateFullPath();
 chdir $BaseDir;
 
 
-my $FileListingIndex = 18;
+my $FileListingIndex = 20;
 # Start array on a line ...9, so that the index of the array follows the line numbers.
 if( ( __LINE__ % 10   ) != 8 ){ warn "\@FileListing doesn't start on line ending with 9!"; }
 my @FileListing = (
@@ -46,12 +46,15 @@ my @FileListing = (
     'Grand Larousse.pp1-100.formatted-text.htm',
     'Grand Larousse.pp1-100s.htm',
     'Grand Larousse.pp1-6529.formatted-text.NoPictures.htm',
+    'Grand Larousse.avoir.formatted-text.NoPictures.htm',
+    'Grand Larousse.pp1-6529.formatted-text.NoPicture_reconstructed.xdxf',
 );
 $FileName = $LocalPath.$FileListing[ $FileListingIndex ];
 info("Testing file '$FileName'");
 my $isInspectPullParser = 0;
 my $isInspectTreeBuilder = 0;
-
+my $isTestConvertABBYY2XDXF = 0;
+my $isTestTables4Koreader = 1;
 if ( $isTestingOn ){ use warnings; }
 my $OperatingSystem = "$^O";
 if ($OperatingSystem eq "linux"){ print "Operating system is $OperatingSystem: All good to go!\n";}
@@ -121,15 +124,39 @@ if( $isInspectTreeBuilder ){
     debug("\@methods_element: $methods_element");
     foreach( @{$methods_element}){ debug($_);}
 }
+if( $isTestConvertABBYY2XDXF ){
+    info("Loading dictionary '$FileName'");
+    my $html = join('', file2Array($BaseDir ."/". $FileName));
+    my @xdxf = removeBloat( convertABBYY2XDXF( $html ) );
 
-info("Loading dictionary '$FileName'");
-my $html = join('', file2Array($BaseDir ."/". $FileName));
-my @xdxf = removeBloat( convertABBYY2XDXF( $html ) );
-
-my $XDXF_name = changeFileExtension( $FileName, "xdxf");
-array2File( $BaseDir ."/". $XDXF_name, @xdxf );
-my @xml = convertXDXFtoStardictXML( @xdxf );
-my $XML_name = changeFileExtension( $FileName, "xml");
-array2File( $BaseDir ."/". $XML_name, @xml);
-convertXML2Binary( $XML_name );
-
+    my $XDXF_name = changeFileExtension( $FileName, "xdxf");
+    array2File( $BaseDir ."/". $XDXF_name, @xdxf );
+    my @xml = convertXDXFtoStardictXML( @xdxf );
+    my $XML_name = changeFileExtension( $FileName, "xml");
+    array2File( $BaseDir ."/". $XML_name, @xml);
+    convertXML2Binary( $XML_name );
+}
+if( $isTestTables4Koreader ){
+    my $xdxf = file2String( $FileName );
+    my $regex = qr~<ar>((?!(</?ar>|<table[^>]*>)).)+</ar>\s*~s;
+    $xdxf =~ s~$regex~~sg;
+    my @count = $xdxf =~ m~<ar>((?:(?!</?ar>).)+)</ar>\s*~sg;
+    debug(scalar @count);
+    my $count = 0;
+    my %results;
+    foreach(@count){
+        $count++;
+        m~<k>([^<]+)</k>~s;
+        my $key = $1;
+        $results{ $key }{"length"} = length($_);
+        $results{ $key }{"content"} = $_;
+        $results{ $key }{"count"} = $count;
+        debug("[$count] '$key' (".$results{ $key }{"length"}.")");
+    }
+    my $minimum = 99999999999;
+    foreach( sort keys %results){
+        if ($results{$_}{"length"} < $minimum){ $results{"minimum"} = $_; $minimum = $results{$_}{"length"}; }
+    }
+    debug("The key with the minimum length of ".$results{ $results{"minimum"} }{"length"}." is '".$results{"minimum"}."'");
+    array2File( $LocalPath.'table_test.xdxf', ( $xdxf ) );
+}

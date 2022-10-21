@@ -487,17 +487,21 @@ sub makeKoreaderReady{
     # return html
     # end
     my @ChangeTable2Div = (
-        q~while html:find("(<table[^>]+>.-)</?p[^>]*>(.-</table>)") do~,
-        q~    html  = html:gsub("(<table[^>]+>.-)</?p[^>]*>(.-</table>)", "%1%2")~,
-        q~end~,
-        q~html = html:gsub("<table[^>]+>", '<p></p><div style="display:table;>')~,
-        q~html = html:gsub("<tr[^>]+>", '<p><div style="display:table-row;">')~,
-        q~html = html:gsub("<td[^>]+>", '<div style="display:table-cell;">|') -- ｜~,
-        q~html = html:gsub("</td>", '</div>')~,
-        q~html = html:gsub("</tr>", '</div></p><hr style="height:3px;color:black;" />')~,
-        q~html = html:gsub("</table>", '</div><p></p>')~,
-        q~return html~,
-        q~end~, );
+        q~-- Remove p start- and stoptags from table~."\n",
+        q~while html:find("(<table[^>]+>.-)</?p[^>]*>(.-</table>)") do~."\n",
+        q~  html  = html:gsub("(<table[^>]+>.-)</?p[^>]*>(.-</table>)", "%1%2")~."\n",
+        q~end~."\n",
+        q~-- If malformed tables continue to stop Koreader from displaying beyond the start~."\n",
+        q~-- of a table, please uncomment the following lines to convert them to a~."\n",
+        q~-- simulation of a table constructed from div-blocks, vertical bars and~."\n",
+        q~-- horizontal lines.~."\n\n",
+        q~-- html = html:gsub("<table[^>]+>", '<p></p><hr style="height:1px;color:black;" /><div style="display:block;">')~."\n",
+        q~-- html = html:gsub("</table>", '</div><p></p>')~."\n",
+        q~-- html = html:gsub("<tr[^>]*>", '<div style="display:block;">')~."\n",
+        q~-- html = html:gsub("<td[^>]*>", '<div style="display:inline;">|') -- ｜~."\n",
+        q~-- html = html:gsub("</td>", '</div>')~."\n",
+        q~-- html = html:gsub("</tr>", '|</div><hr style="height:1px;color:black;" />')~."\n",
+        );
     my $lua_start = "return function(html)\n";
     my $lua_end = "return html\nend\n";
     # Remove images
