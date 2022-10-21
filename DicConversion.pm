@@ -404,10 +404,34 @@ sub convertABBYY2XDXF{
                 if( scalar @content == 1){
                     if( $content[0]->tag eq "span" and
                         $asHtml =~ m~<span[^>]*>(\w)</span>~){
-                        # Chapter title, e.g. A.
-                        # Finish previous article?
-                        infoVV("Found chapter title. Skipping.");
-                        pushArticle();
+                        # Chapter title, e.g. 'a':
+                        # <p><span class="font34" style="font-weight:bold;">a</span></p>
+                        # However, this is not a chapter title:
+                        # <p><span class="font24" style="font-weight:bold;">■ &nbsp;&nbsp;<sup>1</sup> &nbsp;&nbsp;■ <sub>t</sub> i &nbsp;&nbsp;ii. &nbsp;■</span></p>
+                        # <p><span class="font3" style="font-weight:bold;">A</span></p>
+                        # <p><span class="font29">On procède de façon analogue quand on<br>dit : </span><span class="font29" style="font-style:italic;">Henri IV est mort en 1610 ;</span><span class="font29"> on donne<br>alors une indication de date, et c’est en ce<br>sens restreint que l’on prend, en linguis-<br>tique, le mot </span><span class="font29" style="font-style:italic;">temps.</span></p>
+                        # Obviously the difference is in class, font34 vs font3.
+                        # If one doesn't want to discriminate based on class, always a lofty goal, how can one furnish a criterion?
+                        # For instance, the current article should be of a different letter and one lower in the alphabet.
+                        # This can be done with ord() for the ascii values.
+                        # However, when facing the comparison of é and f this breaks down.
+                        # Unicode has pre-composed characters and their canonical equivalents.
+                        # The decomposition (into an equivalent sequence) changes characters into a combination of a base character and an accent. Then the base characters can be compared as before with the ord( ascii character ).
+                        # The module Unicode::Normalize contains functions to convert between the two.
+                        my $PossibleChapterTitle = $1;
+                        if( scalar @articles == 0 ){ next TAGBLOCK; }
+                        unless( defined $article ){ warn "Unexpected result."; Die(); }
+                        unless( $article =~ m~<k>([^<]+)</k>~){ warn "Regex doesn't work."; Die(); }
+                        my $CurrentKey = $1;
+                        unless( defined $CurrentKey ){ warn "CurrentKey is not defined:\n'$article'"; debug(@articles[-1]); Die(); }
+                        if( ord($CurrentKey) + 1 == ord( $PossibleChapterTitle ) ){
+                            # Finish previous article?
+                            infoVV("Found chapter title. Skipping.");
+                            pushArticle();
+                        }
+                        else{
+                            addArticle( $TagBlock );
+                        }
                         next TAGBLOCK;
                     }
                     # <p><span class="font20" style="font-weight:bold;text-decoration:underline;">| Sa | Sé ~~]</span></p>
