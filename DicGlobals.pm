@@ -84,6 +84,7 @@ our @EXPORT = (
     
     '@ABBYY_CSS',
     '@ABBYYConverterPauseFor',
+    '@ABBYYConverterAllowedKeys',
     '@CleanHTMLTags',
     '@ExcludedHTMLTags',
     '@xdxf_start',
@@ -169,6 +170,22 @@ our @ABBYYConverterPauseFor = (
     # 'égard',
     # 'ète',
     # 'unipolaire',
+our @ABBYYConverterAllowedKeys = (
+    q~corbeille-d’argent~,
+    q~crespelé, e~,
+    q~cul-rond~,
+    q~desquels, desquelles~,
+    q~duquel~,
+    q~fœhn~,
+    q~giboyeux, euse~,
+    q~glacial, e, als~,
+    q~hydro-. V~,
+    q~inaliénablement~,
+    q~in aliéné, e~,
+    q~laquelle~,
+    q~melliflu, e~,
+    q~peu chère~,
+    q~pick-nick n.m.~,
 );
 # Controls for Pocketbook conversion
 our $isCreatePocketbookDictionary = 1; # Controls conversion to Pocketbook Dictionary dic-format

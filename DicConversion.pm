@@ -271,8 +271,9 @@ sub convertABBYY2XDXF{
     }
     our %PauseFor;
     foreach( @ABBYYConverterPauseFor ){ $PauseFor{ $_ } =  1; }
-
-    our $Pre = '! |\(|\([^)]+\)(\.|,)? |\? ';
+    our %AllowedKeys;
+    foreach( @ABBYYConverterAllowedKeys ){ $AllowedKeys{ $_ } =  1; }
+    our $Pre = '! |\(|\([^)]+\)(\.|,)? +|\? ';
     our @AllowedFollowers = (
         '^<span[^>]*>('.$Pre.')?\[',
         '^<span[^>]*>\(devant',
@@ -464,6 +465,7 @@ sub convertABBYY2XDXF{
                             (
                                 followsKeyword( $content[1] ) or
                                 followsKeywordinPlainText( @content[1..$#content] ) or
+                                $AllowedKeys{ $PossibleKey } or
                                 # Bracket appears in the same span as keyword
                                 $PossibleKey =~ s~\s*\[\s*~~ or
                                 # Missing left bracket in text
