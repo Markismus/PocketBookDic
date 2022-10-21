@@ -23,6 +23,7 @@ our @EXPORT = (
     'decode_utf8',
     'encode',
     'file2Array',
+    'file2String',
     'retrieve',
     'retrieveHash',
     'store',
@@ -158,7 +159,7 @@ sub file2ArrayOld {
     close(FILE);
     printBlue("Read $FileName, returning array. Exiting file2Array\n") if (defined $verbosity and $verbosity ne "quiet");
     return (@ArrayLines);}
-
+sub file2String{ return( join('', file2Array( @_ ) ) ); }
 sub retrieveHash{
     info_t("Entering sub retrieveHash.") ;
     foreach( @_ ){ debug_t( $_ ); }
