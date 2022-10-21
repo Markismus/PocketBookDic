@@ -509,7 +509,7 @@ sub convertABBYY2XDXF{
                                 $PossibleKey =~ s~\s*\[\s*~~ or
                                 # Missing left bracket in text
                                 (
-                                    asHTML( $content[1] ) =~ m~^<span[^>]*>(\w+\]|\w+, -\w+\])~ and
+                                    asHTML( $content[1] ) =~ m~^<span[^>]*>\^?(\w+\]|\w+, -\w+\])~ and
                                     $CorrectMissingBracket = 1
                                 ) or
                                 # Categorization appears in the same span as keyword
@@ -526,7 +526,7 @@ sub convertABBYY2XDXF{
                             infoVV("Found start of new article with key '$PossibleKey'.");
                             my $TBaHtml = asHTML( $TagBlock );
                             if( $CorrectMissingBracket ){
-                                unless ( $TBaHtml =~ s~^(?<start><p><span[^>]*>((?!</?span>).)+</span><span[^>]*>)(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
+                                unless ( $TBaHtml =~ s~^(?<start><p><span[^>]*>((?!</?span>).)+</span><span[^>]*>)\^?(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
                                     warn "Regex didn't work for '$TBaHtml'";
                                     die;
                                 }
@@ -564,7 +564,7 @@ sub convertABBYY2XDXF{
                                 # Missing left bracket in text
                                 (
                                     $content[3] =~ m~^HTML::Element~ and
-                                    asHTML( $content[3] ) =~ m~^<span[^>]*>(\w+\])~ and
+                                    asHTML( $content[3] ) =~ m~^<span[^>]*>\^?(\w+\])~ and
                                     $CorrectMissingBracket = 1
                                 )
                             ) and
@@ -580,7 +580,7 @@ sub convertABBYY2XDXF{
                             my $TBaHtml = asHTML( $TagBlock );
                             if( $CorrectMissingBracket ){
                                 # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
-                                unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
+                                unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)\^?(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
                                     warn "Regex didn't work for '$TBaHtml'";
                                     die;
                                 }
@@ -632,7 +632,7 @@ sub convertABBYY2XDXF{
                                 # Missing left bracket in text
                                 (
                                     $content[5] =~ m~^HTML::Element~ and
-                                    asHTML( $content[5] ) =~ m~^<span[^>]*>(\w+\])~ and
+                                    asHTML( $content[5] ) =~ m~^<span[^>]*>\^?([\w\^]+\])~ and
                                     $CorrectMissingBracket = 1
                                 )
                             ) and
@@ -653,7 +653,7 @@ sub convertABBYY2XDXF{
                             my $TBaHtml = asHTML( $TagBlock );
                             if( $CorrectMissingBracket ){
                                 # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
-                                unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
+                                unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)\^?(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
                                     warn "Regex didn't work for '$TBaHtml'";
                                     die;
                                 }
