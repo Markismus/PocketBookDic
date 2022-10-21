@@ -98,7 +98,7 @@ sub convertABBYY2XDXF{
             debug("'$content'");
             return( $content );
         }
-        return( $content->as_HTML('<>&', "    ", {}) );
+        return( removeBreakTag( $content->as_HTML('<>&', "    ", {}) ) );
     }
     sub checkAddedHTML4StartArticle{
         # Usage: @checks = checkAddedHTML4StartArticle( $html );
@@ -380,26 +380,35 @@ sub convertABBYY2XDXF{
                     }
                     else{ warn "Unknown p-block."; die; }
                 }
-                my $Html = asHTML( $content[0] );
-                debugV( "'$Html'");
+                my $asHtml = removeBreakTag( asHTML( $content[0] ) );
+                debugV( "'$asHtml'");
 
                 if( scalar @content == 1){
                     if( $content[0]->tag eq "span" and
-                        $Html =~ m~<span[^>]*>\w</span>~){
+                        $asHtml =~ m~<span[^>]*>(\w)</span>~){
                         # Chapter title, e.g. A.
                         # Finish previous article?
                         infoVV("Found chapter title. Skipping.");
                         pushArticle();
                         next TAGBLOCK;
                     }
+                    # <p><span class="font20" style="font-weight:bold;text-decoration:underline;">| Sa | Sé ~~]</span></p>
+                    # <span class="font27" style="font-weight:bold;font-style:italic;">HISTOIRE DE £’ « E MUET »</span>'
                     if( $content[0]->tag eq "span" and
                         (
-                            $Html =~ m~style="font-weight:bold;"~ or
+                            $asHtml =~ m~style="font-weight:bold;"~ or
                             (
-                                $Html =~ m~font-style:italic;"~ and
-                                $Html =~ m~<span[^>]*>[’,'.\?\!\-()[\] «»\p{Uppercase}]+</span>~
+                                $asHtml =~ m~font-style:italic;"~ and
+                                $asHtml =~ m~<span[^>]*>[«»’,;:'./()|\\\h\?\!\-[\]\p{Uppercase}]+</span>~
                             ) or
-                            $html =~ m~font-variant:small-caps;~
+                            $asHtml =~ m~font-variant:small-caps;~ or
+                            $asHtml =~ m~text-decoration:underline~ or
+                            (
+                                # Bold letters starting with a word all in capitals
+                                $asHtml =~ m~font-weight:bold;~ and
+                                # <span class="font27" style="font-weight:bold;font-style:italic;">1. LEXIQUE ET VOCABULAIRE</span>
+                                $asHtml =~ m~<span[^>]*>(\d\. )?[«»’,;:'./()|\\\h\?\!\-[\]\p{Upper}]+ ~
+                            )
                         )
                         ){
                         # Single entry in @contents. Probably a title in an article
@@ -407,18 +416,30 @@ sub convertABBYY2XDXF{
                         addArticle( $TagBlock );
                         next TAGBLOCK;
                     }
+                    # <p><span class="font29" style="font-weight:bold;font-style:italic;">l’ami de monpère/un ami de mon<br>père.</span></p>
+                    # <span class="font17" style="font-weight:bold;font-style:italic;">chies      chat Jean *</span>
+                    # <span class="font1" style="font-weight:bold;font-style:italic;">On le voit s’annoncer de loin par les traits de feu qu'il lance devant lui. L'incendie augmente, l’Orient paraît tout en flammes : à leur éclat, on attend l’astre longtemps avant qu'il se montre; à chaque instant on croit le noir paraître; on le voit enfin. Un point brillant part comme un éclair, et remplit aussitôt l’espace; le voile des ténèbres s’efface et tombe (Jean-Jacques Rousseau).</span>
+                    # <span class="font29" style="font-weight:bold;font-style:italic;">aimeft)           plaist</span>
                     if( $content[0]->tag eq "span" and
                         (
-                            $Html !~ m~style="~ or
+                            $asHtml !~ m~style="~ or
+                            # <span class="font27" style="font-weight:bold;font-style:italic;">« QUI », « QUEL », «OÙ », etc.</span>
+                            $asHtml =~ m~^<span[^>]*>[«»’,;:'./()|\\\?\!\-[\]]+~ or
                             (
                                 (
-                                    $Html =~ m~font-style:italic;"~ and
-                                    $Html =~ m~<span[^>]*>\p{Uppercase}[’,'.\?\!\-()[\] «»\p{Lower}\p{Uppercase}]+</span>~
+                                    # <span class="font29" style="font-weight:bold;font-style:italic;">Où l’indécis | ( au précis | se joint</span>
+                                    # <span class="font28" style="font-weight:bold;font-style:italic;">Sur les humides bords | | des royau\mes du vent a                      a</span>
+                                    $asHtml =~ m~font-style:italic;"~ and
+                                    $asHtml =~ m~^<span[^>]*>\p{Uppercase}[«»’,;:'./()|\\\d\h\?\!\-[\]\p{Lower}\p{Uppercase}]+</span>~
                                 ) or
-                                $Html =~ m~style="font-style:italic;"~ or
+                                $asHtml =~ m~style="font-style:italic;"~ or
                                 (
-                                    $Html =~ m~style="font-weight:bold;~ and
-                                    $Html =~ m~<span[^>]*>[’,'.\?\!\-()[\] «»\p{Lower}]+</span>~
+                                    $asHtml =~ m~style="font-weight:bold;~ and
+                                    $asHtml =~ m~^<span[^>]*>[«»’,;:'./()|\\\h\?\!\-[\]\p{Lower}]+</span>~
+                                ) or
+                                (
+                                    $asHtml =~ m~style="font-weight:bold;~ and
+                                    $asHtml =~ m~^<span[^>]*>[[«»’,;:'./()|\\\h\?\!\-[\]\p{lower}]+ ~
                                 )
                             )
 
@@ -441,8 +462,8 @@ sub convertABBYY2XDXF{
                 }
                 if( scalar @content > 1 ){
                     if( $content[0]->tag eq "span" and
-                        $Html =~ m~style="font-weight:bold;"~ and
-                        $Html =~ m~<span[^>]*>(?<key>((?!</?span>).)+)</span>~ ){
+                        $asHtml =~ m~style="font-weight:bold;"~ and
+                        $asHtml =~ m~<span[^>]*>(?<key>((?!</?span>).)+)</span>~ ){
                         my $PossibleKey = cleanKey( $+{"key"} );
                         if( $PossibleKey =~ m~^(♦|•|\||[ILVX]+\.|\d?°|—|■)~ ){
                             infoVV("Subkey '$PossibleKey' starting with '$1' found.");

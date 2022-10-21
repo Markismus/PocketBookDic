@@ -35,6 +35,7 @@ our @EXPORT = (
     'mergeConsecutiveIdenticallyAttributedSpans',
 
     'removeBloat',
+    'removeBreakTag',
     'removeEmptyTagPairs',
     'removeInvalidChars',
     'removeOuterTags',
@@ -358,11 +359,14 @@ sub removeBloat{
     # This a tricky one.
     # OALD9 has a strange string [s]key.bmp[/s] that keeps repeating. No idea why!
     while( $xdxf =~ s~\[s\].*?\.bmp\[/s\]~~sg ){ debugV("....cleaning house (removing s-blocks with .bmp at the end.)"); }
+    $xdxf = removeBreakTag( $xdxf );
+sub removeBreakTag{
+    my $xdxf = shift;
     while( my $count = $xdxf =~ s~(\w+)-<br ?/?>(\w+)~$1$2~sg ){ debugV("...removed $count break-tags inside hyphenated words."); }
     while( my $count = $xdxf =~ s~([\w,.;:'"\])!\?]+)<br ?/?>(\w+|<)~$1 $2~sg ){ debugV("...removed $count break-tags between words."); }
     while( my $count = $xdxf =~ s~(<br[^>]*>)~~sg ){ debugV("...removed $count break-tags."); }
-    debugV("...done!");
-    return( split(/^/, $xdxf) );}
+    return $xdxf;
+}
 sub removeEmptyTagPairs{
     waitForIt("Removing empty tag pairs");
     my $html = shift;
