@@ -502,7 +502,7 @@ sub convertABBYY2XDXF{
                         $asHtml =~ m~style="font-weight:bold;"~ and
                         $asHtml =~ m~<span[^>]*>(?<key>((?!</?span>).)+)</span>~ ){
                         my $PossibleKey = cleanKey( $+{"key"} );
-                        if( $PossibleKey =~ m~^(♦|•|\||[ILVX]+\.|\d?°|—|■)~ ){
+                        if( $PossibleKey =~ m~^(♦|•|\||[ILVX]+\.|\d?°|—|■|«)~ ){
                             infoVV("Subkey '$PossibleKey' starting with '$1' found.");
                             addArticle( $TagBlock );
                             next TAGBLOCK;
