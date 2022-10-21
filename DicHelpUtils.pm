@@ -360,6 +360,9 @@ sub removeBloat{
     # OALD9 has a strange string [s]key.bmp[/s] that keeps repeating. No idea why!
     while( $xdxf =~ s~\[s\].*?\.bmp\[/s\]~~sg ){ debugV("....cleaning house (removing s-blocks with .bmp at the end.)"); }
     $xdxf = removeBreakTag( $xdxf );
+    $xdxf = removeEmptyTagPairs( $xdxf );
+    debugV("...done!");
+    return( split(/^/, $xdxf) );}
 sub removeBreakTag{
     my $xdxf = shift;
     while( my $count = $xdxf =~ s~(\w+)-<br ?/?>(\w+)~$1$2~sg ){ debugV("...removed $count break-tags inside hyphenated words."); }
