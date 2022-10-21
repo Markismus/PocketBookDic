@@ -691,13 +691,15 @@ sub convertABBYY2XDXF{
     }
     my $None = 1;
     my @CurrentlyShown;
+    my @CurrentlyShownWithDescription;
     foreach(@ImpossibleKeywords){
         if( exists $StorageAlreadyClearedImpossibleKeywords{ $_} ){ next; }
         else{
-            debugV($_."________".$ImpossibleKeywords{$_}."\n\n");
+            push @CurrentlyShownWithDescription, $_."________".$ImpossibleKeywords{$_}."\n\n";
+            push @CurrentlyShown,$_;
+            debugV( $CurrentlyShownWithDescription[-1] );
             $StorageAlreadyClearedImpossibleKeywords{ $_ } =  1;
             $None = 0;
-            push @CurrentlyShown,$_;
         }
     }
 
@@ -706,7 +708,12 @@ sub convertABBYY2XDXF{
     my $ABBYYWordlist = 'ABBYYWordlist.txt';
     array2File( $ABBYYWordlist, @articles) if $isABBYYWordlistNeeded;
     debugV("Summary CurrentlyShown:");
-    foreach(sort @CurrentlyShown){ debugV($_);}
+    my $ABBYYImpossibleKeyWordList = 'ABBYYImpossibleKeyWordList.txt';
+    my $ABBYYImpossibleKeyWordListWithDescription = 'ABBYYImpossibleKeyWordListWithDescription.txt';
+    my @ImpossibleKeywordList;
+    foreach(sort @CurrentlyShown){ debugV($_); push @ImpossibleKeywordList, $_, "\n"; }
+    array2File( $ABBYYImpossibleKeyWordList, @ImpossibleKeywordList);
+    array2File( $ABBYYImpossibleKeyWordListWithDescription, @CurrentlyShownWithDescription );
     debugV("FailingExtraForms:");
     foreach(@FailingExtraForms){debugV($_);}
     $isABBYConverted = 1;
