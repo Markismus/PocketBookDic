@@ -20,7 +20,9 @@ our @EXPORT = (
     'convertColorName2HexValue',
     'convertMobiAltCodes',
     'convertNonBreakableSpacetoNumberedSequence',
+    'convertNonBreakableSpacetoNumberedSequence4Strings',
     'convertNumberedSequencesToChar',
+    'convertNumberedSequencesToChar4Strings',
     'cleanOuterTags',
 
     'escapeHTMLString',
@@ -217,28 +219,27 @@ sub convertMobiAltCodes{
     if( $xdxf =~ s~\x1F~▼~g ){ info("Converted mobi alt-code to '▼'");}
     doneWaiting();
     return($xdxf); }
-sub convertNonBreakableSpacetoNumberedSequence{
-    my $UnConverted = join('',@_);
+
+sub convertNonBreakableSpacetoNumberedSequence{ 
+    return( split( /^/, convertNonBreakableSpacetoNumberedSequence4Strings( join('',@_) ) ) ); }
+sub convertNonBreakableSpacetoNumberedSequence4Strings{
+    my $UnConverted = shift;
     waitForIt("Removing '&nbsp;'.");
-    my @results = $UnConverted =~ s~(&nbsp;)~&#160;~sg ;
-    shift @results;
-    if( scalar @results > 0 ){
-        # Make unique results;
-        my %unique_results;
-        foreach(@results){ $unique_results{$_} = 1; }
-        debug("Number of characters removed in convertNonBreakableSpacetoNumberedSequence: ",scalar @results);
-        debug( map qq/"$_", /, keys %unique_results );
+    my $result = $UnConverted =~ s~(&nbsp;)~&#160;~sg ;
+    if( $result > 0 ){
+        debug("Removed '&nbsp' $result times.");
     }
-    my @UnConverted = split(/^/, $UnConverted);
-    if( $UnConverted =~ m~\&nbsp;~ ){ debug("Still found '&nbsp;' in array! Quitting"); Debug(@UnConverted); Die(); }
-    return( @UnConverted );}
+    if( $UnConverted =~ m~\&nbsp;~ ){ debug("Still found '&nbsp;' in array! Quitting"); debug($UnConverted); Die(); }
+    return( $UnConverted );}
 sub convertNumberedSequencesToChar{
-    my $UnConverted = join('',@_);
-    debug("Entered sub convertNumberedSequencesToChar") if $isTestingOn;
+    return( split( /^/, convertNumberedSequencesToChar4Strings( join('',@_) ) ) );}
+sub convertNumberedSequencesToChar4Strings{
+    my $UnConverted = shift;
+    infoVV("Entered sub convertNumberedSequencesToChar");
     while( $UnConverted =~ m~\&\#x([0-9A-Fa-f]{1,6});~s ){
         my $HexCodePoint = $1;
-        $UnConverted =~ s~\&\#x$HexCodePoint;~chr(hex($HexCodePoint))~seg ;
-        debug("Result convertNumberedSequencesToChar: $HexCodePoint"."-> '".chr(hex($HexCodePoint))."'" ) if $isTestingOn;
+        my $result = $UnConverted =~ s~\&\#x$HexCodePoint;~chr(hex($HexCodePoint))~seg ;
+        info("Result convertNumberedSequencesToChar: $HexCodePoint"."-> '".chr(hex($HexCodePoint))."' (x$result)" ) if $isTestingOn;
     }
     while( $UnConverted =~ m~\&\#([0-9]{1,6});~s  ){
         my $Number = $1;
@@ -253,11 +254,9 @@ sub convertNumberedSequencesToChar{
             debug("Result convertNumberedSequencesToChar: $Number"."-> '".chr(int($Number))."'" ) if $isTestingOn;
         }
     }
-
+    info("length html before removeInvalidChars is ".length($UnConverted) );
     $UnConverted = removeInvalidChars( $UnConverted );
-
-    return( split(/(\n)/, $UnConverted) );}
-
+    return( $UnConverted);}
 sub escapeHTMLString{
     my $String = shift;
     $String =~ s~<~\&lt;~sg;
