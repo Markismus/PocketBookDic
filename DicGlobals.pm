@@ -170,6 +170,8 @@ our @ABBYYConverterPauseFor = (
     # 'égard',
     # 'ète',
     # 'unipolaire',
+    # 'germain, e'
+);
 our @ABBYYConverterAllowedKeys = (
     q~corbeille-d’argent~,
     q~crespelé, e~,

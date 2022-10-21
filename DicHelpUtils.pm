@@ -440,7 +440,7 @@ sub removeInvalidChars{
     if( $xdxf =~ s~(\x{0092})~Æ~sg ){ $check++; infoV(" Replaced U+0092 with 'Æ'"); }
     if( $xdxf =~ s~(\x{0093})~ô~sg ){ $check++; infoV(" Replaced U+0093 with 'ô'"); }
     if( $xdxf =~ s~(\x{0094})~ö~sg ){ $check++; infoV(" Replaced U+0094 with 'ö'"); }
-    unless( $check ){ debugV('Nothing removed. If \"parser error : PCDATA invalid Char value...\" remains, look at subroutine removeInvalidChars.');}
+    unless( $check ){ debugV('No invalid characters removed. If \"parser error : PCDATA invalid Char value...\" remains, look at subroutine removeInvalidChars.');}
 
     doneWaiting();
     return($xdxf); }

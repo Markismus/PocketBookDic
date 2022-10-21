@@ -46,8 +46,8 @@ sub convertABBYY2XDXF{
             return ( file2Array( $XDXFFileName ) );
         }
     }
-    my $html = shift;
     use HTML::TreeBuilder 5 -weak; # Ensure weak references in use
+    my $html = shift;
     if( $html =~ m~<style type="text/css">(?<css>((?!</style>).)+)</style>~s ){
         push @ABBYY_CSS, $+{css};
     }
@@ -61,7 +61,7 @@ sub convertABBYY2XDXF{
         $html = convertNumberedSequencesToChar4Strings( $html );
         $html = mergeConsecutiveIdenticallyAttributedSpans( $html );
         $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
-        $tree->parse($html);
+        $tree->parse( $html );
     }
     store( $tree, $FileName.'.tree' );
     info("End parsing");
