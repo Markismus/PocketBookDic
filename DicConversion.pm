@@ -259,6 +259,10 @@ sub convertABBYY2XDXF{
         $Key =~ s~\s+$~~g;
         $Key =~ s~^\s+~~g;
         $Key =~ s~,+$~~g;
+        # Remove numerical prefixes, so that reconstructXDXF can put the descriptions in the same article.
+        $Key =~ s~^\d\.? ~~g;
+        $Key =~ s~(\w+)(n\.(m\.)?)$~$1 $2~;
+
 
         return $Key;
     }
