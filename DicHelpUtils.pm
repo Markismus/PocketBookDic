@@ -30,6 +30,8 @@ our @EXPORT = (
 
     'generateEntityHashFromDocType',
 
+    'mergeConsecutiveIdenticallyAttributedSpans',
+
     'removeBloat',
     'removeEmptyTagPairs',
     'removeInvalidChars',
@@ -323,6 +325,27 @@ sub generateEntityHashFromDocType{
         $EntityConversion{$+{name}} = $+{meaning};
     }
     return(%EntityConversion);}
+
+sub mergeConsecutiveIdenticallyAttributedSpans{
+    my $html = shift;
+    infoVV("Entering mergeConsecutiveIdenticallyAttributedSpans.");
+    # Nested spans will not match!
+    my $regex_match = qr~<span(?<attributes>[^>]*)>(?<first_content>(?:(?!</span>).)*)</span>(?<spacing>\s*)<span\g1>(?<second_content>(?:(?!</span>).)*)</span>~s;
+    # I am omitting the greedy modificator behind the substitution, so that the info can be dumped.
+    if( $isInfoVeryVerbose ){
+        while ( $html =~ s~$regex_match~<span$+{attributes}>$+{first_content}$+{spacing}$+{second_content}</span>~s  ){
+            infoV("Merged consecutive spans with identical attributes");
+            infoVV(Dumper(\%+));
+        }
+    }
+    else{
+        while ( my $Count = $html =~ s~$regex_match~<span$+{attributes}>$+{first_content}$+{spacing}$+{second_content}</span>~sg  ){
+            infoV("Merged $Count consecutive spans with identical attributes");
+        }
+    }
+    return $html;
+}
+
 
 sub removeBloat{
     my $xdxf = join('',@_);
