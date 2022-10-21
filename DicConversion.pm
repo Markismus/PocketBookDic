@@ -357,11 +357,29 @@ sub convertABBYY2XDXF{
             setArticle( $Check[1], $Check[2] );
         }
         else{ $article = '<ar><head><k>'.$HeadK .'</k></head><def>' . $Def; }}
-    TAGBLOCK: foreach my $TagBlock ( ($body->content_list) ){
-        $counter++;
-        # last if $counter > 50;
+        my @ContentBodyList = ( $body->content_list );
+    TAGBLOCK: for( my $counter = 0; $counter < scalar @ContentBodyList; $counter++){
+        # foreach my $TagBlock ( @ContentBodyList ){
+        my $TagBlock = $ContentBodyList[$counter];
         if( $TagBlock =~ m~^HTML::Element~ ){
             debugV( "[$counter] tag: '".$TagBlock->tag."'");
+            # If tagblock contains an ul with li-blocks, splice the consecutive contents as tagblocks in @ContentBodyList at position $counter+1.
+            # Will this work?
+            if( $TagBlock->tag eq 'ul'){
+                my @content = $TagBlock->content_list();
+                my $index = 0;
+                my @li_content;
+                foreach( @content ){
+                    debug("[$index] '$_', tag '".$_->tag."'"); $index++;
+                    unless( $_->tag eq "li" ){
+                        warn "Found unexpected block within ul-block:\n'".asHTML($TagBlock)."'";
+                        Die();
+                    }
+                    push @li_content, $_->content_list();
+                }
+                splice @ContentBodyList, ($counter + 1), 0, @li_content;
+                next TAGBLOCK;
+            }
             if( $TagBlock->tag eq 'p'){
                 my @content = $TagBlock->content_list();
                 if( scalar @content == 0){ infoVV("No content.Skipping."); next TAGBLOCK;}
