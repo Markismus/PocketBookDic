@@ -8,10 +8,59 @@ use strict;
 use DicGlobals;
 use Dic2Screen;
 use DicConversion;
+use DicPrepare;
 ( $isDebug, $isDebugVerbose, $isDebugVeryVerbose )       = ( 1, 0, 0 );  # Toggles verbosity debug messages
 ( $isInfo, $isInfoVerbose, $isInfoVeryVerbose )          = ( 1, 0, 0 );  # Toggles verbosity info messages
 
 $isManualValidation = 1; # Manually validate OCRed images.
+
+# Control variable makeKoreaderReady
+# Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
+$isMakeKoreaderReady                         = 1 ; 
+$isMakeKoreaderReady_SpanColor2Style         = 0 ;
+$isMakeKoreaderReady_SpanWidth2Style         = 0 ;
+$isMakeKoreaderReady_SpanStyleWidht2Padding  = 0 ;
+$isMakeKoreaderReady_MergeStyles             = 0 ;
+$isChangeTable2Div4Koreader                  = 1 ; # Adds lines to lua-file
+
+# Control variables for the conversion of ABBYY-generated HTML.
+@ABBYY_CSS; # Becomes defined by sub convertABBYY2XDXF
+$isABBYYWordlistNeeded   = 1; # Controls creation of an ABBYYWordlist.txt file.
+$isABBYYAllCleared       = 0; # Controls creation of a hash-file.
+$isABBYYConverterReuse   = 0; # Controls the check for already generated xdxf-file
+$isABBYConverted         = 0; # Global variable that gets set to 1 if convertABBYY2XDXF returns an xdxf-array.
+# Conversion pauses during keywords
+@ABBYYConverterPauseFor = (
+# E.g.,
+    # 'égard',
+    # 'ète',
+);
+# Manual overrule. Conversion checks whether keyword is allowed and passes it without further tests.
+@ABBYYConverterAllowedKeys = (
+    q~corbeille-d’argent~,
+    q~crespelé, e~,
+    q~cul-rond~,
+    q~desquels, desquelles~,
+    q~duquel~,
+    q~fœhn~,
+    q~giboyeux, euse~,
+    q~glacial, e, als~,
+    q~hydro-. V~,
+    q~inaliénablement~,
+    q~in aliéné, e~,
+    q~laquelle~,
+    q~melliflu, e~,
+    q~peu chère~,
+    q~pick-nick n.m.~,
+);
+
+# Deliminator for CSV files, usually ",",";" or "\t"(tab).
+$CVSDeliminator = ",";
+
+# Controls for convertHTML2XDXF
+$isConvertFont2Small         = 0 ;
+$isConvertFont2Span          = 0 ;
+$isConvertMMCFullText2Span   = 1 ;
 
 # Shortcuts to Collection of settings.
 # If you select both settings, they will be ignored.

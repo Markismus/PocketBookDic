@@ -10,7 +10,6 @@ our @ISA = ('Exporter');
 our @EXPORT = ( 
     '$ar_chosen',
     '$BaseDir',
-    '$CVSDeliminator',
     '$cycle_dotprinter',
     '$cycles_per_dot',
     '$DebugKeyWordCleanseAr',
@@ -26,19 +25,11 @@ our @EXPORT = (
     '$FullPath',
     '$HigherFrequencyTags',
     '$i_limit',
-    '$isABBYConverted',
-    '$isABBYYAllCleared',
-    '$isABBYYConverterReuse',
-    '$isABBYYWordlistNeeded',
-    '$isChangeTable2Div4Koreader',
     '$isCodeImageBase64',
     '$isConvertColorNamestoHexCodePoints',
     '$isConvertDiv2SpaninHTML2DXDF',
-    '$isConvertFont2Small',
-    '$isConvertFont2Span',
     '$isConvertGIF2PNG',
     '$isConvertImagesUsingOCR',
-    '$isConvertMMCFullText2Span',
     '$isConvertMobiAltCodes',
     '$isCreateMDict',
     '$isCreatePocketbookDictionary',
@@ -49,11 +40,6 @@ our @EXPORT = (
     '$isgatherSetsVerbose',
     '$isgenerateXDXFTagBasedVerbose',
     '$isHandleMobiDictionary',
-    '$isMakeKoreaderReady',
-    '$isMakeKoreaderReady_MergeStyles',
-    '$isMakeKoreaderReady_SpanColor2Style',
-    '$isMakeKoreaderReady_SpanStyleWidht2Padding',
-    '$isMakeKoreaderReady_SpanWidth2Style',
     '$isRealDead',
     '$isRemoveMpbAndBodyTags',
     '$isRemoveUnSourcedImageStrings',
@@ -82,9 +68,6 @@ our @EXPORT = (
     
     '%EntityConversion',
     
-    '@ABBYY_CSS',
-    '@ABBYYConverterPauseFor',
-    '@ABBYYConverterAllowedKeys',
     '@CleanHTMLTags',
     '@ExcludedHTMLTags',
     '@xdxf_start',
@@ -116,7 +99,6 @@ our $FullPath = "$BaseDir/$LocalPath";                   # Default value
 # Use absolute path beginning with either '/' (root) or '~'(home) on Linux. On Windows use whatever works.
 our $KindleUnpackLibFolder="/home/mark/git/KindleUnpack/lib";
 
-
 our $DumperSuffix = ".Dumper.txt"; # Has to be declared before any call to storeHash or retrieveHash. Otherwise it is undefined, although no error is given.
 
 our $isRealDead = 1; # Some errors should kill the program. However, somtimes you just want to convert.
@@ -125,9 +107,6 @@ our $isRealDead = 1; # Some errors should kill the program. However, somtimes yo
 our ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
 our $reformat_full_name  = 1 ; # Value 1 demands user input for full_name tag.
 our $reformat_xdxf       = 1 ; # Value 1 demands user input for xdxf tag.
-
-# Deliminator for CSV files, usually ",",";" or "\t"(tab).
-our $CVSDeliminator = ",";
 
 # Controls for debugging.
 our ( $isgenerateXDXFTagBasedVerbose, $isgatherSetsVerbose ) = ( 0, 0 );     # Controls verbosity of tag functions
@@ -151,44 +130,6 @@ our $updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence
 our $isConvertColorNamestoHexCodePoints = 1; # Converting takes time.
 our $isConvertMobiAltCodes = 0; # Apparently, characters in the range of 1-31 are displayed as alt-codes in mobireader.
 
-# Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
-our $isMakeKoreaderReady                         = 1 ; 
-our $isMakeKoreaderReady_SpanColor2Style         = 0 ;
-our $isMakeKoreaderReady_SpanWidth2Style         = 0 ;
-our $isMakeKoreaderReady_SpanStyleWidht2Padding  = 0 ;
-our $isMakeKoreaderReady_MergeStyles             = 0 ;
-our $isChangeTable2Div4Koreader                  = 1 ; # Adds lines to lua-file
-
-# Global variables for the conversion of ABBYY-generated HTML.
-our @ABBYY_CSS; # Becomes defined by sub convertABBYY2XDXF
-our $isABBYYWordlistNeeded   = 1; # Controls creation of an ABBYYWordlist.txt file.
-our $isABBYYAllCleared       = 0; # Controls creation of a hash-file.
-our $isABBYYConverterReuse   = 0; # Controls the check for already generated xdxf-file
-our $isABBYConverted         = 0; # Global variable that gets set to 1 if convertABBYY2XDXF returns an xdxf-array.
-our @ABBYYConverterPauseFor = (
-# E.g.,
-    # 'égard',
-    # 'ète',
-    # 'unipolaire',
-    # 'germain, e'
-);
-our @ABBYYConverterAllowedKeys = (
-    q~corbeille-d’argent~,
-    q~crespelé, e~,
-    q~cul-rond~,
-    q~desquels, desquelles~,
-    q~duquel~,
-    q~fœhn~,
-    q~giboyeux, euse~,
-    q~glacial, e, als~,
-    q~hydro-. V~,
-    q~inaliénablement~,
-    q~in aliéné, e~,
-    q~laquelle~,
-    q~melliflu, e~,
-    q~peu chère~,
-    q~pick-nick n.m.~,
-);
 # Controls for Pocketbook conversion
 our $isCreatePocketbookDictionary = 1; # Controls conversion to Pocketbook Dictionary dic-format
 our $remove_color_tags = 0; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably. Relevant for pocketbook dictionary.
@@ -229,13 +170,6 @@ our $ForceConvertBlockquote2Div       = 0;
 our $isConvertDiv2SpaninHTML2DXDF     = 0;
 our $UseXMLTidy                       = 0; # Enables or disables the use of the subroutine tidyXMLArray. Still experimental, so disable.
 our $isCutDoneWithTidyXML             = 0; # Enables or disables the cutting of a line for the pocketbook dictionary in cleanseAr. Still experimental, so disable.
-
-# Controls for html-conversion
-our $isConvertFont2Small         = 0 ;
-our $isConvertFont2Span          = 0 ;
-our $isConvertMMCFullText2Span   = 1 ;
-
-
 
 #########################################################
 ###  End of manual control input                     ####

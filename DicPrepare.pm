@@ -23,6 +23,12 @@ our @EXPORT = (
     'loadXDXF',
 
     'makeKoreaderReady',
+    '$isMakeKoreaderReady',
+    '$isMakeKoreaderReady_SpanColor2Style',
+    '$isMakeKoreaderReady_SpanWidth2Style',
+    '$isMakeKoreaderReady_SpanStyleWidht2Padding',
+    '$isMakeKoreaderReady_MergeStyles',
+    '$isChangeTable2Div4Koreader',
 
     'reconstructXDXF',
  );
@@ -212,6 +218,7 @@ sub cleanseAr{
     }
 
     return( $Content );}
+
 sub loadXDXF{
     # Create the array @xdxf
     my @xdxf;
@@ -446,6 +453,15 @@ sub loadXDXF{
 
 
     return( @xdxf );}
+
+# Control variable makeKoreaderReady
+# Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
+our $isMakeKoreaderReady                         = 1 ; 
+our $isMakeKoreaderReady_SpanColor2Style         = 0 ;
+our $isMakeKoreaderReady_SpanWidth2Style         = 0 ;
+our $isMakeKoreaderReady_SpanStyleWidht2Padding  = 0 ;
+our $isMakeKoreaderReady_MergeStyles             = 0 ;
+our $isChangeTable2Div4Koreader                  = 1 ; # Adds lines to lua-file
 sub makeKoreaderReady{
     my $html = join('',@_);
     waitForIt("Making the dictionary Koreader ready.");
@@ -515,6 +531,7 @@ sub makeKoreaderReady{
     doneWaiting();
 
     return(split(/$/, $html));}
+
 sub reconstructXDXF{
     # Construct a new xdxf array to prevent converter.exe from crashing.
     ## Initial values
