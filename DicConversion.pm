@@ -126,6 +126,13 @@ sub convertABBYY2XDXF{
         $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
         $tree->parse( $html );
     }
+    debugV( "tree '$tree'");
+    # tree 'HTML::TreeBuilder=HASH(0x562d600afcf0)'
+
+    unless( $tree =~ m~HTML::TreeBuilder=HASH~ ){
+        unlink FileName . '.tree';
+        Die("\$tree not a HTML::TreeBuilder hash. \$tree='$tree'\n Deleted old tree-file. Rerun script.");
+    }
     store( $tree, $FileName.'.tree' );
     info("End parsing");
 
