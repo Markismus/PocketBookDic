@@ -179,7 +179,7 @@ our $isCutDoneWithTidyXML             = 0; # Enables or disables the cutting of 
 # Determine operating system.
 our $OperatingSystem = "$^O";
 
-# As NouveauLittre showed a rather big problem with named entities, I decided to write a special filter
+# As NouveauLittre showed a rather big problem with named entities, I wrote a special filter
 # Here is the place to insert your DOCTYPE string.
 # Remember to place it between quotes '..' and finish the line with a semicolon ;
 # Last Doctype will be used.

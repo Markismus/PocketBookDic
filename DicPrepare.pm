@@ -237,7 +237,7 @@ sub loadXDXF{
         # Check wheter a converted xml-file already exists or create one.
         if(! -e $+{filename}.".xml"){
             # Convert the ifo/dict using stardict-bin2text $FileName $FileName.".xml";
-            if ( $OperatingSystem == "linux"){
+            if ( $OperatingSystem eq "linux"){
                 printCyan("Convert the ifo/dict using system command: \"stardict-bin2text $FileName $FileName.xml\"\n");
                 system("stardict-bin2text \"$FileName\" \"$+{filename}.xml\"");
             }
