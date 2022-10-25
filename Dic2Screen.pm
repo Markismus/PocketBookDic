@@ -14,17 +14,32 @@ our @ISA = ('Exporter');
 our @EXPORT = (
     'debug',
     'debug_t',
+    '$isDebug',
+
     'debugV',
+    '$isDebugVerbose',
     'debugVV',
+
+    '$isDebugVeryVerbose',
     'debugFindings',
+
     'Die',
+    '$isRealDead',
+
     'doneWaiting',
     'Dumper',
     'getLoggingTime',
+
     'info',
     'info_t',
+    '$isInfo',
+
     'infoV',
+    '$isInfoVerbose',
+
     'infoVV',
+    '$isInfoVeryVerbose',
+
     'printBlue',
     'printCyan',
     'printGreen',
@@ -33,13 +48,6 @@ our @EXPORT = (
     'printYellow',
     'shortenStrings4Debug',
     'waitForIt',
-
-    '$isDebug',
-    '$isDebugVerbose',
-    '$isDebugVeryVerbose',
-    '$isInfo',
-    '$isInfoVerbose',
-    '$isInfoVeryVerbose',
 );
 
 our ( $isDebug, $isDebugVerbose, $isDebugVeryVerbose ); # Toggles verbosity debug messages
@@ -74,6 +82,7 @@ sub debugFindings {
     if ( defined $17 ) { debugV("17 is:\n $17\n"); }
     if ( defined $18 ) { debugV("18 is:\n $18\n"); }}
 
+our $isRealDead = 1; # Some errors should kill the program. However, somtimes you just want to convert.
 sub Die{
     sub showCallStack {
       my ( $path, $line, $subr );
@@ -87,6 +96,7 @@ sub Die{
     }
 
     showCallStack();
+    debug( @_ );
     die if $isRealDead;}
 
 sub doneWaiting{ printCyan("Done at ",getLoggingTime(),"\n");}

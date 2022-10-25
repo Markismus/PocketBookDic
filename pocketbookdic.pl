@@ -11,10 +11,10 @@ use lib '/home/mark/git/PocketBookDic/';
 use DicGlobals;
 use Dic2Screen;
 use DicConversion;
-use DicToggles;
 use DicFileUtils;
 use DicHelpUtils;
 use DicPrepare;
+use DicControls;
 
 if ( $isTestingOn ){ use warnings; }
 

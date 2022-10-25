@@ -12,7 +12,7 @@ use DicHelpUtils;
 use DicFileUtils;
 use DicConversion;
 use DicPrepare;
-use DicToggles;
+use DicControls;
 
 $FileName = "dict/Grande\ Larousse\ 1989/Grand\ Larousse.pp1-100.formatted-text.noHeaderFooters.NoPictures.NoHyphenLineBreaks.htm";
 $FileName = "dict/Grande\ Larousse\ 1989/Grand\ Larousse.pp1-884.formatted-text.noHeaderFooters.NoPictures.NoHyphenLineBreaks.htm";

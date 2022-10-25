@@ -18,7 +18,10 @@ our @EXPORT = (
     'checkXMLBookname',
     'convertBlockquote2Div',
     'convertColorName2HexValue',
+
     'convertMobiAltCodes',
+    '$isConvertMobiAltCodes',
+
     'convertNonBreakableSpacetoNumberedSequence',
     'convertNonBreakableSpacetoNumberedSequence4Strings',
     'convertNumberedSequencesToChar',
@@ -155,6 +158,8 @@ sub convertColorName2HexValue{
     $html =~ s~color:(?<color>\w+)~color:$ColorCoding{lc($+{color})}~isg;
     doneWaiting();
     return( split(/^/,$html) );}
+
+our $isConvertMobiAltCodes = 0; # Apparently, characters in the range of 1-31 are displayed as alt-codes in mobireader.
 sub convertMobiAltCodes{
     # my %MobiAltCodes = {
     #     1 => '☺',
