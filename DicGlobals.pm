@@ -20,7 +20,6 @@ our @EXPORT = (
     '$FileName',
     '$ForceConvertBlockquote2Div',
     '$ForceConvertNumberedSequencesToChar',
-    '$format',
     '$FullPath',
     '$HigherFrequencyTags',
     '$i_limit',
@@ -47,8 +46,6 @@ our @EXPORT = (
     '$isSkipKnownStylingTags',
     '$isTestingOn',
     '$KindleUnpackLibFolder',
-    '$lang_from',
-    '$lang_to',
     '$lastline_xdxf',
     '$lastline_xml',
     '$LocalPath',
@@ -57,8 +54,6 @@ our @EXPORT = (
     '$MinimumSetPercentage',
     '$no_test',
     '$OperatingSystem',
-    '$reformat_full_name',
-    '$reformat_xdxf',
     '$remove_color_tags',
     '$SameTypeSequence',
     '$updateSameTypeSequence',
@@ -100,11 +95,6 @@ our $KindleUnpackLibFolder="/home/mark/git/KindleUnpack/lib";
 our $DumperSuffix = ".Dumper.txt"; # Has to be declared before any call to storeHash or retrieveHash. Otherwise it is undefined, although no error is given.
 
 our $isRealDead = 1; # Some errors should kill the program. However, somtimes you just want to convert.
-
-# Controls manual input: 0 disables.
-our ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
-our $reformat_full_name  = 1 ; # Value 1 demands user input for full_name tag.
-our $reformat_xdxf       = 1 ; # Value 1 demands user input for xdxf tag.
 
 # Controls for debugging.
 our ( $isgenerateXDXFTagBasedVerbose, $isgatherSetsVerbose ) = ( 0, 0 );     # Controls verbosity of tag functions

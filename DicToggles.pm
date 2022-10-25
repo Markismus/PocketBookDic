@@ -22,6 +22,11 @@ $isMakeKoreaderReady_SpanWidth2Style         = 0 ;
 $isMakeKoreaderReady_SpanStyleWidht2Padding  = 0 ;
 $isMakeKoreaderReady_MergeStyles             = 0 ;
 $isChangeTable2Div4Koreader                  = 1 ; # Adds lines to lua-file
+# Controls for reconstructXDXF
+# Controls manual input: 0 disables.
+( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
+$reformat_full_name  = 1 ; # Value 1 demands user input for full_name tag.
+$reformat_xdxf       = 1 ; # Value 1 demands user input for xdxf tag.
 
 # Control variables for the conversion of ABBYY-generated HTML.
 @ABBYY_CSS; # Becomes defined by sub convertABBYY2XDXF

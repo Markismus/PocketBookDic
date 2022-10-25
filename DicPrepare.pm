@@ -31,6 +31,12 @@ our @EXPORT = (
     '$isChangeTable2Div4Koreader',
 
     'reconstructXDXF',
+    '$format',
+    '$lang_from',
+    '$lang_to',
+    '$reformat_full_name',
+    '$reformat_xdxf',
+    
  );
 
 sub cleanseAr{
@@ -525,6 +531,10 @@ sub makeKoreaderReady{
 
     return(split(/$/, $html));}
 
+# Controls manual input: 0 disables.
+our ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
+our $reformat_full_name  = 1 ; # Value 1 demands user input for full_name tag.
+our $reformat_xdxf       = 1 ; # Value 1 demands user input for xdxf tag.
 sub reconstructXDXF{
     # Construct a new xdxf array to prevent converter.exe from crashing.
     ## Initial values
