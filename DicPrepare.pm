@@ -166,8 +166,10 @@ sub cleanseAr{
                 # Split the lines of the definition in separate chunks smaller than 90kB
                 foreach my $line(@def){
                     $loops++;
-                    # debug("\$loops is $loops. \$counter at $counter" );
-                    $concatenation = $definitions[$counter]."\n".$line;
+                    debugVV("\$loops is $loops. \$counter at $counter" );
+                    my $warning_suppressor = '';
+                    if( defined $definitions[$counter] ){ $warning_suppressor = $definitions[$counter]. "\n"; }
+                    $concatenation = $warning_suppressor . $line;
                     if( length(encode('UTF-8', $concatenation)) > $max_article_length ){
                         debugV("Chunk is larger than ",$max_article_length,". Creating another chunk.");
                         chomp $definitions[$counter];
