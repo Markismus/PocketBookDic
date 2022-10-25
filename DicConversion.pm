@@ -435,7 +435,7 @@ sub convertABBYY2XDXF{
                 my $index = 0;
                 my @li_content;
                 foreach( @content ){
-                    debug("[$index] '$_', tag '".$_->tag."'"); $index++;
+                    debugV("[$index] '$_', tag '".$_->tag."'"); $index++;
                     unless( $_->tag eq "li" ){
                         warn "Found unexpected block within ul-block:\n'".asHTML($TagBlock)."'";
                         Die();
