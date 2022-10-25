@@ -556,8 +556,8 @@ sub unEscapeHTMLArray{
 sub unEscapeHTMLString{
     my $String = shift;
     unless( $unEscapeHTML ){ return $String; }
-    $String =~ s~\&lt;~<~sg;
-    $String =~ s~\&gt;~>~sg;
+    $String =~ s~\&lt;~<~sg if 0 ; # Disabled, because it generates problems with HTML-parsing
+    $String =~ s~\&gt;~>~sg if 0 ; # Disabled, because it generates problems with HTML-parsing
     $String =~ s~\&apos;~'~sg;
     $String =~ s~\&amp;~&~sg;
     $String =~ s~\&quot;~"~sg;
