@@ -26,6 +26,9 @@ our @EXPORT = (
     'cleanOuterTags',
 
     'escapeHTMLString',
+    '$HTMLcodes',
+    '$PossibleTags',
+    '$EscapeHTMLCharacters',
 
     'filterXDXFforEntitites',
     'fixPrefixes',
@@ -49,6 +52,8 @@ our @EXPORT = (
 
     'unEscapeHTMLArray',
     'unEscapeHTMLString',
+    '$unEscapeHTML',
+
     'updateLocalPath',
     'updateFullPath',
 
@@ -258,12 +263,23 @@ sub convertNumberedSequencesToChar4Strings{
     info("length html before removeInvalidChars is ".length($UnConverted) );
     $UnConverted = removeInvalidChars( $UnConverted );
     return( $UnConverted);}
+
+our $EscapeHTMLCharacters             = 0;
+# Special characters can be converted to
+# &lt; (<), &amp; (&), &gt; (>), &quot; ("), and &apos; (')
+# However, the HTML escape sequences and tags should not be converted!
+our $PossibleTags = qr~/?(def|mbp|c>|c c="|abr>|ex>|kref>|k>|key|rref|f>|!--|!doctype|a|abbr|acronym|address|applet|area|article|aside|audio|b>|base|basefont|bb|bdo|big|blockquote|body|/?br|button|canvas|caption|center|cite|code|col|colgroup|command|datagrid|datalist|dd|del|details|dfn|dialog|dir|div|dl|dt|em|embed|eventsource|fieldset|figcaption|figure|font|footer|form|frame|frameset|h[1-6]|head|header|hgroup|hr/|html|i>|i |iframe|img|input|ins|isindex|kbd|keygen|label|legend|li|link|map|mark|menu|meta|meter|nav|noframes|noscript|object|ol|optgroup|option|output|p|param|pre|progress|q>|rp|rt|ruby|s>|samp|script|section|select|small|source|span|strike|strong|style|sub|sup|table|tbody|td|textarea|tfoot|th|thead|time|title|tr|track|tt|u>|ul|var|video|wbr)~;
+our $HTMLcodes = qr~(lt;|amp;|gt;|quot;|apos;|\#x?[0-9A-Fa-f]{1,6})~;
 sub escapeHTMLString{
     my $String = shift;
-    $String =~ s~<~\&lt;~sg;
-    $String =~ s~>~\&gt;~sg;
-    $String =~ s~'\&apos;~~sg;
-    $String =~ s~&~\&amp;~sg;
+    unless( $EscapeHTMLCharacters ){ return $String; }
+    # Convert '<' to '&lt;', but not if it's part of a HTML tag.
+    $String =~ s~<(?!/?$PossibleTags[^>]*>)~&lt;~gs;
+    # Convert '>' to '&gt;', but not if it's part of a HTML tag.
+    $String =~ s~(?<!<$PossibleTags[^>]*)>~&gt;~sg;
+    # Convert '&' to '&amp', but not if is part of an HTML escape sequence.
+    $String =~ s~&(?!$HTMLcodes)~&amp;~gs;
+    $String =~ s~'~\&apos;~sg;
     $String =~ s~"~\&quot;~sg;
     return $String;}
 
@@ -526,11 +542,14 @@ sub tidyXMLArray{
 
 sub updateLocalPath{ $LocalPath = join('', $FileName=~ m~^(.+?/)[^/]+$~); }
 sub updateFullPath{ $FullPath = "$BaseDir/$LocalPath"; }
+
+our $unEscapeHTML                     = 0;
 sub unEscapeHTMLArray{
     my $String = unEscapeHTMLString( join('', @_) );
     return( split(/^/, $String) ); }
 sub unEscapeHTMLString{
     my $String = shift;
+    unless( $unEscapeHTML ){ return $String; }
     $String =~ s~\&lt;~<~sg;
     $String =~ s~\&gt;~>~sg;
     $String =~ s~\&apos;~'~sg;

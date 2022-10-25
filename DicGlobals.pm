@@ -17,7 +17,6 @@ our @EXPORT = (
     '$DocType',
     '$DoNotFilterDocType',
     '$DumperSuffix',
-    '$EscapeHTMLCharacters',
     '$FileName',
     '$ForceConvertBlockquote2Div',
     '$ForceConvertNumberedSequencesToChar',
@@ -62,7 +61,6 @@ our @EXPORT = (
     '$reformat_xdxf',
     '$remove_color_tags',
     '$SameTypeSequence',
-    '$unEscapeHTML',
     '$updateSameTypeSequence',
     '$UseXMLTidy',
     
@@ -164,8 +162,6 @@ our $isCodeImageBase64                = 0; # Some dictionaries contain images. E
 our $isConvertGIF2PNG                 = 0; # Creates a dependency on Imagemagick "convert".
 our $isRemoveUnSubstitutedImageString = 1;
 our $isRemoveUnSourcedImageStrings    = 1;
-our $unEscapeHTML                     = 0;
-our $EscapeHTMLCharacters             = 0;
 our $ForceConvertBlockquote2Div       = 0;
 our $isConvertDiv2SpaninHTML2DXDF     = 0;
 our $UseXMLTidy                       = 0; # Enables or disables the use of the subroutine tidyXMLArray. Still experimental, so disable.

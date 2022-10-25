@@ -62,6 +62,12 @@ $isConvertFont2Small         = 0 ;
 $isConvertFont2Span          = 0 ;
 $isConvertMMCFullText2Span   = 1 ;
 
+use DicHelpUtils;
+# Controls escapeHTMLString and unEscapeHTMLString
+$EscapeHTMLCharacters             = 0;
+$unEscapeHTML                     = 0;
+
+
 # Shortcuts to Collection of settings.
 # If you select both settings, they will be ignored.
 our $Just4Koreader   = 0 ;
