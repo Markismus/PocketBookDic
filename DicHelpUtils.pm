@@ -31,7 +31,7 @@ our @EXPORT = (
     'escapeHTMLString',
     '$HTMLcodes',
     '$PossibleTags',
-    '$EscapeHTMLCharacters',
+    '$isEscapeHTMLCharacters',
 
     'filterXDXFforEntitites',
     'fixPrefixes',
@@ -269,7 +269,7 @@ sub convertNumberedSequencesToChar4Strings{
     $UnConverted = removeInvalidChars( $UnConverted );
     return( $UnConverted);}
 
-our $EscapeHTMLCharacters             = 0;
+our $isEscapeHTMLCharacters             = 0;
 # Special characters can be converted to
 # &lt; (<), &amp; (&), &gt; (>), &quot; ("), and &apos; (')
 # However, the HTML escape sequences and tags should not be converted!
@@ -277,7 +277,7 @@ our $PossibleTags = qr~/?(def|mbp|c>|c c="|abr>|ex>|kref>|k>|key|rref|f>|!--|!do
 our $HTMLcodes = qr~(lt;|amp;|gt;|quot;|apos;|\#x?[0-9A-Fa-f]{1,6})~;
 sub escapeHTMLString{
     my $String = shift;
-    unless( $EscapeHTMLCharacters ){ return $String; }
+    unless( $isEscapeHTMLCharacters ){ return $String; }
     # Convert '<' to '&lt;', but not if it's part of a HTML tag.
     $String =~ s~<(?!/?$PossibleTags[^>]*>)~&lt;~gs;
     # Convert '>' to '&gt;', but not if it's part of a HTML tag.
