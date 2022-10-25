@@ -196,6 +196,7 @@ sub convertMobiAltCodes{
     # };
 
     my $xdxf = $_[0]; # Only a string or first entry of array is checked and returned.
+    unless( $isConvertMobiAltCodes ){ return $xdxf; }
     waitForIt("Converting Mobi alt-codes, because isConvertMobiAltCodes = $isConvertMobiAltCodes.");
     if( $xdxf =~ s~\x01~☺~g ){ info("Converted mobi alt-code to '☺'");}
     if( $xdxf =~ s~\x02~☻~g ){ info("Converted mobi alt-code to '☻'");}
@@ -420,7 +421,7 @@ sub removeInvalidChars{
     my $xdxf = $_[0]; # Only a string or first entry of array is checked and returned.
     waitForIt("Removing invalid characters.");
 
-    if( $isConvertMobiAltCodes ){ $xdxf = convertMobiAltCodes( $xdxf ); }
+    $xdxf = convertMobiAltCodes( $xdxf );
 
     my $check = 0 ;
     # U+0000  0   000     Null character  NUL
