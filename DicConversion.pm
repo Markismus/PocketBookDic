@@ -1183,8 +1183,8 @@ sub convertImage2Base64{
                 $ReplacementImageStrings{$imagestring} = $replacement;
             }
             else{
-                if( $isRealDead ){ debug("Can't find $FullPath/$imageName. Quitting."); Die(); }
-                else{ $replacement = ""; }
+                $replacement = ""; 
+                Die("Can't find $FullPath/$imageName. Quitting.");
             }
         }
         s~\Q$imagestring\E~$replacement~;
@@ -1388,8 +1388,7 @@ sub convertRAWML2XDXF{
     }
     unless( @indexentries ){
         warn("No indexentries found in rawml-string. Quitting");
-        debug($rawml);
-        Die();
+        Die($rawml);
         goto DONE; # In case $isRealDead = 0
     }
     else{ info("Found ".scalar @indexentries." indexentries.\n"); }
