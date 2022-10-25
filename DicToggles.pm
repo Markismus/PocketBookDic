@@ -6,14 +6,13 @@ use warnings;
 use strict;
 
 use DicGlobals;
+
 use Dic2Screen;
-use DicConversion;
-use DicPrepare;
 ( $isDebug, $isDebugVerbose, $isDebugVeryVerbose )       = ( 1, 0, 0 );  # Toggles verbosity debug messages
 ( $isInfo, $isInfoVerbose, $isInfoVeryVerbose )          = ( 1, 0, 0 );  # Toggles verbosity info messages
 
-$isManualValidation = 1; # Manually validate OCRed images.
 
+use DicPrepare;
 # Control variable makeKoreaderReady
 # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
 $isMakeKoreaderReady                         = 1 ; 
@@ -28,7 +27,9 @@ $isChangeTable2Div4Koreader                  = 1 ; # Adds lines to lua-file
 $reformat_full_name  = 1 ; # Value 1 demands user input for full_name tag.
 $reformat_xdxf       = 1 ; # Value 1 demands user input for xdxf tag.
 
-# Control variables for the conversion of ABBYY-generated HTML.
+
+use DicConversion;
+# Control variables for convertABBYY2XDXF, the conversion of ABBYY-generated HTML.
 @ABBYY_CSS; # Becomes defined by sub convertABBYY2XDXF
 $isABBYYWordlistNeeded   = 1; # Controls creation of an ABBYYWordlist.txt file.
 $isABBYYAllCleared       = 0; # Controls creation of a hash-file.
@@ -59,6 +60,7 @@ $isABBYConverted         = 0; # Global variable that gets set to 1 if convertABB
     q~pick-nick n.m.~,
 );
 
+# Controls for convertCVStoXDXF
 # Deliminator for CSV files, usually ",",";" or "\t"(tab).
 $CVSDeliminator = ",";
 
@@ -67,10 +69,13 @@ $isConvertFont2Small         = 0 ;
 $isConvertFont2Span          = 0 ;
 $isConvertMMCFullText2Span   = 1 ;
 
+# Controls for convertIMG2Text, the conversion of scanned text images to text.
+$isManualValidation = 1; # Manually validate OCRed images.
+
 use DicHelpUtils;
 # Controls escapeHTMLString and unEscapeHTMLString
-$EscapeHTMLCharacters             = 0;
-$unEscapeHTML                     = 0;
+$EscapeHTMLCharacters             = 1;
+$unEscapeHTML                     = 1;
 
 
 # Shortcuts to Collection of settings.
