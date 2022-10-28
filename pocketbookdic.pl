@@ -1,6 +1,5 @@
 #!/bin/perl
 use strict;
-# use autodie; # Does not get along with pragma 'open'.
 use utf8;
 use open IO => ':utf8';
 use open ':std', ':utf8';
