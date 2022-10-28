@@ -130,7 +130,7 @@ sub convertABBYY2XDXF{
     # tree 'HTML::TreeBuilder=HASH(0x562d600afcf0)'
 
     unless( $tree =~ m~HTML::TreeBuilder=HASH~ ){
-        unlink FileName . '.tree';
+        unlink $FileName . '.tree';
         Die("\$tree not a HTML::TreeBuilder hash. \$tree='$tree'\n Deleted old tree-file. Rerun script.");
     }
     store( $tree, $FileName.'.tree' );
