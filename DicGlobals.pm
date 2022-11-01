@@ -71,7 +71,7 @@ our $KindleUnpackLibFolder="/home/mark/git/KindleUnpack/lib";
 our $DumperSuffix = ".Dumper.txt"; # Has to be declared before any call to storeHash or retrieveHash. Otherwise it is undefined, although no error is given.
 
 # Controls for debugging.
-our $isTestingOn = 1; # Toggles intermediary output of xdxf-array.
+our $isTestingOn = 0; # Toggles intermediary output of xdxf-array.
 our ($cycle_dotprinter, $cycles_per_dot) = (0 , 300); # A green dot is printed achter $cycles_per_dot ar's have been processed.
 
 # Controls for Stardict dictionary creation and Koreader stardict compatabiltiy
