@@ -177,30 +177,47 @@ sub convertABBYY2XDXF{
         # If it returns 1 value, it is just the given html-string.
         infoVV("Entering checkAddedHTML4StartArticle");
         my $html = shift;
+
+        # Sometimes ABBY doesn't generate a new paragraph, but breaks the current to start a new lemma.
+        # So the criterium is a <br>-tag followed by a span-bold.
         # <p><span class="font0" style="font-weight:bold;">unipolaire </span><span class="font2">[ynipoler] adj. (de wm-2etde<br></span><span class="font2" style="font-style:italic;">polaire ;</span><span class="font2"> 1845, Bescherelle, au sens 1 ; sens 2,<br>1877, Littré). </span><span class="font0" style="font-weight:bold;">1. </span><span class="font2">Qui n’a qu’un pôle élec-<br>trique : </span><span class="font2" style="font-style:italic;">Appareil, interrupteur unipolaire.<br></span><span class="font0" style="font-weight:bold;">|| 2. </span><span class="font2">Se dit d’un neurone dont le corps cel-<br>lulaire porte un seul prolongement, comme<br>les neurones en T des ganglions spinaux,<br></span><span class="font0" style="font-weight:bold;">unique </span><span class="font2">[ynik] adj. (lat. </span><span class="font2" style="font-style:italic;">unicus,</span><span class="font2"> unique,<br>seul, sans égal, de </span><span class="font2" style="font-style:italic;">unus,</span><span class="font2"> un [seul] ; fin du<br>xv<sup>e</sup> s., Molinet, au sens 1 </span><span class="font2" style="font-style:italic;">[seul et unique,<br></span><span class="font2">1751, </span><span class="font2" style="font-style:italic;">Encyclopédie —</span><span class="font2"> discours prélimi-<br>naire; </span><span class="font2" style="font-style:italic;">...fils... unique,</span><span class="font2"> 1668, Molière] ; sens2,<br>1876, Larousse [art. </span><span class="font2" style="font-style:italic;">voie —</span><span class="font2"> sur une route,<br>xx<sup>e</sup> s. ; </span><span class="font2" style="font-style:italic;">sens unique,</span><span class="font2"> janv. 1914, </span><span class="font2" style="font-style:italic;">la Science et<br>la Vie,</span><span class="font2"> p. 31] ; sens 3,1640, Corneille ; sens 4,<br>av. 1696, La Bruyère ; sens 5,1758, Diderot).</span></p>
-        # Multiple strings match.
         my @BreakBoldSpans = $html =~ m~(<br[^>]*></span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
-        if( scalar @BreakBoldSpans == 0 ){ infoVV("No break followed by bold span found."); return $html; }
+        if( scalar @BreakBoldSpans == 0 ){ infoVV("No break followed by bold span found."); }
         else{
             infoV("Found break followed by span tag, that has bold styling.");
             infoV("\@BreakBoldSpans:");
             foreach(@BreakBoldSpans){debug_t("'$_'");}
         }
-        foreach my $PossibleKeySpan( @BreakBoldSpans ){
+
+        # However, sometimes it is just a bold-span after a comma. I am going to assume that the misinterpreted '.' forces ABBY to continue the paragraph.
+        # So the criterium is a ',' followed by a span-bold
+        # If a keyword is found, the comma should be corrected to a point.
+        # <p><span class="font20" style="font-weight:bold;">♦ En guise de </span><span class="font29">loc. prép. (v. 1050, </span><span class="font29" style="font-style:italic;">Vie de saint Alexis,</span><span class="font29"> au sens de « à la façon de » ; sens actuel, 1651, Scarron). Pour servir de, pour jouer le même rôle que : </span><span class="font29" style="font-style:italic;">On étend des haïks en guise de nappes</span><span class="font29"> (Fromentin), </span><span class="font4" style="font-weight:bold;">guitare </span><span class="font29">[gitar] n. f. (anc. provenç. </span>
+        my @CommaBoldSpans = $html =~ m~(,\s*</span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
+        if( scalar @CommaBoldSpans == 0 ){ infoVV("No comma followed by bold span found."); }
+        else{
+            infoV("Found comma followed by span tag, that has bold styling.");
+            infoV("\@CommaBoldSpans:");
+            foreach(@CommaBoldSpans){debug_t("'$_'");}
+        }
+
+        foreach my $PossibleKeySpan( @BreakBoldSpans, @CommaBoldSpans  ){
             infoVV("PossibleKeySpan: '$PossibleKeySpan'");
             $html =~ m~\Q$PossibleKeySpan\E~s;
-            my $BeforeBreak = $`.'</span>';
-            debug_t("BeforeBreak: '$BeforeBreak'");
+            # my $BeforeBreak = $`.'</span>';
+            my $BeforeBreak = $`;
             my $AfterBreak = $';
+            if( $PossibleKeySpan =~ s~^<br[^>]*></span>~~ ){$BeforeBreak .= '</span>'; }
+            elsif( $PossibleKeySpan =~ s~^,\s*</span>~~ ){  $BeforeBreak .= '.</span>'; }
+            debug_t("BeforeBreak: '$BeforeBreak'");
             debug_t("AfterBreak: '$AfterBreak'");
-            $PossibleKeySpan =~ s~^<br[^>]*></span>~~;
             debug_t("PossibleKeySpan: '$PossibleKeySpan'");
             unless( $PossibleKeySpan =~ m~^<span[^>]+>(?<key>((?!</?span>).)+)</span>~s ){ warn "Regex didn't work for:'$PossibleKeySpan'"; next; }
             my $KeyAfterBreak = cleanKey($+{key});
             infoVV("Possible key after break is '$KeyAfterBreak'");
             if( followsKeywordinPlainText( stripTags( $AfterBreak ) ) ){
                 # Found another keyword.
-                infoV("Found another keyword '$KeyAfterBreak'. Returning three values");
+                info("Found another keyword '$KeyAfterBreak'. Returning three values");
                 return ( $BeforeBreak, $KeyAfterBreak, $PossibleKeySpan.$AfterBreak );
             }
             else{
@@ -321,9 +338,8 @@ sub convertABBYY2XDXF{
         return $PossibleKey;
     }
     sub cleanKey{
-        my $Key = shift;
+        my $Key = $_[0];
         $Key =~ s~<br ?/?>~~gs;
-        $Key =~ s~\([^)]*\)?~~g;
         $Key =~ s~\[[^\]]*\]~~g;
         $Key =~ s~\]\s*$~~g;
         $Key =~ s~\)$~~g;
@@ -332,12 +348,22 @@ sub convertABBYY2XDXF{
         $Key =~ s~\s+$~~g;
         $Key =~ s~^\s+~~g;
         $Key =~ s~,+$~~g;
+        $Key =~ s~^\^~~g;
+        $Key =~ s~^\*~~g;
+        # Changes (imitable in limitable, but will not change (K) into lK)
+        $Key =~ s~^\(([^)]+)$~l$1~;
+        # Sometimes causes entire keys to be deleted, e.g. <span class="font4" style="font-weight:bold;">(K) , </span>
+        # $Key =~ s~\([^)]*\)?~~g;
         # Remove numerical prefixes, so that reconstructXDXF can put the descriptions in the same article.
         $Key =~ s~^\d\.? ~~g;
         $Key =~ s~(\w+)(n\.(m\.)?)$~$1 $2~;
-
-
-        return $Key;
+        # Correct OCR, e.g. cambré» e
+        $Key =~ s~» ~, ~;
+        $Key =~ s~<sup>((?!</?sup>).)+</sup>~*~;
+        $Key =~ s~<sub>((?!</?sub>).)+</sub>~~;
+        $Key =~ s~<a[^>]*>((?:(?!</?a[^>]*>).)*)</a>~$1~g;
+        if( $Key eq '' ){ return $_[0]; }
+        else{ return $Key; }
     }
     our %PauseFor;
     foreach( @ABBYYConverterPauseFor ){ $PauseFor{ $_ } =  1; }
