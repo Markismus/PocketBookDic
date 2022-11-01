@@ -398,6 +398,10 @@ sub convertABBYY2XDXF{
         );}
     sub pushArticle{ if( defined $article ){
         $article .= '</def></ar>'."\n";
+        # Allow no tags in Possible key.
+        unless( $article =~ m~<k>(?<key>.+)</k>~ ){ Die("regex doesn't work for '$article'"); }
+        my $Key = $+{"key"};
+        if($Key =~ m~[<>]+~){ Die( "'<'or '>' found in key '$Key'."); }
         infoV("Pushing article '$article'");
         push @articles, $article;
         $article = undef; } }
@@ -577,6 +581,7 @@ sub convertABBYY2XDXF{
                             addArticle( $TagBlock );
                             next TAGBLOCK;
                         }
+                        unless( defined $PossibleKey and $PossibleKey ne '' ){ Die( "Possible key is not defined are empty for '$asHtml" ); }
                         my $CorrectMissingBracket = 0;
                         my $temp = undef;
                         my $SecondKey = undef;
