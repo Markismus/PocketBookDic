@@ -168,7 +168,11 @@ sub convertABBYY2XDXF{
             debug("'$content'");
             return( $content );
         }
-        return( removeBreakTag( $content->as_HTML('<>&', "    ", {}) ) );
+        return(
+            # removeBreakTag(
+                $content->as_HTML('<>&', "    ", {})
+            # )
+        );
     }
     sub checkAddedHTML4StartArticle{
         # Usage: @checks = checkAddedHTML4StartArticle( $html );
@@ -177,14 +181,22 @@ sub convertABBYY2XDXF{
         # If it returns 1 value, it is just the given html-string.
         infoVV("Entering checkAddedHTML4StartArticle");
         my $html = shift;
-
+        infoVV("noshorthtml given:\n$html");
         # Sometimes ABBY doesn't generate a new paragraph, but breaks the current to start a new lemma.
         # So the criterium is a <br>-tag followed by a span-bold.
         # <p><span class="font0" style="font-weight:bold;">unipolaire </span><span class="font2">[ynipoler] adj. (de wm-2etde<br></span><span class="font2" style="font-style:italic;">polaire ;</span><span class="font2"> 1845, Bescherelle, au sens 1 ; sens 2,<br>1877, Littré). </span><span class="font0" style="font-weight:bold;">1. </span><span class="font2">Qui n’a qu’un pôle élec-<br>trique : </span><span class="font2" style="font-style:italic;">Appareil, interrupteur unipolaire.<br></span><span class="font0" style="font-weight:bold;">|| 2. </span><span class="font2">Se dit d’un neurone dont le corps cel-<br>lulaire porte un seul prolongement, comme<br>les neurones en T des ganglions spinaux,<br></span><span class="font0" style="font-weight:bold;">unique </span><span class="font2">[ynik] adj. (lat. </span><span class="font2" style="font-style:italic;">unicus,</span><span class="font2"> unique,<br>seul, sans égal, de </span><span class="font2" style="font-style:italic;">unus,</span><span class="font2"> un [seul] ; fin du<br>xv<sup>e</sup> s., Molinet, au sens 1 </span><span class="font2" style="font-style:italic;">[seul et unique,<br></span><span class="font2">1751, </span><span class="font2" style="font-style:italic;">Encyclopédie —</span><span class="font2"> discours prélimi-<br>naire; </span><span class="font2" style="font-style:italic;">...fils... unique,</span><span class="font2"> 1668, Molière] ; sens2,<br>1876, Larousse [art. </span><span class="font2" style="font-style:italic;">voie —</span><span class="font2"> sur une route,<br>xx<sup>e</sup> s. ; </span><span class="font2" style="font-style:italic;">sens unique,</span><span class="font2"> janv. 1914, </span><span class="font2" style="font-style:italic;">la Science et<br>la Vie,</span><span class="font2"> p. 31] ; sens 3,1640, Corneille ; sens 4,<br>av. 1696, La Bruyère ; sens 5,1758, Diderot).</span></p>
+        ## Break is removed prior to running checkAddedHTML4StartArticle due to asHTML
+        ## htm-file content
+        # <span class="font20" style="font-weight:bold;"> : 3 </span><span class="font29" style="font-style:italic;">calomnie, fiel; 4 noirceur,perfidie.<br></span><span class="font4" style="font-weight:bold;">venir </span><span class="font29">[vonir] v. intr. (lat. </span>
+        ## Given to checkAddedHTML4StartArticle
+        # <span class="font20" style="font-weight:bold;"> : 3 </span><span class="font29" style="font-style:italic;">calomnie, fiel; 4 noirceur,perfidie. </span><span class="font4" style="font-weight:bold;">venir </span><span class="font29">[vonir] v. intr. (lat. </span>
         my @BreakBoldSpans = $html =~ m~(<br[^>]*></span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
         if( scalar @BreakBoldSpans == 0 ){ infoVV("No break followed by bold span found."); }
         else{
-            infoV("Found break followed by span tag, that has bold styling.");
+            my $NumberOfBreaks = scalar @BreakBoldSpans;
+            my $Break = "break";
+            $Break .= 's' if $NumberOfBreaks > 1;
+            infoV("Found $NumberOfBreaks $Break followed by span tag, that has bold styling.");
             infoV("\@BreakBoldSpans:");
             foreach(@BreakBoldSpans){debug_t("'$_'");}
         }
@@ -196,7 +208,10 @@ sub convertABBYY2XDXF{
         my @CommaBoldSpans = $html =~ m~(,\s*</span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
         if( scalar @CommaBoldSpans == 0 ){ infoVV("No comma followed by bold span found."); }
         else{
-            infoV("Found comma followed by span tag, that has bold styling.");
+            my $NumberOfBreaks = scalar @CommaBoldSpans;
+            my $Break = "comma";
+            $Break .= '\'s' if $NumberOfBreaks > 1;
+            infoV("Found $NumberOfBreaks $Break followed by span tag, that has bold styling.");
             infoV("\@CommaBoldSpans:");
             foreach(@CommaBoldSpans){debug_t("'$_'");}
         }
@@ -221,7 +236,7 @@ sub convertABBYY2XDXF{
                 return ( $BeforeBreak, $KeyAfterBreak, $PossibleKeySpan.$AfterBreak );
             }
             else{
-                debug_t("No keyword found");
+                info_t("No keyword found");
                 debug_t("Plain text after break:\n'".stripTags( $AfterBreak )."'");
             }
         }
