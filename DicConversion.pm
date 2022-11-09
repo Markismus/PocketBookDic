@@ -219,6 +219,7 @@ sub convertABBYY2XDXF{
             foreach(@CommaBoldSpans){debug_t("'$_'");}
         }
 
+
         foreach my $PossibleKeySpan( @BreakBoldSpans, @CommaBoldSpans  ){
             infoVV("PossibleKeySpan: '$PossibleKeySpan'");
             $html =~ m~\Q$PossibleKeySpan\E~s;
@@ -247,6 +248,7 @@ sub convertABBYY2XDXF{
     }
     sub checkExtraForms{
         my $PossibleKey = shift;
+        my $html = asHTML( shift );
         if( $PossibleKey =~ m~,~){
             $PossibleKey = $`;
             my $ExtraForm = cleanKey($');
@@ -353,6 +355,32 @@ sub convertABBYY2XDXF{
                 }
             }
         }
+
+        # Sometimes the extra forms are in different spans with for instance bold styling.
+        my @CommaBoldSpansPrecededByBracket = $html =~ m~(\]\s{0,20},\s*</span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
+        if( @CommaBoldSpansPrecededByBracket > 0 ){
+            foreach my $CommaBoldSpansPrecededByBracket( @CommaBoldSpansPrecededByBracket ){
+                $CommaBoldSpansPrecededByBracket =~ s~\]\s{0,20},\s*</span>~~;
+                infoVV("CommaBoldSpansPrecededByBracket: '$CommaBoldSpansPrecededByBracket'");
+                $html =~ m~\Q$CommaBoldSpansPrecededByBracket\E~s;
+                my $AfterBreak = $';
+                debug_t("noshortAfterBreak: '$AfterBreak'");
+                unless( $CommaBoldSpansPrecededByBracket =~ m~^<span[^>]+>(?<key>((?!</?span>).)+)</span>~s ){ warn "Regex didn't work for:'$CommaBoldSpansPrecededByBracket'"; next; }
+                my $ExtraFrom = cleanKey($+{key});
+                infoVV("Possible extra form after break is '$ExtraFrom'");
+                if( followsKeywordinPlainText( stripTags( $AfterBreak ) ) ){
+                    # Found another form.
+                    info("Found another form '$ExtraFrom' for '$PossibleKey'.");
+                    pushArticle();
+                    pushReferenceArticle( $ExtraFrom, $PossibleKey );
+                }
+                else{
+                    info_t("No other form found");
+                    debug_t("Plain text after break:\n'".stripTags( $AfterBreak )."'");
+                }
+            }
+        }
+
         return $PossibleKey;
     }
     sub cleanKey{
@@ -670,7 +698,7 @@ sub convertABBYY2XDXF{
                                     die;
                                 }
                             }
-                            $PossibleKey = checkExtraForms( $PossibleKey );
+                            $PossibleKey = checkExtraForms( $PossibleKey, $TagBlock );
                             setArticle( $PossibleKey, $TBaHtml );
                             if( exists $PauseFor{ $PossibleKey } ){
                                 debug("Article: '$article'");
@@ -714,8 +742,8 @@ sub convertABBYY2XDXF{
                             my $SecondKey = cleanKey( $+{"keysecond"} );
                             $SecondKey =~ s~\s*\[\s*$~~;
                             pushArticle();
-                            $PossibleKey = checkExtraForms( $PossibleKey );
-                            $SecondKey = checkExtraForms( $SecondKey );
+                            $PossibleKey = checkExtraForms( $PossibleKey, $TagBlock );
+                            $SecondKey = checkExtraForms( $SecondKey, $TagBlock );
                             my $TBaHtml = asHTML( $TagBlock );
                             if( $CorrectMissingBracket ){
                                 # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
@@ -786,9 +814,9 @@ sub convertABBYY2XDXF{
                             $ThirdKey = cleanKey( $ThirdKey );
                             $ThirdKey =~ s~\s*\[\s*$~~;
                             pushArticle();
-                            $PossibleKey = checkExtraForms( $PossibleKey );
-                            $SecondKey = checkExtraForms( $SecondKey );
-                            $ThirdKey = checkExtraForms( $ThirdKey );
+                            $PossibleKey = checkExtraForms( $PossibleKey, $TagBlock );
+                            $SecondKey = checkExtraForms( $SecondKey, $TagBlock );
+                            $ThirdKey = checkExtraForms( $ThirdKey, $TagBlock );
                             my $TBaHtml = asHTML( $TagBlock );
                             if( $CorrectMissingBracket ){
                                 # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
