@@ -569,8 +569,10 @@ sub reconstructXDXF{
     if( $dict_xdxf_reconstructed !~ s~\.[^\.]+$~_reconstructed\.xdxf~ ){ debug("Filename substitution did not work for : \"$dict_xdxf_reconstructed\""); Die(); }
     if( -e $dict_xdxf_reconstructed ){
         my @xdxf_reconstructed = file2Array($dict_xdxf_reconstructed);
-        my $xdxf_reconstructed = join('', @xdxf_reconstructed[0..20]);
-        debugV("First 20 lines of xdxf_reconstructed:\n", $xdxf_reconstructed);
+        my $max_lines = 20;
+        if( scalar @xdxf < $max_lines ){ $max_lines = scalar @xdxf };
+        my $xdxf_reconstructed = join('', @xdxf_reconstructed[0..$max_lines]);
+        debugV("First $max_lines lines of xdxf_reconstructed:\n", $xdxf_reconstructed);
         #<xdxf lang_from="fr" lang_to="nl" format="visual">
         if( $xdxf_reconstructed =~ m~<xdxf lang_from="(?<lang_from>\w+)" lang_to="(?<lang_to>\w+)" format="visual">~ ){
             $lang_from = $+{lang_from};
