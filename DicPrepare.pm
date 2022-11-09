@@ -281,10 +281,15 @@ sub loadXDXF{
             $FileName =~ m~^(?<filename>((?!\.azw3?).)+)\.azw3?$~ or
             $FileName =~ m~^(?<filename>((?!\.html?).)+)\.html?$~    ){
         # Use full path and filename
+        my $DictionaryName = $+{"filename"};
         my $InputFile = "$BaseDir/$FileName";
-        my $OutputFolder = substr($InputFile, 0, length($InputFile)-5);
-        unless( $OutputFolder =~ m~([^/]+)$~ ){ warn "Couldn't match dictionary name for '$OutputFolder'" ; Die(); }
-        my $DictionaryName = $1;
+        my $OutputFolder = "$BaseDir/$DictionaryName";
+        $InputFile =~ s~//~/~g;
+        $OutputFolder =~ s~//~/~g;
+        debug_t("DictionaryName at ".__LINE__." is '$DictionaryName'");
+        unless(defined $DictionaryName and $DictionaryName ne ''){ Die("No capture for \$+{filename}.");}
+        unless( $DictionaryName =~ s~^.+/~~ ){ Die("Couldn't remove path from dictionary name for '$DictionaryName'"); }
+
         my $HTMLConversion = 0;
         my $RAWMLConversion = 0;
         if( $FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ or
@@ -292,12 +297,12 @@ sub loadXDXF{
 
             # Checklist
             if ($OperatingSystem eq "linux"){ debugV("Converting mobi to html on Linux is possible.") }
-            else{ debug("Not Linux, so the script can't convert mobi-format. Quitting!"); die; }
+            else{ Die("Not Linux, so the script can't convert mobi-format. Quitting!"); }
             my $python_version = `python --version`;
             if(  substr($python_version, 0,6) eq "Python"){
                 debug("Found python responding as expected.");
             }
-            else{ debug("Python binary not working as expected/not installed. Quitting!"); die; }
+            else{ Die("Python binary not working as expected/not installed. Quitting!"); }
 
             # Conversion mobi to html
             if( -e "$OutputFolder/mobi7/$DictionaryName.html" ){
@@ -376,7 +381,8 @@ sub loadXDXF{
             }
         }
         else{debug('No prior dictionary reconstructed.');}
-        $FileName="$LocalPath/$DictionaryName".".xdxf";
+        $FileName = "$LocalPath/$DictionaryName".".xdxf";
+        debug_t("Filename for xdxf-file set to '$FileName'");
         # Write it to disk so it hasn't have to be done again.
         array2File($FileName, @xdxf);
         # debug(@xdxf); # Check generated @xdxf
