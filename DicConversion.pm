@@ -205,7 +205,10 @@ sub convertABBYY2XDXF{
         # So the criterium is a ',' followed by a span-bold
         # If a keyword is found, the comma should be corrected to a point.
         # <p><span class="font20" style="font-weight:bold;">♦ En guise de </span><span class="font29">loc. prép. (v. 1050, </span><span class="font29" style="font-style:italic;">Vie de saint Alexis,</span><span class="font29"> au sens de « à la façon de » ; sens actuel, 1651, Scarron). Pour servir de, pour jouer le même rôle que : </span><span class="font29" style="font-style:italic;">On étend des haïks en guise de nappes</span><span class="font29"> (Fromentin), </span><span class="font4" style="font-weight:bold;">guitare </span><span class="font29">[gitar] n. f. (anc. provenç. </span>
-        my @CommaBoldSpans = $html =~ m~(,\s*</span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
+        # However, sometimes it's just another form:
+        # <span class="font4" style="font-weight:bold;">1.</span><span class="font4" style="font-weight:bold;"> que </span><span class="font29">[ka], </span><span class="font4" style="font-weight:bold;">qu* </span><span class="font29">[k (devant voyelle)] conj.<br>(lat. </span>
+        # So skip if the comma is preceded by ']' and spaces: (?:(?<!\]\s{0,20}),)
+        my @CommaBoldSpans = $html =~ m~((?:(?<!\]\s{0,20}),)\s*</span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
         if( scalar @CommaBoldSpans == 0 ){ infoVV("No comma followed by bold span found."); }
         else{
             my $NumberOfBreaks = scalar @CommaBoldSpans;
