@@ -377,6 +377,7 @@ sub convertABBYY2XDXF{
         $Key =~ s~(\w+)(n\.(m\.)?)$~$1 $2~;
         # Correct OCR, e.g. cambré» e
         $Key =~ s~» ~, ~;
+        $Key =~ s~\*$~'~;
         $Key =~ s~<sup>((?!</?sup>).)+</sup>~*~;
         $Key =~ s~<sub>((?!</?sub>).)+</sub>~~;
         $Key =~ s~<a[^>]*>((?:(?!</?a[^>]*>).)*)</a>~$1~g;
