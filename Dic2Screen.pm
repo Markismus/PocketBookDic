@@ -122,9 +122,9 @@ sub printYellow  { print color('yellow')    if $OperatingSystem eq "linux"; prin
 
 sub shortenStrings4Debug{
     my $String = join('', @_);
-    if( $_[0] =~ m~no short~i or 
+    if( $String =~ s~^no\s*short~~i or 
         length($String)<2000 ){ 
-        return @_; 
+        return $String; 
     }
     return( substr($String, 0, 1000)."\n".( ( "." x 80 )."\n") x 3 . substr($String, -1000, 1000) );}
 
