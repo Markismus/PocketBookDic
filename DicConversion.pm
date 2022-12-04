@@ -1056,9 +1056,11 @@ sub convertHTML2XDXF{
         $html = convertIMG2Text( $html );
         if( $isTestingOn ){
             my $ConvertedIMG2TextHTML = $FileName;
-            debug_t( $FileName );
-            unless( $ConvertedIMG2TextHTML =~ s~html$~test.html~ ){ warn "Regex for filename for test.html does not match."; Die(); }
-            string2File( $ConvertedIMG2TextHTML, $html );
+            $ConvertedIMG2TextHTML =~ m~/([^/]+)$~;
+            $ConvertedIMG2TextHTML = $1;
+            debug_t( "Filename at ".__LINE__." is '$FileName'" );
+            unless( $ConvertedIMG2TextHTML =~ s~(xdxf|html)$~test.html~ ){ warn "Regex for filename for test.html does not match."; Die(); }
+            string2File( $BaseDir."/".$ConvertedIMG2TextHTML, $html );
         }
     }
 
