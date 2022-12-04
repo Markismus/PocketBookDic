@@ -42,7 +42,7 @@ our @EXPORT = (
     '$lang_to',
     '$reformat_full_name',
     '$reformat_xdxf',
-    
+
  );
 
 our $DebugKeyWordCleanseAr = '<k>φλέως</k>'; # In cleanseAr only extensive debug messages for this entry are shown. E.g. '<k>φλέως</k>'
@@ -404,67 +404,108 @@ sub loadXDXF{
         system($UnzipCommand);
         debug("\"$SubDir/*.html\"");
 
-        my @html = glob("$SubDir/*.html");
-        debugV('@html = ', @html);
-        @xdxf = @xdxf_start;
-        foreach my $HTMLFile( @html ){
-            my $Content = join('', file2Array($HTMLFile) );
-            # <style type="text/css">
-            # p{text-align:left;text-indent:0;margin-top:0;margin-bottom:0;}
-            # .ww{color:#FFFFFF;}
-            # .gag{font-weight:bold;}
-            # .gc{font-weight:bold;text-decoration:underline;}
-            # .g4{color:#115349;}
-            # .g5{color:#3B3B3B;}
-            # .g6_s{color:#472565;}
-            # .gm{font-style:italic;}
-            # .gaa_gj{font-weight:bold;}
-            # .gh{font-weight:bold;}
-            # </style>
-            my (@Classes, %Classes);
-            if( $Content =~ m~<style type="text/css">(?<styleblock>(?!</style>).+)</style>~s ){
-                my $StyleBlock = $+{styleblock};
-                debugV("StyleBlock is \n$StyleBlock");
-                @Classes = $StyleBlock =~ m~\.([^\{]+)\{(?<style>[^\}]+)\}~sg;
-                while( @Classes){
-                    my $Class = shift @Classes;
-                    my $Style = shift @Classes;
-                    $Class = "class=\"$Class\"";
-                    $Style = "style=\"$Style\"";
-                    debugV("Class '$Class' is style '$Style'");
-                    $Classes{$Class} =  $Style;
-                }
-            }
-            else{ debug("No StyleBlock found.");}
-            foreach my $Class( keys %Classes){
-                $Content =~ s~\Q$Class\E~$Classes{$Class}~sg;
-            }
-            debugV($Content);
-            my @Paragraphs = $Content =~ m~(<p[^>]*>(?:(?!</p>).)+</p>)~sg;
-            foreach(@Paragraphs){
-                debugV($_);
-            }
-            debugV("number of paragraphs in '$HTMLFile' is ", scalar @Paragraphs);
-            my $isLoopDebugging = 0;
-            while(@Paragraphs){
-                my $Key = shift @Paragraphs;
-                my $Def = shift @Paragraphs;
-                # <p style="color:#FFFFFF;"><sub>q  32 chars
-                # </sub></p>            10 chars
-                $Key = substr( $Key, 32, length($Key) - 42);
-                # debug('$Key is ', $Key);
-                # debug('$Def is ', $Def);
-                push @xdxf, "<ar><head><k>$Key</k></head><def>$Def</def></ar>\n";
-                debug("Pushed <ar><head><k>$Key</k></head><def>$Def</def></ar>") if $isLoopDebugging;
-            } # Finished all Paragraphs
-
-        } # Finished all HTMLFiles
-        push @xdxf, "</xdxf>\n";
         my $XDXFfile = $DictionaryName;
         $XDXFfile =~ s~epub$~xdxf~;
-        array2File($XDXFfile, @xdxf);
 
-        $FileName = $LocalPath.$XDXFfile;
+        $FileName = $LocalPath.$SubDir."/".$XDXFfile;
+        updateLocalPath();
+        updateFullPath();
+
+        @xdxf = @xdxf_start;
+        my @html = glob("$SubDir/*.html");
+        my $Content;
+        sub isHTMLSimple{
+            my $html = shift;
+            my $StartLenght = length( $html );
+            my $MinimumFraction = 0.2;
+            # As the simple HTML conversion assumes only style-tags and consecutive p-blocks, we can remove them.
+            $html =~ s~<style[^>]*>~~sg;
+            while( $html =~ s~<p>((?!</?p>).)*</p>~~sg ){ 1; } # Remove unnested p-blocks.
+            # The remainder should be small
+            my $EndLength   = length( $html );
+            my $Fraction = $EndLength / $StartLenght;
+            if ( $Fraction > $MinimumFraction ){
+                # Too much remaining
+                info("Assuming simple HTML the remaining fraction ($Fraction) is too high, so that fails.");
+                return 0;
+            }
+            else{ return 1; }
+        }
+        foreach my $HTMLFile( @html ){
+            $HTMLFile = decode_utf8($HTMLFile);
+            info("'$HTMLFile'");
+            $Content = join('', file2Array($HTMLFile) );
+            if( isHTMLSimple( $Content) ){
+                # A very simple conversion for an epub consisting only of <style>-tags and p-blocks
+
+                # <style type="text/css">
+                # p{text-align:left;text-indent:0;margin-top:0;margin-bottom:0;}
+                # .ww{color:#FFFFFF;}
+                # .gag{font-weight:bold;}
+                # .gc{font-weight:bold;text-decoration:underline;}
+                # .g4{color:#115349;}
+                # .g5{color:#3B3B3B;}
+                # .g6_s{color:#472565;}
+                # .gm{font-style:italic;}
+                # .gaa_gj{font-weight:bold;}
+                # .gh{font-weight:bold;}
+                # </style>
+                my (@Classes, %Classes);
+                if( $Content =~ m~<style type="text/css">(?<styleblock>(?!</style>).+)</style>~s ){
+                    my $StyleBlock = $+{styleblock};
+                    debugV("StyleBlock is \n$StyleBlock");
+                    @Classes = $StyleBlock =~ m~\.([^\{]+)\{(?<style>[^\}]+)\}~sg;
+                    while( @Classes){
+                        my $Class = shift @Classes;
+                        my $Style = shift @Classes;
+                        $Class = "class=\"$Class\"";
+                        $Style = "style=\"$Style\"";
+                        debugV("Class '$Class' is style '$Style'");
+                        $Classes{$Class} =  $Style;
+                    }
+                }
+                else{ debug("No StyleBlock found in '$DictionaryName'.");}
+                foreach my $Class( keys %Classes){
+                    $Content =~ s~\Q$Class\E~$Classes{$Class}~sg;
+                }
+                debugV($Content);
+                my @Paragraphs = $Content =~ m~(<p[^>]*>(?:(?!</p>).)+</p>)~sg;
+                foreach(@Paragraphs){
+                    debugV($_);
+                }
+                debugV("number of paragraphs in '$DictionaryName' is ", scalar @Paragraphs);
+                my $isLoopDebugging = 0;
+                while(@Paragraphs){
+                    my $Key = shift @Paragraphs;
+                    my $Def = shift @Paragraphs;
+                    # <p style="color:#FFFFFF;"><sub>q  32 chars
+                    # </sub></p>            10 chars
+                    $Key = substr( $Key, 32, length($Key) - 42);
+                    # debug('$Key is ', $Key);
+                    # debug('$Def is ', $Def);
+                    push @xdxf, "<ar><head><k>$Key</k></head><def>$Def</def></ar>\n";
+                    debug("Pushed <ar><head><k>$Key</k></head><def>$Def</def></ar>") if $isLoopDebugging;
+                } # Finished all Paragraphs
+
+                push @xdxf, "</xdxf>\n";
+            } # Finished with simple HTML
+            else{
+                my $encoding = "UTF-8";
+                my @xdxf_entries = convertHTML2XDXF( $encoding, ($Content) );
+                my $start_entries = 0;
+                my $end_entries = $#xdxf_entries;
+                if( $xdxf_entries[0] eq $xdxf_start[0] ){
+                    # convertHTML2XDXF returned array with @xdxf_start at the beginning;
+                    $start_entries = scalar @xdxf_start;
+                }
+                if( $xdxf_entries[-1]  eq $lastline_xdxf ){
+                    #convertHTML2XDXF returned with $lastline_xdxf at the end.
+                    $end_entries--;
+                }
+                push @xdxf, @xdxf_entries[$start_entries..$end_entries];
+            }
+        }
+        array2File($XDXFfile, @xdxf);
 
         debugV("Current directory was ", `pwd`);
         debugV("Returning to basedir '$BaseDir'.");
@@ -477,7 +518,7 @@ sub loadXDXF{
 
 # Control variable makeKoreaderReady
 # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
-our $isMakeKoreaderReady                         = 1 ; 
+our $isMakeKoreaderReady                         = 1 ;
 our $isMakeKoreaderReady_SpanColor2Style         = 0 ;
 our $isMakeKoreaderReady_SpanWidth2Style         = 0 ;
 our $isMakeKoreaderReady_SpanStyleWidht2Padding  = 0 ;
