@@ -1990,7 +1990,7 @@ sub generateXDXFTagBased{
             my $set = $sets[$j];
             debug_t( "Loop SET, index $j: ".Dumper($set) );
             PAIR: for( my $i = 2; $i< scalar @{$set}; $i+=2 ){
-                my $regex = "($$set[$i](?:(?!(?:$$set[$i]|$$set[0])).)*$$set[0])";
+                my $regex = qr~(\Q$$set[$i]\E(?:(?!(?:\Q$$set[$i]\E|\Q$$set[0]\E)).)*\Q$$set[0]\E)~s;
                 debug_t("regex :".$regex);
                 debug_t("length rawml used: ". length $rawml );
                 debugVV(substr( $rawml, 0, 2000 ) );
@@ -2330,7 +2330,7 @@ sub generateXDXFTagBased{
     our @tags = $rawml =~ m~(<[^>]*>)~sg;
     $Info{ "tags" } = \@tags;
     logTags( $FileName, \@tags);
-
+    foreach(@tags){ s~\(~\(~g; s~\)~\)~g;}
     # Hash all tags with their frequency and filter them
     countTagsAndLowerCase( \%Info ); # Generates 2 hash references in %Info named "lowered stop-tags" and "counted tags hash".
     filterTagsHash( \%Info ); # Uses the hash key { "counted tags hash" }. Generates 4 keys in given hash, resp. "removed tags", "filtered rawml", "filtered tags hash" and "deleted tags".
