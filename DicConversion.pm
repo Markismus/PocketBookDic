@@ -42,6 +42,7 @@ our @EXPORT = (
     '$ReplacementImageStringsHashFileName',
 
     'convertIMG2Text',
+    '$isConvertImagesUsingOCR',
     '$isManualValidation',
     '$isRemoveUnSubstitutedImageString',
     '$isRemoveUnSourcedImageStrings',

@@ -20,7 +20,6 @@ our @EXPORT = (
     '$FullPath',
     '$isCodeImageBase64',
     '$isConvertColorNamestoHexCodePoints',
-    '$isConvertImagesUsingOCR',
     '$isCreateMDict',
     '$isCreatePocketbookDictionary',
     '$isCreateStardictDictionary',
@@ -100,7 +99,6 @@ our $isHandleMobiDictionary = 1 ;
 our $isCreateMDict = 0;
 
 # Controls for recoding or deleting images and sounds.
-our $isConvertImagesUsingOCR          = 1; # Try to identify images as symbols whenever possible.
 our $isCodeImageBase64                = 0; # Some dictionaries contain images. Encoding them as Base64 allows coding them inline. Only implemented with convertHTML2XDXF.
 our $ForceConvertBlockquote2Div       = 0;
 our $UseXMLTidy                       = 0; # Enables or disables the use of the subroutine tidyXMLArray. Still experimental, so disable.
