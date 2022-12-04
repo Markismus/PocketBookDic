@@ -26,6 +26,7 @@ our @EXPORT = (
     '$remove_color_tags',
 
     'loadXDXF',
+    '$isLoadFromPseudoFileName',
 
     'makeKoreaderReady',
     '$isMakeKoreaderReady',
@@ -232,14 +233,14 @@ sub cleanseAr{
     }
 
     return( $Content );}
-
+our $isLoadFromPseudoFileName = 1;
 sub loadXDXF{
     # Create the array @xdxf
     my @xdxf;
     my $PseudoFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."xdxf";
     ## Load from xdxffile
     if( $FileName =~ m~\.xdxf$~){ @xdxf = file2Array($FileName); }
-    elsif( -e $PseudoFileName ){
+    elsif( -e $PseudoFileName and $isLoadFromPseudoFileName){
         @xdxf = file2Array($PseudoFileName);
         # Check SameTypeSequence
         checkSameTypeSequence($FileName);
