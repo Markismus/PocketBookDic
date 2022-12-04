@@ -1301,8 +1301,8 @@ sub convertIMG2Text{
     else{ infoV("Working from '$BaseDir'"); }
     infoV("$FileName");
     unless( $FileName =~ m~(?<localpath>.+?)[^/]+$~ ){ warn "Regex didn't match for local path"; Die(); }
-    my $ImagePath = $CurrentDir . "/" . $+{localpath};
-    debugV( "Imagepath is '$ImagePath'");
+    my $ImagePath = $BaseDir . "/" . $+{localpath};
+    info( "Imagepath is '$ImagePath'");
 
     # Collect ImageStrings;
     my @ImageStrings = $String =~ m~(<img[^>]+>)~sg;
