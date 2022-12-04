@@ -76,18 +76,6 @@ if( $isCodeImageBase64 ){
     if( scalar keys %ReplacementImageStrings == 0 ){ unlink $ReplacementImageStringsHashFileName; }
 }
 
-if( $isConvertImagesUsingOCR ){
-    use Image::OCR::Tesseract 'get_ocr';
-    $Image::OCR::Tesseract::DEBUG = 0;
-    $ValidatedOCRedImagesHashFileName = join('', $FileName=~m~^(.+?\.)[^.]+$~)."validation.hash";
-    if( -e $ValidatedOCRedImagesHashFileName ){ %ValidatedOCRedImages = %{ retrieveHash($ValidatedOCRedImagesHashFileName)}; }
-    %OCRedImages = %ValidatedOCRedImages;
-    info("Number of imagestrings OCRed is ".scalar keys %ValidatedOCRedImages);
-    unless( storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName) ){ warn "Cannot store hash ValidatedOCRedImages."; Die();} # To check whether filename is storable.
-    if( scalar keys %ValidatedOCRedImages == 0 ){ unlink $ValidatedOCRedImagesHashFileName; }
-    else{ info("Mistakes in the validated values can be manually corrected by editing '$ValidatedOCRedImagesHashFileName'"); }
-}
-
 # Path checking and cleaning
 $BaseDir=~s~/$~~; # Remove trailing slashforward '/'.
 if( -e "$BaseDir/converter.exe"){
