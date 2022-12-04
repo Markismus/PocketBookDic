@@ -474,8 +474,8 @@ sub removeOuterTags{
     while( $block =~ m~^<~ ){
         my $Start = startTag( $block );
         my $Stop  = stopFromStart( $Start );
-        unless( $block =~ s~^$Start~~s ){ warn "Regex for removal of block start-tag doesn't match."; Die(); }
-        unless( $block =~ s~$Stop$~~s ){ warn "Regex for removal of block stop-tag doesn't match."; Die(); }
+        unless( $block =~ s~^$Start~~s ){ warn "Regex for removal of block start-tag doesn't match."; return undef; }
+        unless( $block =~ s~$Stop$~~s ){ warn "Regex for removal of block stop-tag doesn't match."; return undef; }
         $block =~ s~^\s+~~s;
         $block =~ s~\s+$~~s;
     }
