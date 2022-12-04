@@ -489,7 +489,7 @@ sub startTag{
     return ( $StartTag );}
 sub startTagReturnUndef{
     $_[0] =~ s~^\s+~~s;
-    unless( $_[0] =~ m~^(?<StartTag><[^>]+>)~s ){ return undef; }
+    unless( $_[0] =~ m~^(?<StartTag><(?!/)[^>]+>)~s ){ return undef; }
     return ( $+{"StartTag"} );}
 sub stopFromStart{
     unless( $_[0] =~ m~<(?<tag>\w+)( |>)~ ){ warn "Regex in stopFromStart doesn't match. Value given is '$_[0]'"; Die(); }
