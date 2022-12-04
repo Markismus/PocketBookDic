@@ -1810,7 +1810,7 @@ sub generateXDXFTagBased{
             &stripped($a) cmp &stripped($b) or
             $a cmp $b}
         foreach( sort sorttags keys %tags ){
-            if( m~</?a( |>)|</?i( |>)|</?b( |>)|</?font( |>)~i){
+            if( m~</?a( |>)|</?i( |>)|</?b( |>)|</?font( |>)~i and $isSkipKnownStylingTags){
                 unless( $DeletedTags{ substr($_, 0, 5) } ){ debug("Deleted '$_' from list of tags."); }
                 $DeletedTags{ substr($_, 0, 5) } = 1;  # Use of substr to prevent flooding with anchor references.
                 delete $tags{$_};     # Skip known styling.
