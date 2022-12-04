@@ -2108,8 +2108,9 @@ sub generateXDXFTagBased{
             $regex = "(DISJUNCTION)(?:(?!DISJUNCTION|$sets[$set][0]).)+$sets[$set][0]";
             infoVV("Regex formed: '$regex'");
             $regex =~ s~DISJUNCTION~$disjunction~sg;
-            infoVV("Regex formed: '$regex'");
-            $test =~ s~$regex~~gs;
+            debug_t("Final regex formed has length: ".length($regex)." and is: '$regex'");
+            if( length ($regex) < 1000 ){ $test =~ s~$regex~~gs; }
+            else{ debug_t("Skipping too long regex."); }
             my $percentage = int( 100 - length($test) / length($rawml) * 100 );
             $SetInfo[$set]{"set"}           = $sets[$set];      # Array of the keywords and their frequencies
             $SetInfo[$set]{"regex"}         = $regex;
@@ -2118,6 +2119,7 @@ sub generateXDXFTagBased{
             $Percentages{$sets[$set][0]}    = $SetInfo[$set]{"percentage"};
             info("Removed stringlength is $percentage\% for $sets[$set][0] ($sets[$set][1])");
         }
+        debug_t("Finished calculating percentages");
         infoVV( Dumper( \@SetInfo ) );
 
         $Percentages{ "max_amount" } = 0;
