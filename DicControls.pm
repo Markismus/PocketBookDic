@@ -106,8 +106,10 @@ $isDeleteLowerFrequencyTagsinFilterTagsHash = 0 ; # And the consequeces of that 
 $isExcludeImgTags    = 1 ; # <img.../>-tags are removed if toggle is positive.
 $isgatherSetsVerbose = 0 ;    # Controls verbosity of tag functions
 $isRemoveMpbAndBodyTags = 0 ; # <mbp...> and <body>-tags are removed if toggle is positive.
+@KnownStylingTags = ( 'a', 'i', 'b', 'font'); # tags to be skipped if $isSkipKnownStylingTags = 1.
 $isSkipKnownStylingTags = 1 ; # <b>-, <i>-tags and such are usually not relevant for structuring lemma/definition pairs. However, <font...>-tags sometimes are. So check.
 $MinimumSetPercentage = 80 ; # A tag-set should be at least this percentage to be considered the outer tags for an article.
+$LowFrequencyCriterium = 100; # Used in sub gatherSets
 
 ## Controls from module DicHelpUtils
 

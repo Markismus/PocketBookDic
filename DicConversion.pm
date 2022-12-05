@@ -61,6 +61,8 @@ our @EXPORT = (
     '$isExcludeImgTags',
     '$isgatherSetsVerbose',
     '$isRemoveMpbAndBodyTags',
+    '@KnownStylingTags',
+    '$LowFrequencyCriterium',
     '$isSkipKnownStylingTags',
     '$MinimumSetPercentage',
 );
@@ -1750,8 +1752,11 @@ our $isDeleteLowerFrequencyTagsinFilterTagsHash = 0 ; # And the consequeces of t
 our $isExcludeImgTags    = 1 ; # <img.../>-tags are removed if toggle is positive.
 our $isgatherSetsVerbose = 0 ;    # Controls verbosity of tag functions
 our $isRemoveMpbAndBodyTags = 0 ; # <mbp...> and <body>-tags are removed if toggle is positive.
+our @KnownStylingTags = ( 'a', 'i', 'b', 'font'); # tags to be skipped if $isSkipKnownStylingTags = 1.
 our $isSkipKnownStylingTags = 1 ; # <b>-, <i>-tags and such are usually not relevant for structuring lemma/definition pairs. However, <font...>-tags sometimes are. So check.
 our $MinimumSetPercentage = 80 ; # A tag-set should be at least this percentage to be considered the outer tags for an article.
+our $LowFrequencyCriterium = 100; # Used in sub gatherSets
+
 sub generateXDXFTagBased{
     info("\nEntering generateXDXFTagBased");
     my $rawml = join('', @_);
@@ -1910,7 +1915,6 @@ sub generateXDXFTagBased{
         my $Info = shift;
         my $tags = $$Info{ "filtered tags hash" };
         my $Fails = 0;
-        my $LowFrequencyCriterium = 100;
         $$Info{ "LowFrequencyCriterium"} = $LowFrequencyCriterium;
 
         my @sets; # Used for storing references to arrays of a set. Each set starts with the endtag, followed by a frequency and continues with start-tags accompagnied by their frequencies.
