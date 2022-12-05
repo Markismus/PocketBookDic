@@ -402,9 +402,9 @@ sub removeBreakTag{
     return $xdxf;
 }
 sub removeEmptyTagPairs{
-    waitForIt("Removing empty tag pairs");
+    waitForIt("Removing empty tag pairs") if $isTestingOn;
     my $html = shift;
-    debug("Length html is ".length($html) );
+    debug_t("Length html is ".length($html) );
     # my %matches;
     # while( $html =~ s~<(\S+)[^>]*>\s*</\g1>~~sg ){
     #     if( $isTestingOn ){
@@ -424,7 +424,7 @@ sub removeEmptyTagPairs{
         }
     }
     # info_t( Dumper( \%matches ) );
-    doneWaiting();
+    doneWaiting() if $isTestingOn;
     return( $html );}
 sub removeInvalidChars{
     my $xdxf = $_[0]; # Only a string or first entry of array is checked and returned.
