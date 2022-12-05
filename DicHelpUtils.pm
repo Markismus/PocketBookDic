@@ -154,7 +154,7 @@ sub convertColorName2HexValue{
 
     # This takes 1s for a dictionary with 132k entries and no color tags
     # Not tested with Oxford 2nd Ed. yet!!
-    $html =~ s~c="(\w+)">~c="$ColorCoding{lc($1)}">~isg;
+    $html =~ s~(c(?:olor)?)="(\w+)">~$1="$ColorCoding{lc($2)}">~isg;
     # $html =~ s~color:(\w+)>~c:$ColorCoding{lc($1)}>~isg;
     # <span style="color:orchid">▪</span> <i><span style="color:sienna">I stepped back to let them pass.</span>
     # $html =~ s~<span style="color:(?<color>\w+)">(?<colored>(?!</span>).*?)</span>~<span style="color:$ColorCoding{lc($+{color})}">$+{colored}</span>~isg;
