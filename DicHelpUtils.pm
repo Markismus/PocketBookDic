@@ -5,6 +5,7 @@ use warnings;
 use strict;
 
 use Exporter;
+use Data::Compare;
 
 use DicGlobals;
 use Dic2Screen;
@@ -22,6 +23,7 @@ our @EXPORT = (
     'convertMobiAltCodes',
     '$isConvertMobiAltCodes',
 
+    'Compare',      # Imported from Data::Compare
     'convertNonBreakableSpacetoNumberedSequence',
     'convertNonBreakableSpacetoNumberedSequence4Strings',
     'convertNumberedSequencesToChar',
