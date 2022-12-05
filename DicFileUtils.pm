@@ -50,7 +50,7 @@ sub array2File {
     if( -e $FileName){ warn "$FileName already exist" if $isDebugVerbose; };
     unless( open( FILE, ">:encoding(utf8)", $FileName ) ){
       warn "Cannot open $FileName: $!\n";
-      Die() ;
+      die2() ;
     }
     print FILE @Array;
     close(FILE);
@@ -95,7 +95,7 @@ sub file2Array{
                     print "\$ $_\n";
                     system("$_");
                 }
-                Die();
+                die2();
             }
         }
 
@@ -108,7 +108,7 @@ sub file2Array{
         }
     }
     else{ debugVV( "$FileName exists."); }
-    open (my $fh, '<:raw', "$FileName") or (warn "Couldn't open $FileName: $!" and Die() and return undef() );
+    open (my $fh, '<:raw', "$FileName") or ( die2("Couldn't open $FileName: $!") and return undef() );
     my $raw = <$fh>;
     close($fh);
     if( defined $encoding and $encoding eq "raw"){
@@ -146,11 +146,11 @@ sub file2ArrayOld {
         undef $encoding;
         $isBinMode = 1;
     }
-    if(!defined $FileName){debug("File name in file2Array is not defined. Quitting!");Die();}
+    if(!defined $FileName){die2("File name in file2Array is not defined. Quitting!");}
     if( defined $encoding){ open( FILE, "<:encoding($encoding)", $FileName )
-      || (warn "Cannot open $FileName: $!\n" and Die());}
+      || die2("Cannot open $FileName: $!\n");}
     else{    open( FILE, "$FileName" )
-      || (warn "Cannot open $FileName: $!\n" and Die());
+      || die2("Cannot open $FileName: $!\n");
   }
       if( $isBinMode ){
           binmode FILE;
@@ -172,7 +172,7 @@ sub retrieveHash{
         debug_t("Retrieved dumper string: '$Dumpered'");
         my $Evaluated = eval( "my ".$Dumpered );
         if( $Evaluated ){ debug_t("Evaluated is '$Evaluated'"); }
-        else{ Die("Error's with evaluating dumped hash: '$@'") ;}
+        else{ die2("Error's with evaluating dumped hash: '$@'") ;}
         my %Dumpered = %{eval( "my ".$Dumpered )};
         if( scalar keys %Dumpered ){ return \%Dumpered; }
         else{ warn "'$_[0]$DumperSuffix' is not an dumpered HASH"; }

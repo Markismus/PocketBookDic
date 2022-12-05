@@ -133,7 +133,7 @@ sub convertABBYY2XDXF{
 
     unless( $tree =~ m~HTML::TreeBuilder=HASH~ ){
         unlink $FileName . '.tree';
-        Die("\$tree not a HTML::TreeBuilder hash. \$tree='$tree'\n Deleted old tree-file. Rerun script.");
+        die2("\$tree not a HTML::TreeBuilder hash. \$tree='$tree'\n Deleted old tree-file. Rerun script.");
     }
     store( $tree, $FileName.'.tree' );
     info("End parsing");
@@ -474,9 +474,9 @@ sub convertABBYY2XDXF{
     sub pushArticle{ if( defined $article ){
         $article .= '</def></ar>'."\n";
         # Allow no tags in Possible key.
-        unless( $article =~ m~<k>(?<key>.+)</k>~ ){ Die("regex doesn't work for '$article'"); }
+        unless( $article =~ m~<k>(?<key>.+)</k>~ ){ die2("regex doesn't work for '$article'"); }
         my $Key = $+{"key"};
-        if($Key =~ m~[<>]+~){ Die( "'<'or '>' found in key '$Key'."); }
+        if($Key =~ m~[<>]+~){ die2( "'<'or '>' found in key '$Key'."); }
         infoV("Pushing article '$article'");
         push @articles, $article;
         $article = undef; } }
@@ -516,8 +516,7 @@ sub convertABBYY2XDXF{
                 foreach( @content ){
                     debugV("[$index] '$_', tag '".$_->tag."'"); $index++;
                     unless( $_->tag eq "li" ){
-                        warn "Found unexpected block within ul-block:\n'".asHTML($TagBlock)."'";
-                        Die();
+                        die2("Found unexpected block within ul-block:\n'".asHTML($TagBlock)."'");
                     }
                     push @li_content, $_->content_list();
                 }
@@ -534,13 +533,12 @@ sub convertABBYY2XDXF{
                         unless( defined $article ){
                             debug("$content[0]");
                             foreach(@content){ debug( asHTML( $_ ) ); }
-                            warn "Found plain text outside of article.";
-                            Die();
+                            die2("Found plain text outside of article.");
                         }
                         addArticle( $TagBlock );
                         next TAGBLOCK;
                     }
-                    else{ warn "Unknown p-block."; die; }
+                    else{ die2("Unknown p-block."); }
                 }
                 my $asHtml = removeBreakTag( asHTML( $content[0] ) );
                 debugV( "'$asHtml'");
@@ -564,10 +562,10 @@ sub convertABBYY2XDXF{
                         # The module Unicode::Normalize contains functions to convert between the two.
                         my $PossibleChapterTitle = $1;
                         if( scalar @articles == 0 ){ next TAGBLOCK; }
-                        unless( defined $article ){ warn "Unexpected result."; Die(); }
-                        unless( $article =~ m~<k>([^<]+)</k>~){ warn "Regex doesn't work."; Die(); }
+                        unless( defined $article ){ die2("Unexpected result."); }
+                        unless( $article =~ m~<k>([^<]+)</k>~){ die2("Regex doesn't work."); }
                         my $CurrentKey = $1;
-                        unless( defined $CurrentKey ){ warn "CurrentKey is not defined:\n'$article'"; debug(@articles[-1]); Die(); }
+                        unless( defined $CurrentKey ){ die2("CurrentKey is not defined:\n'$article'\n$articles[-1]"); }
                         if( ord($CurrentKey) + 1 == ord( $PossibleChapterTitle ) ){
                             # Finish previous article?
                             infoVV("Found chapter title. Skipping.");
@@ -656,7 +654,7 @@ sub convertABBYY2XDXF{
                             addArticle( $TagBlock );
                             next TAGBLOCK;
                         }
-                        unless( defined $PossibleKey and $PossibleKey ne '' ){ Die( "Possible key is not defined are empty for '$asHtml" ); }
+                        unless( defined $PossibleKey and $PossibleKey ne '' ){ die2( "Possible key is not defined are empty for '$asHtml" ); }
                         my $CorrectMissingBracket = 0;
                         my $temp = undef;
                         my $SecondKey = undef;
@@ -926,8 +924,7 @@ sub convertCVStoXDXF{
             warn "key and/or definition are undefined.";
             debug("CVSDeliminator is '$CVSDeliminator'");
             debug("CVS line is '$_'");
-            debug("Array index is $number");
-            Die();
+            die2("Array index is $number");
         }
         # Remove whitespaces at the beginning of the definition and EOL at the end.
         $def =~ s~^\s+~~;
@@ -1059,7 +1056,7 @@ sub convertHTML2XDXF{
             $ConvertedIMG2TextHTML =~ m~/([^/]+)$~;
             $ConvertedIMG2TextHTML = $1;
             debug_t( "Filename at ".__LINE__." is '$FileName'" );
-            unless( $ConvertedIMG2TextHTML =~ s~(xdxf|html)$~test.html~ ){ warn "Regex for filename for test.html does not match."; Die(); }
+            unless( $ConvertedIMG2TextHTML =~ s~(xdxf|html)$~test.html~ ){ die2("Regex for filename for test.html does not match."); }
             string2File( $BaseDir."/".$ConvertedIMG2TextHTML, $html );
         }
     }
@@ -1265,8 +1262,8 @@ sub convertImage2Base64{
                 $ReplacementImageStrings{$imagestring} = $replacement;
             }
             else{
-                $replacement = ""; 
-                Die("Can't find $FullPath/$imageName. Quitting.");
+                $replacement = "";
+                die2("Can't find $FullPath/$imageName. Quitting.");
             }
         }
         s~\Q$imagestring\E~$replacement~;
@@ -1288,7 +1285,7 @@ sub convertIMG2Text{
         %ValidatedOCRedImages = %{ retrieveHash($ValidatedOCRedImagesHashFileName)}; 
         %OCRedImages = %ValidatedOCRedImages;
         info("Number of imagestrings OCRed is ".scalar keys %ValidatedOCRedImages);
-        unless( storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName) ){ warn "Cannot store hash ValidatedOCRedImages."; Die();} # To check whether filename is storable.
+        unless( storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName) ){ die2("Cannot store hash ValidatedOCRedImages.");} # To check whether filename is storable.
         if( scalar keys %ValidatedOCRedImages == 0 ){ unlink $ValidatedOCRedImagesHashFileName; }
         else{ info("Mistakes in the validated values can be manually corrected by editing '$ValidatedOCRedImagesHashFileName'"); }
     }
@@ -1303,7 +1300,7 @@ sub convertIMG2Text{
     unless( $CurrentDir eq $BaseDir){ warn "'$CurrentDir' is another than '$BaseDir'"; }
     else{ infoV("Working from '$BaseDir'"); }
     infoV("$FileName");
-    unless( $FileName =~ m~(?<localpath>.+?)[^/]+$~ ){ warn "Regex didn't match for local path"; Die(); }
+    unless( $FileName =~ m~(?<localpath>.+?)[^/]+$~ ){ die2("Regex didn't match for local path"); }
     my $ImagePath = $BaseDir . "/" . $+{localpath};
     info( "Imagepath is '$ImagePath'");
 
@@ -1327,21 +1324,21 @@ sub convertIMG2Text{
                 $ImageStringsHandled{ $ImageString } = 1;
                 next IMAGESTRING;
             }
-            else{ warn "Regex substitution alternative expression doesn't work."; Die(); }
+            else{ die2("Regex substitution alternative expression doesn't work."); }
         }
         my @Sources = $ImageString =~ m~(\w*src="[^"]+")~sg;
         unless( scalar @Sources ){
             warn "No sources found in imagestring:\n'$ImageString'";
             $ImageStringsHandled{ $ImageString } = 1;
             if( $isRemoveUnSourcedImageStrings ){
-                unless( $String =~ s~\Q$ImageString\E~~sg){ warn "Couldn't remove unsourced imagestring"; Die(); }
+                unless( $String =~ s~\Q$ImageString\E~~sg){ die2("Couldn't remove unsourced imagestring"); }
                 next IMAGESTRING;
             }
         }
 
         our %Sources;
         foreach( @Sources ){
-            unless( m~(?<type>\w*src)="(?<imagename>[^"]+)"~s ){ warn "Regex sources doesn't work."; Die(); }
+            unless( m~(?<type>\w*src)="(?<imagename>[^"]+)"~s ){ die2("Regex sources doesn't work."); }
             $Sources{ $+{"imagename"} } = $+{"type"};
         }
         our %SourceQuality = { "src" => 1, "hisrc" => 2, "lowsrc" => 0 };
@@ -1358,7 +1355,7 @@ sub convertIMG2Text{
             if( exists $ValidatedOCRedImages{ $Source } ){
                 if( defined $ValidatedOCRedImages{ $Source } and $ValidatedOCRedImages{ $Source } ne "VALIDATED AS INCORRECT" ){
                     unless ( $String =~ s~\Q$ImageString\E~$ValidatedOCRedImages{ $Source }~sg ){
-                        warn "ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Source }'."; Die();
+                        die2("ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Source }'.");
                     }
                     else{
                         infoV("ImageString '$ImageString' substituted with '$ValidatedOCRedImages{ $Source }'.");
@@ -1409,8 +1406,7 @@ sub convertIMG2Text{
 
                 if( $substitution ){
                     unless ( $String =~ s~\Q$ImageString\E~$ValidatedOCRedImages{ $Source }~sg ){
-                        warn "ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Source }'";
-                        Die();
+                        die2("ImageString '$ImageString' not matched for substitution with '$ValidatedOCRedImages{ $Source }'");
                     }
                     $ImageStringsHandled{ $ImageString } = 1;
                     next IMAGESTRING;
@@ -1419,7 +1415,7 @@ sub convertIMG2Text{
         }
         # End SOURCE-loop. If the code is here, than no substitution has been made for the imagestring.
         if( $isRemoveUnSubstitutedImageString ){
-            unless( $String =~ s~\Q$ImageString\E~~sg ){ warn "Image-tag '$ImageString' could not be removed"; Die(); }
+            unless( $String =~ s~\Q$ImageString\E~~sg ){ die2("Image-tag '$ImageString' could not be removed"); }
             $ImageStringsHandled{ $ImageString } = 1;
         }
     }
@@ -1487,7 +1483,7 @@ sub convertRAWML2XDXF{
     }
     unless( @indexentries ){
         warn("No indexentries found in rawml-string. Quitting");
-        Die($rawml);
+        die2($rawml);
         goto DONE; # In case $isRealDead = 0
     }
     else{ info("Found ".scalar @indexentries." indexentries.\n"); }
@@ -1632,7 +1628,7 @@ sub convertStardictXMLtoXDXF{
             ($key, $def, $article) = ("","",0);
             debug("Article stop tag found at line $counter.\n") if $test_loop;
         }
-        Die() if $counter==$max_counter and $test_loop;
+        die2() if $counter==$max_counter and $test_loop;
     }
     doneWaiting();
     push @xdxf, $lastline_xdxf;
@@ -1720,7 +1716,7 @@ sub convertXML2Binary{
         # Workaround for dictzip
         if( $dict_bin =~ m~ |\(|\)~ ){
             debug_t("Spaces or braces found, so dictzip will have failed. Running it again while masking the spaces.");
-            if( $dict_bin !~ m~(?<filename>[^/]+)$~){ debug("Regex not working for dictzip workaround."); Die(); }
+            if( $dict_bin !~ m~(?<filename>[^/]+)$~){ die2("Regex not working for dictzip workaround."); }
             my $SpacedFileName = $+{filename};
 
             my $Path = $dict_bin;
@@ -1996,7 +1992,7 @@ sub generateXDXFTagBased{
                 debug_t("length rawml used: ". length $rawml );
                 debugVV(substr( $rawml, 0, 2000 ) );
                 my @TagBlocks = $rawml =~ m~$regex~sg;
-                if( scalar @TagBlocks == 0 ){ warn "regex '$regex' didn't match!"; Die(); }
+                if( scalar @TagBlocks == 0 ){ die2("regex '$regex' didn't match!"); }
                 debugVV(@TagBlocks[0..99]);
                 my $TagBlock = shift @TagBlocks;
                 debug_t("Tag-block is '$TagBlock'");
@@ -2043,7 +2039,7 @@ sub generateXDXFTagBased{
 
         my $LogDirName = "$BaseDir/dict/logs";
         unless( -e $LogDirName ){
-            mkdir $LogDirName || ( Die("Couldn't create directory '$LogDirName'.") );
+            mkdir $LogDirName || ( die2("Couldn't create directory '$LogDirName'.") );
         }
         my $LogName = "$LogDirName/$FileName.sets.log";
         array2File( $LogName, $Data); }
@@ -2058,7 +2054,7 @@ sub generateXDXFTagBased{
 
         my $LogDirName = "$BaseDir/dict/logs";
         unless( -e $LogDirName ){
-            mkdir $LogDirName || ( Die("Couldn't create directory '$LogDirName'.") );
+            mkdir $LogDirName || ( die2("Couldn't create directory '$LogDirName'.") );
         }
         my $LogName = "$LogDirName/$FileName.tags.log";
         array2File( $LogName, $Data); }
@@ -2149,7 +2145,7 @@ sub generateXDXFTagBased{
         my @csv;
         my $OldCVSDeliminator = $CVSDeliminator;
         $CVSDeliminator = "||||";
-        unless( @$articles > 0 ){ warn "No articles were given to sub splitArticlesIntoKeyAndDefinition!"; Die(); }
+        unless( @$articles > 0 ){ die2("No articles were given to sub splitArticlesIntoKeyAndDefinition!"); }
         my $counter = 0;
         foreach my $article( @$articles ){
             $counter++;
@@ -2158,7 +2154,7 @@ sub generateXDXFTagBased{
                 my $Stoptag = $$Info{ "article stop tag"}; # </ar>
                 my $Starttag = startTag( $article );
                 debugVV("Start-tag = '$Starttag'");
-                unless( $Stoptag eq stopFromStart( $Starttag ) ){ warn "Article stop-tag registered in %Info doesn't match start-tag"; die; }
+                unless( $Stoptag eq stopFromStart( $Starttag ) ){ die2("Article stop-tag registered in %Info doesn't match start-tag"); }
                 $article = cleanOuterTags( $article );
             }
             debug( "Article to be split is '$article'" ) if $counter < 6;
@@ -2173,9 +2169,9 @@ sub generateXDXFTagBased{
                 if( $KeyStopTag eq $$Set[0] ){ $HighFrequencyTagRecognized = 1; last; }
                 else{ debugVV( "'$KeyStopTag' isn't equal to '$$Set[0]'"); }
             }
-            unless( $HighFrequencyTagRecognized ){ warn "Key start tag is not a high frequency tag."; Die(); }
+            unless( $HighFrequencyTagRecognized ){ die2("Key start tag is not a high frequency tag."); }
             # Match key and definition. Push cleaned string to csv-array.
-            unless( $article =~ m~\Q$KeyStartTag\E(?<key>.+?)\Q$KeyStopTag\E(?<definition>.+)$~s){ warn "Regex for key-block doesn't match."; die;}
+            unless( $article =~ m~\Q$KeyStartTag\E(?<key>.+?)\Q$KeyStopTag\E(?<definition>.+)$~s){ die2("Regex for key-block doesn't match.");}
             infoV("Found a key and definition in article.") if $counter < 6;
             my $Key         = removeOuterTags( $+{ "key" } );
             my $Definition  = cleanOuterTags( $+{ "definition" } );
@@ -2313,7 +2309,7 @@ sub generateXDXFTagBased{
                     # Not nested
                     infoV("Last article with end of the dictionary:\n'$LastArticleWithEndDictionary'");
                     my $regex = qr~^(?<last_article>(?:$StartTag(?:(?!(?:$StartTag|$StopTag)).)+$StopTag){$NumberofStartTags})(?<end_dictionary>.+)$~;
-                    unless ( $LastArticleWithEndDictionary =~ m~$regex~s ){ warn "Regex didn't work\n$regex"; Die();}
+                    unless ( $LastArticleWithEndDictionary =~ m~$regex~s ){ die2("Regex didn't work\n$regex");}
                     $Info{ "end dictionary" } = $+{ "end_dictionary" };
                     push @chunks, $+{"lastarticle"};
                     infoV( "Last article is\n'". $chunks[-1] );

@@ -157,7 +157,7 @@ if( $UseXMLTidy ){
 }
 # Save reconstructed XDXF-file
 my $dict_xdxf=$FileName;
-if( $dict_xdxf !~ s~\.xdxf$~_reconstructed\.xdxf~ ){ debug("Filename substitution did not work for : \"$dict_xdxf\""); Die(); }
+if( $dict_xdxf !~ s~\.xdxf$~_reconstructed\.xdxf~ ){ die2("Filename substitution did not work for : '$dict_xdxf'"); }
 array2File($dict_xdxf, @xdxf_reconstructed);
 
 # Convert colors to hexvalues
@@ -168,7 +168,7 @@ if( $isCreateStardictDictionary ){
     # Save reconstructed XML-file
     my @StardictXMLreconstructed = convertXDXFtoStardictXML(@xdxf_reconstructed);
     my $dict_xml = $FileName;
-    if( $dict_xml !~ s~\.xdxf$~_reconstructed\.xml~ ){ debug("Filename substitution did not work for : \"$dict_xml\""); Die(); }
+    if( $dict_xml !~ s~\.xdxf$~_reconstructed\.xml~ ){ die2("Filename substitution did not work for : '$dict_xml'"); }
 
     # Remove spaces in filename
     $dict_xml =~ s~(?<!\\) ~\ ~g;
@@ -200,7 +200,7 @@ if( $isCreateMDict ){
     my $dictdata ;
     # Strip dictionary data
     if( $mdict =~ s~(?<start>(?:(?!<ar>).)+)<ar>~<ar>~s ){$dictdata = $+{start};}
-    else{ debug("Regex mdict to strip dictionary data failed. Quitting."); Die();}
+    else{ die2("Regex mdict to strip dictionary data failed. Quitting.");}
     debugV("1st Length \$mdict is ", length($mdict));
     #Strip tags and insert EOLs.
     $mdict =~ s~<ar>\n<head><k>~~gs;
@@ -227,7 +227,6 @@ storeHash(\%ReplacementImageStrings, $ReplacementImageStringsHashFileName) if sc
 
 if( scalar keys %ValidatedOCRedImages ){
     unless( storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName) ){
-        warn "Cannot store hash ValidatedOCRedImages.";
-        Die();
+        die2("Cannot store hash ValidatedOCRedImages.");
     } # To check whether filename is storable.
 }

@@ -145,7 +145,7 @@ sub cleanseAr{
                      debug("First part of the cut line is:") and printYellow("$cutline_begin\n") and
                      debug("Last part of the cut line is:") and printYellow("$cutline_end\n"); }
 
-                     Die() if ($cut_location > $max_line_length);
+                     die2() if ($cut_location > $max_line_length);
                      # splice array, offset, length, list
                      splice @def, $def_line_counter, 0, ($cutline_end);
                      $line = $cutline_begin;
@@ -288,8 +288,8 @@ sub loadXDXF{
         $InputFile =~ s~//~/~g;
         $OutputFolder =~ s~//~/~g;
         debug_t("DictionaryName at ".__LINE__." is '$DictionaryName'");
-        unless(defined $DictionaryName and $DictionaryName ne ''){ Die("No capture for \$+{filename}.");}
-        unless( $DictionaryName =~ s~^.+/~~ ){ Die("Couldn't remove path from dictionary name for '$DictionaryName'"); }
+        unless(defined $DictionaryName and $DictionaryName ne ''){ die2("No capture for \$+{filename}.");}
+        unless( $DictionaryName =~ s~^.+/~~ ){ die2("Couldn't remove path from dictionary name for '$DictionaryName'"); }
 
         my $HTMLConversion = 0;
         my $RAWMLConversion = 0;
@@ -298,12 +298,12 @@ sub loadXDXF{
 
             # Checklist
             if ($OperatingSystem eq "linux"){ debugV("Converting mobi to html on Linux is possible.") }
-            else{ Die("Not Linux, so the script can't convert mobi-format. Quitting!"); }
+            else{ die2("Not Linux, so the script can't convert mobi-format. Quitting!"); }
             my $python_version = `python --version`;
             if(  substr($python_version, 0,6) eq "Python"){
                 debug("Found python responding as expected.");
             }
-            else{ Die("Python binary not working as expected/not installed. Quitting!"); }
+            else{ die2("Python binary not working as expected/not installed. Quitting!"); }
 
             # Conversion mobi to html
             if( -e "$OutputFolder/mobi7/$DictionaryName.html" ){
@@ -347,7 +347,7 @@ sub loadXDXF{
                         $FileName = "$LocalPath/$DictionaryName.rawml";
                         chdir $BaseDir || warn "Cannot change to $BaseDir: $!\n";
                     }
-                    else{ Die(); }
+                    else{ die2(); }
                 }
             }
             debug("After conversion dictionary name is '$DictionaryName'.");
@@ -369,7 +369,7 @@ sub loadXDXF{
         elsif( $RAWMLConversion ){
             my @rawml = file2Array( $FileName );
             @xdxf = convertRAWML2XDXF( @rawml );
-            if( scalar @xdxf == (1+scalar @xdxf_start) ){ debug("Not able to handle the rawml-file. Quitting!"); Die(); }
+            if( scalar @xdxf == (1+scalar @xdxf_start) ){ die2("Not able to handle the rawml-file. Quitting!"); }
         }
         # Check whether there is a saved reconstructed xdxf to get the language and name from.
         if(-e  "$LocalPath/$DictionaryName"."_reconstructed.xdxf"){
@@ -390,7 +390,7 @@ sub loadXDXF{
     }
     elsif( $FileName =~ m~^(?<filename>((?!\.epub).)+)\.epub$~i ){
         debug("Found an epub-file. Unzipping.");
-        unless( $FileName =~ m~([^/]+)$~ ){ warn "Couldn't match dictionary name for '$FileName'" ; Die(); }
+        unless( $FileName =~ m~([^/]+)$~ ){ die2("Couldn't match dictionary name for '$FileName'"); }
         my $DictionaryName = $1;
         debug('$DictionaryName = "', $DictionaryName, '"');
         my $LocalPath = substr($FileName, 0, length($FileName)-length($DictionaryName) );
@@ -608,7 +608,7 @@ sub reconstructXDXF{
     # Initalizing values based on found values in reconstructed xdxf-file
     my $full_name;
     my $dict_xdxf_reconstructed =  $FileName;
-    if( $dict_xdxf_reconstructed !~ s~\.[^\.]+$~_reconstructed\.xdxf~ ){ debug("Filename substitution did not work for : \"$dict_xdxf_reconstructed\""); Die(); }
+    if( $dict_xdxf_reconstructed !~ s~\.[^\.]+$~_reconstructed\.xdxf~ ){ die2("Filename substitution did not work for : \"$dict_xdxf_reconstructed\""); }
     if( -e $dict_xdxf_reconstructed ){
         my @xdxf_reconstructed = file2Array($dict_xdxf_reconstructed);
         my $max_lines = 20;
@@ -651,7 +651,7 @@ sub reconstructXDXF{
         }
         # Handling of full_name tag
         elsif ( $entry =~ m~^<full_name>~){
-            if ( $entry !~ m~^<full_name>.*</full_name>\n$~){ debug("full_name tag is not on one line. Investigate!\n"); Die();}
+            if ( $entry !~ m~^<full_name>.*</full_name>\n$~){ die2("full_name tag is not on one line. Investigate!\n");}
             elsif( $reformat_full_name and $entry =~ m~^<full_name>(?<fullname>((?!</full).)*)</full_name>\n$~ ){
                 my $old_name = $full_name;
                 $full_name = $+{fullname};

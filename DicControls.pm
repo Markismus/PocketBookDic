@@ -16,7 +16,7 @@ use DicHelpUtils;
 ( $isDebug, $isDebugVerbose, $isDebugVeryVerbose )       = ( 1, 0, 0 );  
 # Control the verbosity info messages
 ( $isInfo, $isInfoVerbose, $isInfoVeryVerbose )          = ( 1, 0, 0 );  
-# Control for Die
+# Control for sub die2()
 $isRealDead = 1; # Some errors should kill the program. However, somtimes you just want to convert.
 
 ## Controls from module DicPrepare

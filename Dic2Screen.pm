@@ -23,7 +23,7 @@ our @EXPORT = (
     '$isDebugVeryVerbose',
     'debugFindings',
 
-    'Die',
+    'die2',
     '$isRealDead',
 
     'doneWaiting',
@@ -83,7 +83,7 @@ sub debugFindings {
     if ( defined $18 ) { debugV("18 is:\n $18\n"); }}
 
 our $isRealDead = 1; # Some errors should kill the program. However, somtimes you just want to convert.
-sub Die{
+sub die2{
     sub showCallStack {
       my ( $path, $line, $subr );
       my $max_depth = 30;

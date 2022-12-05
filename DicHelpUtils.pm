@@ -73,7 +73,7 @@ our @EXPORT = (
 sub changeFileExtension{
     my $FileName = shift;
     my $Extention2 = shift;
-    unless( $FileName =~ s~\.[^.]+$~\.\Q$Extention2\E~ ){ warn "Regex didn't work"; Die(); }
+    unless( $FileName =~ s~\.[^.]+$~\.\Q$Extention2\E~ ){ die2("Regex didn't work"); }
     else{ infoVV("Returned file name: '$FileName'"); }
     return $FileName;}
 sub checkSameTypeSequence{
@@ -241,7 +241,7 @@ sub convertNonBreakableSpacetoNumberedSequence4Strings{
     if( $result > 0 ){
         debug("Removed '&nbsp' $result times.");
     }
-    if( $UnConverted =~ m~\&nbsp;~ ){ debug("Still found '&nbsp;' in array! Quitting"); debug($UnConverted); Die(); }
+    if( $UnConverted =~ m~\&nbsp;~ ){ die2("Still found '&nbsp;' in array! Quitting\n$UnConverted"); }
     return( $UnConverted );}
 sub convertNumberedSequencesToChar{
     return( split( /^/, convertNumberedSequencesToChar4Strings( join('',@_) ) ) );}
@@ -485,14 +485,14 @@ sub startFromStop{ return ("<" . substr( $_[0], 2, (length( $_[0] ) - 3) ) . "( 
 sub startTag{
     $_[0] =~ s~^\s+~~s;
     my $StartTag = startTagReturnUndef( $_[0]);
-    unless( defined $StartTag ){ warn "Regex for key-start '$StartTag' doesn't match."; Die(); }
+    unless( defined $StartTag ){ die2("Regex for key-start '$StartTag' doesn't match."); }
     return ( $StartTag );}
 sub startTagReturnUndef{
     $_[0] =~ s~^\s+~~s;
     unless( $_[0] =~ m~^(?<StartTag><(?!/)[^>]+>)~s ){ return undef; }
     return ( $+{"StartTag"} );}
 sub stopFromStart{
-    unless( $_[0] =~ m~<(?<tag>\w+)( |>)~ ){ warn "Regex in stopFromStart doesn't match. Value given is '$_[0]'"; Die(); }
+    unless( $_[0] =~ m~<(?<tag>\w+)( |>)~ ){ die2("Regex in stopFromStart doesn't match. Value given is '$_[0]'"); }
     return( "</" . $+{"tag"}.">" );}
 
 our @XMLTidied;
