@@ -1954,8 +1954,12 @@ sub generateXDXFTagBased{
                     if( substr($_, length($key)-1, 1 ) eq " " or substr($_, length($key)-1, 1 ) eq ">" ){ # end the same
                         push @info, "<$_ (".$$tags{"<".$_}.")";
                         $count = $count + $$tags{"<".$_};
-                        push @set, "<".$_, $$tags{"<".$_};
                         push @GatheredStartTags, "<".$_;
+                        s~(\()~\(~g;
+                        s~(\))~\)~g;
+                        s/(\{)/\{/g;
+                        s/(\})/\}/g;
+                        push @set, "<".$_, $$tags{"<".$_};
                     }
                     else{ debugV("<$_ has at ". (length($key) - 1 )." the character '".substr($_, length($key)-1, 1 )."'"); }
                 }
