@@ -162,59 +162,27 @@ sub file2ArrayOld {
 sub file2String{ return( join('', file2Array( @_ ) ) ); }
 sub retrieveHash{
     info_t("Entering sub retrieveHash.") ;
-    foreach( @_ ){ debug_t( $_ ); }
+    foreach( @_ ){ debug_t("Given to retrieveHash: '$_'" ); }
     debug_t( "DumperSuffix is '$DumperSuffix'");
     my $FileName = "$_[0]$DumperSuffix";
     debug_t("Filename in sub storeHash is '$FileName'");
     if( -e $FileName ){
         infoVV("Preferring '$_[0]$DumperSuffix', because it could contain manual edits");
-        my @Dumpered = file2Array( "$_[0]$DumperSuffix" );
-        my %Dumpered;
-        my $index = -1;
-        foreach( @Dumpered ){
-            $index++;
-            # Skip first and last line.
-            if( m~\$VAR1 = \\?\{$~ or m~^\s*\};$~ ){ next; }
-            debug_t( "[$index] $_" );
-            chomp;
-            s~^\s*~~;
-            my ( $key, $value) = split( / => /, $_ );
-            debug_t("key is>$key<");
-            debug_t("value is >$value<");
-            $key =~ s~^'~~;
-            $key =~ s~'$~~;
-            $value =~ s~,$~~;
-            $value =~ s~^('|")~~;
-            $value =~ s~('|")$~~;
-            my $check = 0;
-            while( $value =~ m~\\x\{([0-9A-Fa-f]+)\}~ ){
-                $check++;
-                my $oldvalue = $value;
-                # $value = $`."\x{$1}".$';
-                debug_t("\$` is '$`'");
-                debug_t("\$' is '$''");
-                debug_t("\$1 is '$1'");
-                $value = $`.chr(hex($1)).$';
-                debug_t("'$oldvalue' is now '$value'");
-            }
-            if( $check ){ debug_t("updated value is '$value'") ;}
-            $value =~ s~^\\(.)~$1~g; # Remove preceding slashes.
-            debug_t("key is>$key<");
-            debug_t("value is >$value<");
-            unless( $key and $value ){
-                warn "Line '$_' in returned array from '$_[0]$DumperSuffix' is not a simple hash structure";
-                return( retrieve (@_) );
-            }
-            else{ $Dumpered{ $key } = $value; }
-        }
+        my $Dumpered = file2String( "$_[0]$DumperSuffix" ) ;
+        debug_t("Retrieved dumper string: '$Dumpered'");
+        my $Evaluated = eval( "my ".$Dumpered );
+        if( $Evaluated ){ debug_t("Evaluated is '$Evaluated'"); }
+        else{ Die("Error's with evaluating dumped hash: '$@'") ;}
+        my %Dumpered = %{eval( "my ".$Dumpered )};
         if( scalar keys %Dumpered ){ return \%Dumpered; }
-        else{ warn "$_[0]$DumperSuffix is not an dumpered HASH"; }
+        else{ warn "'$_[0]$DumperSuffix' is not an dumpered HASH"; }
     }
-    return( retrieve( @_) );}
+    if( -e $_[0] ){ return( retrieve( $_[0] ) ); }
+    else{ return ''; } }
 
 sub storeHash{
-    info("Entering sub storeHash.") if $isTestingOn ;
-    foreach( @_ ){ debug( $_ ) if $isTestingOn ; }
+    info_t("Entering sub storeHash.");
+    foreach( @_ ){ debug( "Given to storeHash: '$_'" ) if $isTestingOn ; }
     if( $_[0] =~ m~^HASH\(0x~ ){
         my $Dump = Dumper( $_[0]);
         debug( "DumperSuffix is '$DumperSuffix'") if $isTestingOn;
