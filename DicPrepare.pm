@@ -529,6 +529,7 @@ sub makeKoreaderReady{
     # Not moving it to lua, because it also works with Goldendict.
     $html =~ s~<c>~<span>~sg;
     $html =~ s~<c c="~<span style="color:~sg;
+    $html =~ s~<font color="(?<color>[^"]*)"(?<rest>[^>]*>(?:(?!</?font>).)+)</font>~<span style="color:$+{color}"$+{rest}</span>~sg;
     $html =~ s~</c>~</span>~sg;
     # <span color="#0000ff"> $isMakeKoreaderReady_SpanColor2Style $isMakeKoreaderReady_SpanWidth2Style $isMakeKoreaderReady_SpanStyleWidht2Padding $isMakeKoreaderReady_MergeStyles
     while( $isMakeKoreaderReady_SpanColor2Style        and $html =~ s~(<span[^>]+?) (color)="([^"]+"[^>]*>)~$1 style="$2:$3~sg ){ printGreen("."); }
