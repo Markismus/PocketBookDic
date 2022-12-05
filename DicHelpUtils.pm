@@ -42,7 +42,8 @@ our @EXPORT = (
 
     'mergeConsecutiveIdenticallyAttributedSpans',
 
-    'removeBloat',
+    'removeBloatFromArray',
+    'removeBloatFromString',
     'removeBreakTag',
     'removeEmptyTagPairs',
     'removeInvalidChars',
@@ -371,27 +372,33 @@ sub mergeConsecutiveIdenticallyAttributedSpans{
 }
 
 
-sub removeBloat{
-    my $xdxf = join('',@_);
+sub removeBloatFromArray{
+    my $xdxf = removeBloatFromString( join('',@_) );
+    return( split(/^/, $xdxf) );}
+sub removeBloatFromString{
+    my $xdxf = shift;
     debugV("Removing bloat from dictionary...");
     my $Round = "First";
-    while ( $xdxf =~ s~<blockquote>(?<content><blockquote>(?!<blockquote>).*?</blockquote>)</blockquote>~$+{content}~sg ){ debugV("$Round round (removing double nested blockquotes)"); $Round = "Another"; }
-    while( $xdxf =~ s~<ex>\s*</ex>|<ex></ex>|<blockquote></blockquote>|<blockquote>\s*</blockquote>~~sg ){ debugV("And another (removing empty blockquotes and examples)"); }
-    while( $xdxf =~ s~\n\n~\n~sg ){ debugV("Finally then..(removing empty lines)");}
-    while( $xdxf =~ s~</blockquote>\s+<blockquote>~</blockquote><blockquote>~sg ){ debugV("...another one (removing EOLs between blockquotes)"); }
-    while( $xdxf =~ s~</blockquote>\s+</def>~</blockquote></def>~sg ){ debugV("...and another one (removing EOLs between blockquotes and definition stop tags)"); }
+    while ( $xdxf =~ s~<blockquote>(?<content><blockquote>(?!<blockquote>).*?</blockquote>)</blockquote>~$+{content}~sg ){ info_t("$Round round (removing double nested blockquotes)"); $Round = "Another"; }
+    while( $xdxf =~ s~<ex>\s*</ex>|<ex></ex>|<blockquote></blockquote>|<blockquote>\s*</blockquote>~~sg ){ info_t("And another (removing empty blockquotes and examples)"); }
+    while( $xdxf =~ s~\n\n~\n~sg ){ info_t("Finally then..(removing empty lines)");}
+    while( $xdxf =~ s~</blockquote>\s+<blockquote>~</blockquote><blockquote>~sg ){ info_t("...another one (removing EOLs between blockquotes)"); }
+    while( $xdxf =~ s~</blockquote>\s+</def>~</blockquote></def>~sg ){ info_t("...and another one (removing EOLs between blockquotes and definition stop tags)"); }
     # This a tricky one.
     # OALD9 has a strange string [s]key.bmp[/s] that keeps repeating. No idea why!
-    while( $xdxf =~ s~\[s\].*?\.bmp\[/s\]~~sg ){ debugV("....cleaning house (removing s-blocks with .bmp at the end.)"); }
+    while( $xdxf =~ s~\[s\].*?\.bmp\[/s\]~~sg   ){ info_t("....cleaning house (removing s-blocks with .bmp at the end.)"); }
+    while( $xdxf =~ s~xmlns:[^=]+="[^"]*"~~sg   ){ info_t("....cleaning house (removing xmlns-links.)"); }
+    while( $xdxf =~ s~(<[^>])\s+>~$1>~sg        ){ info_t("Remove trailing spaces in tags after cleaning house."); }
     $xdxf = removeBreakTag( $xdxf );
     $xdxf = removeEmptyTagPairs( $xdxf );
     debugV("...done!");
-    return( split(/^/, $xdxf) );}
+    return $xdxf;
+}
 sub removeBreakTag{
     my $xdxf = shift;
-    while( my $count = $xdxf =~ s~(\w+)-<br ?/?>(\w+)~$1$2~sg ){ debugV("...removed $count break-tags inside hyphenated words."); }
-    while( my $count = $xdxf =~ s~([\w,.;:'"\])!\?]+)<br ?/?>(\w+|<)~$1 $2~sg ){ debugV("...removed $count break-tags between words."); }
-    while( my $count = $xdxf =~ s~(<br[^>]*>)~~sg ){ debugV("...removed $count break-tags."); }
+    while( my $count = $xdxf =~ s~(\w+)-<br ?/?>(\w+)~$1$2~sg ){ info_t("...removed $count break-tags inside hyphenated words."); }
+    while( my $count = $xdxf =~ s~([\w,.;:'"\])!\?]+)<br ?/?>(\w+|<)~$1 $2~sg ){ info_t("...removed $count break-tags between words."); }
+    while( my $count = $xdxf =~ s~(<br[^>]*>)~~sg ){ info_t("...removed $count break-tags."); }
     return $xdxf;
 }
 sub removeEmptyTagPairs{

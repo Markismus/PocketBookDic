@@ -113,7 +113,7 @@ my $SizeOne = scalar @xdxf;
 debugV("\$SizeOne\t=\t$SizeOne");
 # Remove bloat from xdxf.
 if( $FileName !~ m~_unbloated\.xdxf$~ ){
-    @xdxf = removeBloat(@xdxf);
+    @xdxf = removeBloatFromArray( @xdxf );
     if( $FileName =~ m~xdxf$~ ){
         my $Unbloated = $FileName;
         $Unbloated =~ s~\.xdxf$~_unbloated.xdxf~;

@@ -127,7 +127,7 @@ if( $isInspectTreeBuilder ){
 if( $isTestConvertABBYY2XDXF ){
     info("Loading dictionary '$FileName'");
     my $html = join('', file2Array($BaseDir ."/". $FileName));
-    my @xdxf = removeBloat( convertABBYY2XDXF( $html ) );
+    my @xdxf = removeBloatFromArray( convertABBYY2XDXF( $html ) );
 
     my $XDXF_name = changeFileExtension( $FileName, "xdxf");
     array2File( $BaseDir ."/". $XDXF_name, @xdxf );
