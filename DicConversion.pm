@@ -1759,9 +1759,9 @@ our $LowFrequencyCriterium = 100; # Used in sub gatherSets
 
 sub generateXDXFTagBased{
     info("\nEntering generateXDXFTagBased");
-    my $rawml = join('', @_);
+    my $rawml = join('', @_ );
     # $rawml = removeEmptyTagPairs( $rawml ); # Don't because they can be deliminating, acting as a separator between articles.
-
+    while( $rawml =~ s~(<[^>])\s+>~$1>~sg ){ debug_t ("Remove trailing spaces in tags."); }
     my %Info;
     $Info{ "isExcludeImgTags" }     = $isExcludeImgTags;
     $Info{ "isSkipKnownStylingTags" } = $isSkipKnownStylingTags;
