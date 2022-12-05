@@ -280,7 +280,8 @@ sub loadXDXF{
     }
     elsif(    $FileName =~ m~^(?<filename>((?!\.mobi).)+)\.mobi$~ or
             $FileName =~ m~^(?<filename>((?!\.azw3?).)+)\.azw3?$~ or
-            $FileName =~ m~^(?<filename>((?!\.html?).)+)\.html?$~    ){
+            $FileName =~ m~^(?<filename>((?!\.html?).)+)\.html?$~ or
+            $FileName =~ m~^(?<filename>((?!\.rawml?).)+)\.rawml?$~ ){
         # Use full path and filename
         my $DictionaryName = $+{"filename"};
         my $InputFile = "$BaseDir/$FileName";
@@ -355,10 +356,8 @@ sub loadXDXF{
             debug("Full path for generated html is \'$FullPath\'.");
             debug("Filename for generated html is \'$FileName\'.");
         }
-        elsif( $FileName =~ m~^(?<filename>((?!\.html?).)+)\.html?$~    ){
-            $HTMLConversion = 1;
-        }
-
+        elsif( $FileName =~ m~^(?<filename>((?!\.html?).)+)\.html?$~ ){ $HTMLConversion = 1; }
+        elsif( $FileName =~ m~^(?<filename>((?!\.rawml?).)+)\.rawml?$~ ){ $RAWMLConversion = 1; }
         # Output of KindleUnpack.pyw
         my $encoding = "UTF-8";
         if( $HTMLConversion ){
