@@ -2030,8 +2030,9 @@ sub generateXDXFTagBased{
 
         # printDumperFiltered( \%SkippedTags, '<\?a ?' );
         logSets( $FileName, \@sets );
-        $Info{ "sets" }              = \@sets;
-        $Info{ "SkippedTags" }       = \%SkippedTags;}
+
+        $$Info{ "sets" }              = \@sets;
+        $$Info{ "SkippedTags" }       = \%SkippedTags;}
     sub logSets{
         my $FileName = shift;
         my $Data = join('', Dumper( shift ));
