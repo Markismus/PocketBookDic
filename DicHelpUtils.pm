@@ -41,6 +41,7 @@ our @EXPORT = (
     'generateEntityHashFromDocType',
 
     'mergeConsecutiveIdenticallyAttributedSpans',
+    'mergeConsecutiveBoldSpans',
 
     'removeBloatFromArray',
     'removeBloatFromString',
@@ -350,7 +351,21 @@ sub generateEntityHashFromDocType{
         $EntityConversion{$+{name}} = $+{meaning};
     }
     return(%EntityConversion);}
+sub mergeConsecutiveBoldSpans{
+    my $html = shift;
+    infoVV("Entering mergeConsecutiveBoldSpans.");
 
+    # Nested spans will not match!
+    my $regex_match = qr~<span class="font\d+" style="font-weight:bold;">(?<first_content>\d\.\s*)</span>(?<spacing>\s*)<span(?<attributes> class="font\d" style="font-weight:bold;")>(?<second_content>(?:(?!</span>).)*)</span>~s;
+
+    # I am omitting the greedy modificator behind the substitution, so that the info can be dumped.
+    while ( $html =~ s~$regex_match~<span$+{attributes}>$+{first_content}$+{spacing}$+{second_content}</span>~sg ){
+        info_t("Merged consecutive bold spans with the preceding span only containing a number and decimal.");
+        infoVV(Dumper(\%+));
+    }
+
+    return $html;
+}
 sub mergeConsecutiveIdenticallyAttributedSpans{
     my $html = shift;
     infoVV("Entering mergeConsecutiveIdenticallyAttributedSpans.");

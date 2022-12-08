@@ -127,6 +127,7 @@ sub convertABBYY2XDXF{
         $html = convertNonBreakableSpacetoNumberedSequence4Strings( $html );
         $html = convertNumberedSequencesToChar4Strings( $html );
         $html = mergeConsecutiveIdenticallyAttributedSpans( $html );
+        $html = mergeConsecutiveBoldSpans( $html );
         $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
         $tree->parse( $html );
     }
