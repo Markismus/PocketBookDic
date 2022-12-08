@@ -31,6 +31,7 @@ our @EXPORT = (
     'cleanOuterTags',
 
     'escapeHTMLString',
+    'escapeHTMLStringForced',
     '$HTMLcodes',
     '$PossibleTags',
     '$isEscapeHTMLCharacters',
@@ -282,17 +283,24 @@ our $PossibleTags = qr~/?(def|mbp|c>|c c="|abr>|ex>|kref>|k>|key|rref|f>|!--|!do
 our $HTMLcodes = qr~(lt;|amp;|gt;|quot;|apos;|\#x?[0-9A-Fa-f]{1,6})~;
 sub escapeHTMLString{
     my $String = shift;
-    unless( $isEscapeHTMLCharacters ){ return $String; }
+    unless( $isEscapeHTMLCharacters ){ 
+        info_t("returning without escaping '$String'");
+        return $String; 
+    }
+    return( escapeHTMLStringForced($String) );}
+sub escapeHTMLStringForced{
+    my $String = shift;
+    unless( defined $String ){ die2("Undefined string given to escapeHTMLString."); }
     # Convert '<' to '&lt;', but not if it's part of a HTML tag.
     $String =~ s~<(?!/?$PossibleTags[^>]*>)~&lt;~gs;
     # Convert '>' to '&gt;', but not if it's part of a HTML tag.
-    $String =~ s~(?<!<$PossibleTags[^>]*)>~&gt;~sg;
+    $String =~ s~(?<!<$PossibleTags[^>]{0,100})>~&gt;~sg;
     # Convert '&' to '&amp', but not if is part of an HTML escape sequence.
     $String =~ s~&(?!$HTMLcodes)~&amp;~gs;
     $String =~ s~'~\&apos;~sg;
     $String =~ s~"~\&quot;~sg;
+    info_t("returning after escaped '$String'");
     return $String;}
-
 sub filterXDXFforEntitites{
     my( @xdxf ) = @_;
     my @Filteredxdxf;
