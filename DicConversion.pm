@@ -2150,6 +2150,7 @@ sub generateXDXFTagBased{
         # returns 1 on success.
         infoVV("Entering splitArticlesIntoKeyAndDefinition.");
         my $Info = shift;
+        my $MaxCount = 120;
         my $articles = $$Info{ "articles" };
         debugV( Dumper ( $$Info{ "sets"} ) );
         my @csv;
@@ -2167,13 +2168,13 @@ sub generateXDXFTagBased{
                 unless( $Stoptag eq stopFromStart( $Starttag ) ){ die2("Article stop-tag registered in %Info doesn't match start-tag"); }
                 $article = cleanOuterTags( $article );
             }
-            debug( "Article to be split is '$article'" ) if $counter < 6;
+            debug( "Article to be split is '$article'" ) if $counter < $MaxCount;
 
             # Check starting key-tag and check them against high frequency tags.
             my $KeyStartTag = startTag( $article );
-            debug( "Key start tag: $KeyStartTag") if $counter < 6;
             my $KeyStopTag = stopFromStart( $KeyStartTag );
-            debug( "Key stop tag: $KeyStopTag") if $counter < 6;
+            info( "Key start tag: $KeyStartTag") if $counter < $MaxCount;
+            info( "Key stop tag: $KeyStopTag") if $counter < $MaxCount;
             my $HighFrequencyTagRecognized = 0;
             foreach my $Set( @{ $$Info{ "sets" } } ){
                 if( $KeyStopTag eq $$Set[0] ){ $HighFrequencyTagRecognized = 1; last; }
@@ -2182,11 +2183,11 @@ sub generateXDXFTagBased{
             unless( $HighFrequencyTagRecognized ){ die2("Key start tag is not a high frequency tag."); }
             # Match key and definition. Push cleaned string to csv-array.
             unless( $article =~ m~\Q$KeyStartTag\E(?<key>.+?)\Q$KeyStopTag\E(?<definition>.+)$~s){ die2("Regex for key-block doesn't match.");}
-            infoV("Found a key and definition in article.") if $counter < 6;
+            info("Found a key and definition in article.") if $counter < $MaxCount;
             my $Key         = removeOuterTags( $+{ "key" } );
             my $Definition  = cleanOuterTags( $+{ "definition" } );
-            infoVV("Key is '$Key'") if $counter < 6;
-            infoVV("Definition is '$Definition'") if $counter < 6;
+            info_t("Key is '$Key'") if $counter < $MaxCount;
+            info_t("Definition is '$Definition'") if $counter < $MaxCount;
             push @csv, $Key.$CVSDeliminator.$Definition;
         }
         # Create xdxf-array and store csv- and xdxf-arrays in info hash.
