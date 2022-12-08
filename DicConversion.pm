@@ -1668,7 +1668,8 @@ sub convertXDXFtoStardictXML{
     foreach my $article ( @articles){
         $cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
         # <head><k>a</k></head>
-        $article =~ m~<head><k>(?<key>((?!</k).)+)</k>~s;
+        unless( $article =~ m~<head><k>(?<key>((?!</k).)+)</k>~s ){ die2("Regex not working for '$article'");}
+        unless( defined $+{key} ){ die2("No key in article.\n$article"); }
         my $CurrentKey = escapeHTMLString($+{key});
         $article =~ m~<def>(?<definition>((?!</def).)+)</def>~s;
         my $CurrentDefinition = $+{definition};
@@ -1762,7 +1763,7 @@ sub generateXDXFTagBased{
     info("\nEntering generateXDXFTagBased");
     my $rawml = join('', @_ );
     # $rawml = removeEmptyTagPairs( $rawml ); # Don't because they can be deliminating, acting as a separator between articles.
-    while( $rawml =~ s~(<[^>])\s+>~$1>~sg ){ debug_t ("Remove trailing spaces in tags."); }
+    while( $rawml =~ s~(<[^>])\s+>~$1>~sg ){ info_t("Remove trailing spaces in tags."); }
     my %Info;
     $Info{ "isExcludeImgTags" }     = $isExcludeImgTags;
     $Info{ "isSkipKnownStylingTags" } = $isSkipKnownStylingTags;
@@ -1802,7 +1803,16 @@ sub generateXDXFTagBased{
         my $Info = shift;
         my %tags = %{ $$Info{ "counted tags hash" } };
         my $rawml = ${ $$Info{ "rawml with lowered stop-tags"} };
+        my @KSTs = @KnownStylingTags;
         my (%DeletedTags, %LowerFrequencyTags);
+        my $before = '</?';
+        my $after = '( |>)';
+        my $RegexKnownStylingTags= $before. (shift @KSTs) .$after;
+        $before = '|'.$before;
+        foreach( @KSTs ){ $RegexKnownStylingTags.= $before.$_.$after; }
+        debug_t( \@KnownStylingTags);
+        debug_t( [ 'a', 'i', 'b', 'font'] );
+        if( Compare( \@KnownStylingTags, [ 'a', 'i', 'b', 'font']) and $RegexKnownStylingTags ne '</?a( |>)|</?i( |>)|</?b( |>)|</?font( |>)'){ die2("RegexKnownStylingTags doesn't work as expected.")}
         sub sorttags{
             sub stripped{
                 my $c = shift;
@@ -1813,7 +1823,7 @@ sub generateXDXFTagBased{
             &stripped($a) cmp &stripped($b) or
             $a cmp $b}
         foreach( sort sorttags keys %tags ){
-            if( m~</?a( |>)|</?i( |>)|</?b( |>)|</?font( |>)~i and $isSkipKnownStylingTags){
+            if( m~$RegexKnownStylingTags~i and $isSkipKnownStylingTags){
                 unless( $DeletedTags{ substr($_, 0, 5) } ){ debug("Deleted '$_' from list of tags."); }
                 $DeletedTags{ substr($_, 0, 5) } = 1;  # Use of substr to prevent flooding with anchor references.
                 delete $tags{$_};     # Skip known styling.
@@ -2180,6 +2190,12 @@ sub generateXDXFTagBased{
                 if( $KeyStopTag eq $$Set[0] ){ $HighFrequencyTagRecognized = 1; last; }
                 else{ debugVV( "'$KeyStopTag' isn't equal to '$$Set[0]'"); }
             }
+            if( $isSkipKnownStylingTags and !$HighFrequencyTagRecognized ){
+                foreach my $KnownStylingTags( @KnownStylingTags ){
+                    if( $KeyStopTag =~ m~</\Q$KnownStylingTags\E>~ ){ $HighFrequencyTagRecognized = 1; last; }
+                    else{ debug_t( "'$KeyStopTag' doesn't match with '$KnownStylingTags'"); }
+                }
+            }
             unless( $HighFrequencyTagRecognized ){ die2("Key start tag is not a high frequency tag."); }
             # Match key and definition. Push cleaned string to csv-array.
             unless( $article =~ m~\Q$KeyStartTag\E(?<key>.+?)\Q$KeyStopTag\E(?<definition>.+)$~s){ die2("Regex for key-block doesn't match.");}
@@ -2337,6 +2353,7 @@ sub generateXDXFTagBased{
         }}
 
     # Get all tags
+    info("Getting tags");
     our @tags = $rawml =~ m~(<[^>]*>)~sg;
     $Info{ "tags" } = \@tags;
     logTags( $FileName, \@tags);
@@ -2346,9 +2363,11 @@ sub generateXDXFTagBased{
     filterTagsHash( \%Info ); # Uses the hash key { "counted tags hash" }. Generates 4 keys in given hash, resp. "removed tags", "filtered rawml", "filtered tags hash" and "deleted tags".
 
     # Gather the start- and stop tag sets.
+    info("Gathering set of tags");
     gatherSets( \%Info ); # Uses the hash key "filtered tags hash" and generates the keys "sets" and "SkippedTags", resp. an array- and a hash-reference.
 
     # Find the percentages that the sets occupy of the rawml.
+    info("Calculating the percentage of the data is within sets.");
     sets2Percentages( \%Info ); # Uses the hash keys "sets" and "filtered rawml" to generate the key "SetInfo", an array-reference.
 
     # Are there high frequency tag-blocks that contain all other high frequency blocks?
