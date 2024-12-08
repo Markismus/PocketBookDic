@@ -279,7 +279,7 @@ our $isEscapeHTMLCharacters             = 0;
 # Special characters can be converted to
 # &lt; (<), &amp; (&), &gt; (>), &quot; ("), and &apos; (')
 # However, the HTML escape sequences and tags should not be converted!
-our $PossibleTags = qr~/?(def|mbp|c>|c c="|abr>|ex>|kref>|k>|key|rref|f>|!--|!doctype|a|abbr|acronym|address|applet|area|article|aside|audio|b>|base|basefont|bb|bdo|big|blockquote|body|/?br|button|canvas|caption|center|cite|code|col|colgroup|command|datagrid|datalist|dd|del|details|dfn|dialog|dir|div|dl|dt|em|embed|eventsource|fieldset|figcaption|figure|font|footer|form|frame|frameset|h[1-6]|head|header|hgroup|hr/|html|i>|i |iframe|img|input|ins|isindex|kbd|keygen|label|legend|li|link|map|mark|menu|meta|meter|nav|noframes|noscript|object|ol|optgroup|option|output|p|param|pre|progress|q>|rp|rt|ruby|s>|samp|script|section|select|small|source|span|strike|strong|style|sub|sup|table|tbody|td|textarea|tfoot|th|thead|time|title|tr|track|tt|u>|ul|var|video|wbr)~;
+our $PossibleTags = qr~/?(def|mbp|c>|c c="|abr>|ex>|kref>|k>|key|rref|f>|!--|!doctype|a|abbr|acronym|address|applet|area|article|aside|audio|b>|b |base|basefont|bb|bdo|big|blockquote|body|/?br|button|canvas|caption|center|cite|code|col|colgroup|command|datagrid|datalist|dd|del|details|dfn|dialog|dir|div|dl|dt|em|embed|eventsource|fieldset|figcaption|figure|font|footer|form|frame|frameset|h[1-6]|head|header|hgroup|hr/|html|i>|i |iframe|img|input|ins|isindex|k|kbd|keygen|label|legend|li|link|map|mark|menu|meta|meter|nav|noframes|noscript|object|ol|optgroup|option|output|p|param|pre|progress|q>|rp|rt|ruby|s>|samp|script|section|select|small|source|span|strike|strong|style|sub|sup|table|tbody|td|textarea|tfoot|th|thead|time|title|tr|track|tt|u>|ul|var|video|wbr)~;
 our $HTMLcodes = qr~(lt;|amp;|gt;|quot;|apos;|\#x?[0-9A-Fa-f]{1,6})~;
 sub escapeHTMLString{
     my $String = shift;
@@ -291,14 +291,27 @@ sub escapeHTMLString{
 sub escapeHTMLStringForced{
     my $String = shift;
     unless( defined $String ){ die2("Undefined string given to escapeHTMLString."); }
+    
+    # Turn string in array of tags and strings
+    my @String;
+    while( $String =~ s~^([^<>]*)(<[^<>]+>)~~s ){
+        push @String, $1 if defined $1;
+        push @String, $2;
+    }
+    foreach(@String){
+    if( m~^<~ ){ next; }
     # Convert '<' to '&lt;', but not if it's part of a HTML tag.
-    $String =~ s~<(?!/?$PossibleTags[^>]*>)~&lt;~gs;
+    s~<(?!\/?$PossibleTags[^>]*>)~&lt;~gs;
     # Convert '>' to '&gt;', but not if it's part of a HTML tag.
-    $String =~ s~(?<!<$PossibleTags[^>]{0,100})>~&gt;~sg;
+    s~(?<!<$PossibleTags[^>]{0,100})>~&gt;~sg;
     # Convert '&' to '&amp', but not if is part of an HTML escape sequence.
-    $String =~ s~&(?!$HTMLcodes)~&amp;~gs;
-    $String =~ s~'~\&apos;~sg;
-    $String =~ s~"~\&quot;~sg;
+    s~&(?!$HTMLcodes)~&amp;~gs;
+    s~'~\&apos;~sg;
+    s~"~\&quot;~sg;
+    s~\{~\&$123;~sg;
+    s~\?~\&$125;~sg;
+    }
+    $String = join( '', @String );
     info_t("returning after escaped '$String'");
     return $String;}
 sub filterXDXFforEntitites{
@@ -588,8 +601,8 @@ sub unEscapeHTMLArray{
 sub unEscapeHTMLString{
     my $String = shift;
     unless( $unEscapeHTML ){ return $String; }
-    $String =~ s~\&lt;~<~sg if 0 ; # Disabled, because it generates problems with HTML-parsing
-    $String =~ s~\&gt;~>~sg if 0 ; # Disabled, because it generates problems with HTML-parsing
+    $String =~ s~\&lt;~<~sg;
+    $String =~ s~\&gt;~>~sg;
     $String =~ s~\&apos;~'~sg;
     $String =~ s~\&amp;~&~sg;
     $String =~ s~\&quot;~"~sg;
