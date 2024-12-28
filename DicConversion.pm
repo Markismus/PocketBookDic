@@ -1285,7 +1285,8 @@ sub convertIMG2Text{
         $Image::OCR::Tesseract::DEBUG = 0;
         $ValidatedOCRedImagesHashFileName = $BaseDir."/".join('', $FileName=~m~^(.+?\.)[^.]+$~)."validation.hash";
         debug_t( "ValidatedOCRedImagesHashFileName is '$ValidatedOCRedImagesHashFileName'");
-        %ValidatedOCRedImages = %{ retrieveHash($ValidatedOCRedImagesHashFileName)}; 
+        if( -e $ValidatedOCRedImagesHashFileName ){ %ValidatedOCRedImages = %{ retrieveHash($ValidatedOCRedImagesHashFileName)}; } 
+        else{ debug("No previously validated images found."); }
         %OCRedImages = %ValidatedOCRedImages;
         info("Number of imagestrings OCRed is ".scalar keys %ValidatedOCRedImages);
         unless( storeHash(\%ValidatedOCRedImages, $ValidatedOCRedImagesHashFileName) ){ die2("Cannot store hash ValidatedOCRedImages.");} # To check whether filename is storable.
