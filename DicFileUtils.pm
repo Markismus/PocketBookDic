@@ -34,6 +34,11 @@ our @EXPORT = (
 
 sub array2File {
     my ( $FileName, @Array ) = @_;
+    return( array2FileEncoded( $FileName, 'utf8', @Array ) );}
+
+sub array2FileEncoded {
+    my ( $FileName, $encoding, @Array ) = @_;
+
     if( $FileName =~ m~(?<dir>.*)/(?<file>[^/]+)~ ){
         my $dir = $+{dir};
         my $file = $+{file};
@@ -48,7 +53,7 @@ sub array2File {
     }
     debugV("Array to be written:\n",@Array);
     if( -e $FileName){ warn "$FileName already exist" if $isDebugVerbose; };
-    unless( open( FILE, ">:encoding(utf8)", $FileName ) ){
+    unless( open( FILE, ">:encoding($encoding)", $FileName ) ){
       warn "Cannot open $FileName: $!\n";
       die2() ;
     }
