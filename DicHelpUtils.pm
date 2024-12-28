@@ -121,8 +121,8 @@ sub cleanOuterTags{
         }
     }
     my $Stop = stopFromStart( $Start );
-    unless( $block =~ s~^$Start~~s ){ warn "Regex for removal of block start-tag doesn't match."; return ''; }
-    unless( $block =~ s~$Stop$~~s ){ warn "Regex for removal of block stop-tag doesn't match."; return ''; }
+    unless( $block =~ s~^$Start~~s ){ warn "Regex for removal of block start-tag doesn't match in line ".__LINE__; return ''; }
+    unless( $block =~ s~$Stop$~~s ){ warn "Regex for removal of block stop-tag doesn't match in line ".__LINE__; return ''; }
     $block =~ s~^\s+~~s;
     $block =~ s~\s+$~~s;
     return $block;}
@@ -424,7 +424,7 @@ sub removeBloatFromString{
     # OALD9 has a strange string [s]key.bmp[/s] that keeps repeating. No idea why!
     while( $xdxf =~ s~\[s\].*?\.bmp\[/s\]~~sg   ){ info_t("....cleaning house (removing s-blocks with .bmp at the end.)"); }
     while( $xdxf =~ s~xmlns:[^=]+="[^"]*"~~sg   ){ info_t("....cleaning house (removing xmlns-links.)"); }
-    while( $xdxf =~ s~(<[^>])\s+>~$1>~sg        ){ info_t("Remove trailing spaces in tags after cleaning house."); }
+    while( $xdxf =~ s~(<[^>]+?)\s+>~$1>~sg        ){ info_t("Remove trailing spaces in tags after cleaning house."); }
     $xdxf = removeBreakTag( $xdxf );
     $xdxf = removeEmptyTagPairs( $xdxf );
     debugV("...done!");
@@ -519,8 +519,8 @@ sub removeOuterTags{
     while( $block =~ m~^<~ ){
         my $Start = startTag( $block );
         my $Stop  = stopFromStart( $Start );
-        unless( $block =~ s~^$Start~~s ){ info_t "Regex for removal of block start-tag doesn't match."; return ''; }
-        unless( $block =~ s~$Stop$~~s  ){ info_t "Regex for removal of block stop-tag doesn't match.";  return ''; }
+        unless( $block =~ s~^$Start~~s ){ info_t( "Regex for removal of block start-tag doesn't match.\nStart: '$Start'\nBlock: '$block'" ); return ''; }
+        unless( $block =~ s~$Stop$~~s  ){ info_t( "Regex for removal of block stop-tag doesn't match. \nStop: '$Stop'  \nBlock: '$block'" ); return ''; }
         $block =~ s~^\s+~~s;
         $block =~ s~\s+$~~s;
     }
@@ -530,12 +530,12 @@ sub startFromStop{ return ("<" . substr( $_[0], 2, (length( $_[0] ) - 3) ) . "( 
 sub startTag{
     $_[0] =~ s~^\s+~~s;
     my $StartTag = startTagReturnUndef( $_[0]);
-    unless( defined $StartTag ){ die2("Regex for key-start '$StartTag' doesn't match."); }
+    unless( defined $StartTag ){ die2("Regex for key-start '$_[0]' doesn't match."); }
     return ( $StartTag );}
 sub startTagReturnUndef{
     $_[0] =~ s~^\s+~~s;
-    unless( $_[0] =~ m~^(?<StartTag><(?!/)[^>]+>)~s ){ return undef; }
-    return ( $+{"StartTag"} );}
+    if( $_[0] =~ m~^(?<StartTag><(?!/)[^>]+>)~s ){ return ( $+{"StartTag"} ); }
+    else{ info_t("Regex for key-start '$_[0]' doesn't match."); return undef; }}
 sub stopFromStart{
     unless( $_[0] =~ m~<(?<tag>\w+)( |>)~ ){ die2("Regex in stopFromStart doesn't match. Value given is '$_[0]'"); }
     return( "</" . $+{"tag"}.">" );}
