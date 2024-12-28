@@ -1763,6 +1763,7 @@ sub generateXDXFTagBased{
     info("\nEntering generateXDXFTagBased");
     my $rawml = join('', @_ );
     # $rawml = removeEmptyTagPairs( $rawml ); # Don't because they can be deliminating, acting as a separator between articles.
+    $rawml =~ s~ xmlns:[^=]+="[^"]*"~~gs;
     while( $rawml =~ s~(<[^>])\s+>~$1>~sg ){ info_t("Remove trailing spaces in tags."); }
     my %Info;
     $Info{ "isExcludeImgTags" }     = $isExcludeImgTags;
@@ -1902,9 +1903,12 @@ sub generateXDXFTagBased{
             $test =~ s~$$_{"regex"}~~sg;
             my $length_test = length($test);
             my $percentage_left = int( $length_test / $length_rawml * 100 );
+            my $isSoftSetTest = 1;
+            my $SoftSetAcceptedPercentage = 95;
             debug("Length of the remaining test is $length_test ($percentage_left %)");
             debug(substr($test,0,2000));
-            if( length($test) == 0 ){
+            if( length($test) == 0 or 
+                ( $isSoftSetTest and $percentage_left <= $SoftSetAcceptedPercentage)){
                 info("Articles identified.");
                 info("Number of articles found: ".scalar @articles." with regex '".$$_{"regex"}."'.");
                 info("0\n".$articles[0]);
@@ -2011,14 +2015,14 @@ sub generateXDXFTagBased{
                 debug_t("length rawml used: ". length $rawml );
                 debugVV(substr( $rawml, 0, 2000 ) );
                 my @TagBlocks = $rawml =~ m~$regex~sg;
-                if( scalar @TagBlocks == 0 ){ die2("regex '$regex' didn't match!"); }
+                if( scalar @TagBlocks == 0 ){ die2("regex '$regex' didn't match at line ".__LINE__."!"); }
                 debugVV(@TagBlocks[0..99]);
                 my $TagBlock = shift @TagBlocks;
-                debug_t("Tag-block is '$TagBlock'");
+                debugVV("Tag-block is '$TagBlock'");
                 foreach( @TagBlocks){
                     if( $_ ne $TagBlock ){
-                        debug("TagBlock: $TagBlock");
-                        debug("TagBlock: $_");
+                        debugV("TagBlock: $TagBlock");
+                        debugV("TagBlock: $_");
                         debug_t("Not all tag-blocks are the same. Next pair.");
                         next PAIR;
                     }
@@ -2047,7 +2051,7 @@ sub generateXDXFTagBased{
         logSets( $FileName, \@sets );
 
         $$Info{ "sets" }              = \@sets;
-        $$Info{ "SkippedTags" }       = \%SkippedTags;}
+        $$Info{ "SkippedTags" }       = \%SkippedTags;} 
     sub logSets{
         my $FileName = shift;
         my $Data = join('', Dumper( shift ));
@@ -2163,14 +2167,28 @@ sub generateXDXFTagBased{
         my $MaxCount = 120;
         my $articles = $$Info{ "articles" };
         debugV( Dumper ( $$Info{ "sets"} ) );
+        sub removeFollowingTagBlocksAfterKeyword{
+            my $Key = shift;
+            my $temp;
+            if( $Key =~ m~^(?<key>[^<]*\w*[^<]*)~ and $temp = $+{key} and $Key =~ m~^$temp[^<>]*<[^>]+>[^<>]*<[^>]+>~){
+                info_t("Keyword followed by string in tag-block. Removing everything after keyword");
+                $Key = $temp;
+            }
+            return $Key;
+        }
         my @csv;
         my $OldCVSDeliminator = $CVSDeliminator;
         $CVSDeliminator = "||||";
         unless( @$articles > 0 ){ die2("No articles were given to sub splitArticlesIntoKeyAndDefinition!"); }
         my $counter = 0;
+        my $NoArticleFound = 1;
         foreach my $article( @$articles ){
+            if( $article =~ m~^<[^>]+>$~ or     # One tag article
+                $article !~ m~<[^>]+>~          # No tag article
+                ){next;}
             $counter++;
             # Check outer article tags and remove them.
+            info_t("Article being split is:\n'$article'") if $counter < 4;
             if( defined $$Info{ "article stop tag"} ){
                 my $Stoptag = $$Info{ "article stop tag"}; # </ar>
                 my $Starttag = startTag( $article );
@@ -2178,10 +2196,23 @@ sub generateXDXFTagBased{
                 unless( $Stoptag eq stopFromStart( $Starttag ) ){ die2("Article stop-tag registered in %Info doesn't match start-tag"); }
                 $article = cleanOuterTags( $article );
             }
+            elsif( 0 and $article =~ m~^(?<start><[^>]+>)~){
+                my $StartingTag = $+{"start"};
+                my $EndTag = '';
+                if( $article =~ m~(?<end><^>]+>\s*)$~s ){
+                    $EndTag = $+{"end"};
+                }
+                if( stopFromStart( $StartingTag ) ){;}
+            }
+            if( $article =~ m~^<[^>]+>$~ or     # One tag article
+                $article !~ m~<[^>]+>~          # No tag article
+                ){next;}
             debug( "Article to be split is '$article'" ) if $counter < $MaxCount;
 
             # Check starting key-tag and check them against high frequency tags.
-            my $KeyStartTag = startTag( $article );
+            my $KeyStartTag = startTagReturnUndef( $article );
+            unless( $KeyStartTag and $NoArticleFound ){ next;}
+            else{ debug("Failure to get starttag after finding articles"); return; }
             my $KeyStopTag = stopFromStart( $KeyStartTag );
             info( "Key start tag: $KeyStartTag") if $counter < $MaxCount;
             info( "Key stop tag: $KeyStopTag") if $counter < $MaxCount;
@@ -2193,15 +2224,60 @@ sub generateXDXFTagBased{
             if( $isSkipKnownStylingTags and !$HighFrequencyTagRecognized ){
                 foreach my $KnownStylingTags( @KnownStylingTags ){
                     if( $KeyStopTag =~ m~</\Q$KnownStylingTags\E>~ ){ $HighFrequencyTagRecognized = 1; last; }
-                    else{ debug_t( "'$KeyStopTag' doesn't match with '$KnownStylingTags'"); }
+                    else{ debugVV( "'$KeyStopTag' doesn't match with '$KnownStylingTags'"); }
                 }
             }
             unless( $HighFrequencyTagRecognized ){ die2("Key start tag is not a high frequency tag."); }
             # Match key and definition. Push cleaned string to csv-array.
-            unless( $article =~ m~\Q$KeyStartTag\E(?<key>.+?)\Q$KeyStopTag\E(?<definition>.+)$~s){ die2("Regex for key-block doesn't match.");}
+            unless( $article =~ m~\Q$KeyStartTag\E(?<key>.+?)\Q$KeyStopTag\E(?<definition>.+)$~s){ 
+                debug("Regex for key-block doesn't match on line ".__LINE__.".\n"."\Q$KeyStartTag\E(?<key>.+?)\Q$KeyStopTag\E(?<definition>.+)$\n"."'$article'");
+                if($counter<10){ debug("Ignoring for start of the dictionary."); next;}
+                else{ debug("Regex keeps failing. Returning failure"); return undef; }
+            }
             info("Found a key and definition in article.") if $counter < $MaxCount;
-            my $Key         = removeOuterTags( $+{ "key" } );
-            my $Definition  = cleanOuterTags( $+{ "definition" } );
+            my $Key         = $+{ "key" };
+            my $Definition  = $+{ "definition" };
+            $NoArticleFound = 0;
+
+            if( removeOuterTags( $Key ) and cleanOuterTags($Definition ) ){
+                info_t("Key is as expected in line ".__LINE__);
+                $Key = removeOuterTags($Key);
+                $Key = removeFollowingTagBlocksAfterKeyword( $Key );
+                $Key = escapeHTMLStringForced( $Key );
+                $Definition  = cleanOuterTags( $Definition );
+                info_t("Key is '$Key'") if $counter < $MaxCount;
+                info_t("Definition is '$Definition'") if $counter < $MaxCount;
+            }
+            else{
+                # removeOuterTags and/or cleanOuterTags returned undef, probably extra tagblock enclosed in Keyblock capture
+                # Declare whole article as definition and distill key from $Key.
+                info_t("Declaring whole article as definition and distilling key from '$Key'");
+                $Definition = $article;
+                my $KeyStartTag = startTag( $Key );
+                my $KeyStopTag = stopFromStart( $KeyStartTag );
+                info( "Key start tag: $KeyStartTag") if $counter < $MaxCount;
+                info( "Key stop tag: $KeyStopTag") if $counter < $MaxCount;
+                my $HighFrequencyTagRecognized = 0;
+                foreach my $Set( @{ $$Info{ "sets" } } ){
+                    if( $KeyStopTag eq $$Set[0] ){ $HighFrequencyTagRecognized = 1; last; }
+                    else{ debugVV( "'$KeyStopTag' isn't equal to '$$Set[0]'"); }
+                }
+                if( $isSkipKnownStylingTags ){
+                    foreach(@KnownStylingTags){
+                        if( $KeyStopTag =~ m~</$_>~){ $HighFrequencyTagRecognized = 1; last;}
+                    }
+                }
+                unless( $HighFrequencyTagRecognized ){ die2("Key start tag is not a high frequency tag."); }
+                # Match key.
+                unless( $Key =~ m~\Q$KeyStartTag\E(?<key>.+?)\Q$KeyStopTag\E~s){ die2("Regex for key-block doesn't match."); }
+                $Key = $+{key};
+                if( removeOuterTags($Key) ){ $Key = removeOuterTags($Key); }
+                $Key = removeFollowingTagBlocksAfterKeyword( $Key );
+                $Key = escapeHTMLStringForced($Key );
+                info("Found a key in keyblock.") if $counter < $MaxCount;
+                $Definition =~ s~\Q$KeyStartTag$Key$KeyStopTag\E~~ or $Definition =~ s~\Q$Key\E~~;
+            }
+
             info_t("Key is '$Key'") if $counter < $MaxCount;
             info_t("Definition is '$Definition'") if $counter < $MaxCount;
             push @csv, $Key.$CVSDeliminator.$Definition;
@@ -2229,15 +2305,35 @@ sub generateXDXFTagBased{
             else{ info("'$_' (".$SkippedTags{$_}.") didn't form a set. Retained for splitting.");}
         }
 
-        debugV( Dumper( \%SkippedTags ) );
-        SKIPPEDTAG: foreach my $SplittingTag( sort keys %SkippedTags){
-            infoVV("Evaluating '$SplittingTag' as a splitting tag.");
-            my @chunks = split(/\Q$SplittingTag\E/, $rawml );
+        info_t( Dumper( \%SkippedTags ) );
+        my @SplittingTags = sort keys %SkippedTags;
+        SKIPPEDTAG: foreach my $SplittingTag( @SplittingTags){
+            info("Evaluating '$SplittingTag' as a splitting tag.");
+            my @chunks;
+            my $isUseRemoveBloat = 1; # If an article start with e.g. <a></a> the code fails.
+            if( $isUseRemoveBloat ){
+                unless( $SplittingTag =~ m~<[^>]+>\s*</[^>]+>~ or 
+                    $SplittingTag =~ m~<br ?/?>~){ # Because these are removed by removeBloatFromString
+                    my $Unbloated = removeBloatFromString( $rawml );
+                    @chunks = split(/\Q$SplittingTag\E/, $Unbloated );
+                }
+                else{ 
+                    @chunks = split(/\Q$SplittingTag\E/, $rawml );
+                    my $OldToggle = $isTestingOn;
+                    $isTestingOn = 0;
+                    foreach(@chunks){ $_ = removeBloatFromString($_); }
+                    $isTestingOn = $OldToggle;
+                }
+            }
+            else{ @chunks = split(/\Q$SplittingTag\E/, $rawml ); }
+            info_t("Number of chunks is ". scalar @chunks);
+            if ( scalar @chunks < 10 ){ warn("Less than 10 chunks. Why is '$SplittingTag' not filtered out?\n(The setting for \$LowFrequencyCriterium is '$LowFrequencyCriterium'.)"); next SKIPPEDTAG; }
             my $FirstArticle = shift @chunks;
             my $LastArticleWithEndDictionary = pop @chunks;
             $LastArticleWithEndDictionary =~ s~^\s*~~;
-            # Check that all chunks start with a tag
+            # Check that all chunks start with a (start?)tag
             my $StartTag = "unknown";
+            my $ChunkEnd = "unknown";
             my $counter = 0;
             my %StartTags;
             for( my $i = 0; $i < scalar @chunks; $i++){
@@ -2256,8 +2352,12 @@ sub generateXDXFTagBased{
                     $i--;
                     next;
                 }
-                infoVV( "Chunk is\n'$chunk'") if $counter < 6;
+                info_t( "Chunk is\n'$chunk'") if $counter < 6;
                 my $NewStartTag = startTagReturnUndef( $chunk );
+                my $NewChunkEnd;
+                unless( $chunk =~ m~>\s*$~){ $NewChunkEnd = "NoTag"; }
+                elsif( $chunk =~ m~(?<endtag><[^>]+>)\s*$~ ){ $NewChunkEnd = $+{endtag}; }
+                else{ die2("Unexpected possibility."); }
                 $StartTags{ $NewStartTag } += 1;
                 infoVV( "The count for \$StartTags{$NewStartTag} is $StartTags{$NewStartTag}.") if $counter < 6;
                 unless( defined $StartTag ){
@@ -2279,11 +2379,20 @@ sub generateXDXFTagBased{
                     }
                 }
                 elsif( $StartTag eq "unknown" ){ $StartTag = $NewStartTag; }
+                
+                unless( $NewChunkEnd eq $ChunkEnd or $ChunkEnd eq "unknown"){
+                    info("End-of-chunks are different: '$ChunkEnd' vs '$NewChunkEnd'.  Skippping splitting tag '$SplittingTag'.");
+                    info("New chunk: '$chunks[$i]'");
+                    info("Old chunk: '$chunks[$i-1]'");
+                    next SKIPPEDTAG;
+                }
+                elsif( $ChunkEnd eq "unknown"){ $ChunkEnd = $NewChunkEnd; }
+
             }
             print "\n";
             infoVV( "Finished checking chunks for uniformity in splitRawmlIntoArticles.");
             my $StopTag = stopFromStart( $StartTag );
-            info("Found that splitting tag '$SplittingTag' results in an uniform key-block surrounded by '$StartTag....$StopTag'.");
+            info("Found that splitting tag '$SplittingTag' results in an uniform key-block starting by '$StartTag' and an article ending with '$ChunkEnd'.");
 
             infoV("First article:\n'$FirstArticle'");
             my @NumberofStartTags = $chunks[0] =~ m~($StartTag)~sg;
