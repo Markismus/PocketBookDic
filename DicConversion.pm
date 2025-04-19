@@ -1668,12 +1668,15 @@ sub convertXDXFtoStardictXML{
     printCyan("Finished getting articles at ", getLoggingTime(),"\n" );
     $cycle_dotprinter = 0;
     my $PreviousKey = "";
+    my ( $counter, $MaxCount ) = ( 0, 6 );
     foreach my $article ( @articles){
+        $counter++;
         $cycle_dotprinter++; if( $cycle_dotprinter == $cycles_per_dot){ printGreen("."); $cycle_dotprinter=0;}
         # <head><k>a</k></head>
         unless( $article =~ m~<head><k>(?<key>((?!</k).)+)</k>~s ){ die2("Regex not working for '$article'");}
         unless( defined $+{key} ){ die2("No key in article.\n$article"); }
         my $CurrentKey = escapeHTMLString($+{key});
+        debug("CurrentKey: $CurrentKey") if $counter < $MaxCount;
         $article =~ m~<def>(?<definition>((?!</def).)+)</def>~s;
         my $CurrentDefinition = $+{definition};
         # Append the current definition to the previous one
@@ -2360,7 +2363,7 @@ sub generateXDXFTagBased{
                 my $NewChunkEnd;
                 unless( $chunk =~ m~>\s*$~){ $NewChunkEnd = "NoTag"; }
                 elsif( $chunk =~ m~(?<endtag><[^>]+>)\s*$~ ){ $NewChunkEnd = $+{endtag}; }
-                else{ die2("Unexpected possibility."); }
+                else{ die2("Unexpected possibility. Chunk is '$chunk'"); }
                 $StartTags{ $NewStartTag } += 1;
                 infoVV( "The count for \$StartTags{$NewStartTag} is $StartTags{$NewStartTag}.") if $counter < 6;
                 unless( defined $StartTag ){
