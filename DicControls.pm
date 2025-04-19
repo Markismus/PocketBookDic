@@ -11,6 +11,9 @@ use DicPrepare;
 use DicConversion;
 use DicHelpUtils;
 
+use Exporter;
+our @ISA = ('Exporter');
+our @EXPORT = ( '$Just4Koreader', '$Just4PocketBook', );
 ## Controls from module Dic2Screen
 # Control the verbosity debug messages
 ( $isDebug, $isDebugVerbose, $isDebugVeryVerbose )       = ( 1, 0, 0 );  
@@ -42,6 +45,7 @@ $isMakeKoreaderReady_SpanWidth2Style         = 0 ;
 $isMakeKoreaderReady_SpanStyleWidht2Padding  = 0 ;
 $isMakeKoreaderReady_MergeStyles             = 0 ;
 $isChangeTable2Div4Koreader                  = 1 ; # Adds lines to lua-file
+$isMakePocketBookReady                       = 1 ; # Removes all unnecessary tags 
 
 # Controls for reconstructXDXF
 # Controls manual input: 0 disables.
@@ -133,7 +137,7 @@ if( $Just4Koreader and !$Just4PocketBook){
     $updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
     $isConvertColorNamestoHexCodePoints = 1; # Converting takes time.
     $isMakeKoreaderReady = 1; # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
-
+    $isMakePocketBookReady = 0; 
     # Controls for Pocketbook conversion
     $isCreatePocketbookDictionary = 0; # Controls conversion to Pocketbook Dictionary dic-format
     $remove_color_tags = 0; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably. Relevant for pocketbook dictionary.
@@ -157,7 +161,7 @@ if( $Just4PocketBook and !$Just4Koreader){
     $updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
     $isConvertColorNamestoHexCodePoints = 0; # Converting takes time and space
     $isMakeKoreaderReady = 0; # Sometimes koreader want something extra. E.g. create css- and/or lua-file, convert <c color="red"> tags to <span style="color:red;">
-
+    $isMakePocketBookReady = 1;
     # Controls for Pocketbook conversion
     $isCreatePocketbookDictionary = 1; # Controls conversion to Pocketbook Dictionary dic-format
     $remove_color_tags = 1; # Not all viewers can handle color/grayscale. Removing them reduces the article size considerably. Relevant for pocketbook dictionary.

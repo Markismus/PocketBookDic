@@ -108,6 +108,7 @@ debug("Full path is $FullPath");
 # Fill array from file.
 my @xdxf;
 @xdxf = loadXDXF();
+if( $Just4PocketBook ){ @xdxf = split( /^/, makePocketbookReady( @xdxf ) ); }
 array2File("testLoaded_line".__LINE__.".xdxf", @xdxf) if $isTestingOn;
 my $SizeOne = scalar @xdxf;
 debugV("\$SizeOne\t=\t$SizeOne");

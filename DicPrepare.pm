@@ -29,11 +29,13 @@ our @EXPORT = (
     '$isLoadFromPseudoFileName',
 
     'makeKoreaderReady',
+    'makePocketbookReady',
     '$isMakeKoreaderReady',
     '$isMakeKoreaderReady_SpanColor2Style',
     '$isMakeKoreaderReady_SpanWidth2Style',
     '$isMakeKoreaderReady_SpanStyleWidht2Padding',
     '$isMakeKoreaderReady_MergeStyles',
+    '$isMakePocketBookReady',
     '$isChangeTable2Div4Koreader',
 
     'reconstructXDXF',
@@ -598,6 +600,61 @@ sub makeKoreaderReady{
 our ( $lang_from, $lang_to, $format ) = ( "eng", "eng" ,"" ); # Default settings for manual input of xdxf tag.
 our $reformat_full_name  = 1 ; # Value 1 demands user input for full_name tag.
 our $reformat_xdxf       = 1 ; # Value 1 demands user input for xdxf tag.
+our $isMakePocketBookReady = 1;
+sub makePocketbookReady{
+    # returns xml-string unless $isMakePocketBookReady is false, than it returns @_.
+    unless( $isMakePocketBookReady ){ return @_; }
+    my $xml = join( '', @_ );
+    # https://www.mobileread.com/forums/showpost.php?p=3923645&postcount=15
+    # ezdiy posted that only these tags are retained:
+    # Str = "?xml";
+    # v23 = "xdxf";
+    # v24 = "full_name";
+    # v25 = "description";
+    # v26 = "ar"; // this one for each definition entry
+    # v27 = "k";
+    # v29 = "i";
+    # v28 = "b" // maybe this is for <br> too, due shared prefix?
+    # Get all tags
+    my %RetainedTags;
+    $RetainedTags{"?xml"} = 1;
+    $RetainedTags{"xdxf"} = 1;
+    $RetainedTags{"full_name"} = 1;
+    $RetainedTags{"description"} = 1;
+    $RetainedTags{"ar"} = 1;
+    $RetainedTags{"k"} = 1;
+    $RetainedTags{"i"} = 1;
+    $RetainedTags{"b"} = 1;
+    # Not in ezdiy's list, but needed later along the script.
+    $RetainedTags{"head"} = 1;
+    $RetainedTags{"def"} = 1;
+    info("Getting tags");
+    our @tags = $xml =~ m~(<[^>]*>)~sg;
+    my %tags;
+    # Count tags
+    foreach( @tags ){ 
+        unless( defined( $tags{$_} ) ){ $tags{$_} = 1; }
+        else{ $tags{$_}++; }
+    }
+    foreach my $tag( keys %tags ){
+        my $Retain = 0;
+        $tag =~ m~<\/?([^>^\s]+)~;
+        my $TagStart = $1;
+        info("Tagstart is'$TagStart'.");
+        foreach( keys %RetainedTags ){
+            if( $TagStart =~ m~^$_~ ){
+                $Retain = 1;
+                last;
+            }
+        }
+        info("Checking to retain '$tag'");
+        if( $Retain ){ next; }
+        else{ $xml =~ s~$tag~~sg;
+            debug("Removed tag '$tag'.");
+        }
+    }
+    return ( $xml );
+}
 sub reconstructXDXF{
     # Construct a new xdxf array to prevent converter.exe from crashing.
     ## Initial values
