@@ -129,6 +129,7 @@ $isConvertMobiAltCodes = 0; # Apparently, characters in the range of 1-31 are di
 # If you select both settings, they will be ignored.
 our $Just4Koreader   = 0 ;
 our $Just4PocketBook = 1 ;
+our $CreateTwoHalfPocketBookdictionaries = 0; # 0 creates one whole, 1 creates two halves.
 
 if( $Just4Koreader and !$Just4PocketBook){
     # Controls for Stardict dictionary creation and Koreader stardict compatabiltiy

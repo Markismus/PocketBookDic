@@ -22,6 +22,7 @@ our @EXPORT = (
     '$isConvertColorNamestoHexCodePoints',
     '$isCreateMDict',
     '$isCreatePocketbookDictionary',
+    '$CreateTwoHalfPocketBookdictionaries',
     '$isCreateStardictDictionary',
     '$isHandleMobiDictionary',
     '$isTestingOn',
@@ -85,7 +86,7 @@ our $isConvertColorNamestoHexCodePoints = 1; # Converting takes time.
 
 # Controls for Pocketbook conversion
 our $isCreatePocketbookDictionary = 1; # Controls conversion to Pocketbook Dictionary dic-format
-
+our $CreateTwoHalfPocketBookdictionaries = 0; # Controls the conversion to 2 Pocketbook Dictionaries in dic-format
 # Force conversion of numbered sequences to characters.
 our $ForceConvertNumberedSequencesToChar = 1;
 

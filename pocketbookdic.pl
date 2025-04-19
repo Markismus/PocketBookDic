@@ -185,13 +185,49 @@ if( $isCreateStardictDictionary ){
 }
 
 # Create Pocketbook dictionary
+
 if( $isCreatePocketbookDictionary ){
     my $ConvertCommand;
-    if( $language_dir ne "" ){ $lang_from = $language_dir ;}
-    if( $OperatingSystem eq "linux"){ $ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$BaseDir/$dict_xdxf\" $lang_from"; }
-    else{ $ConvertCommand = "converter.exe \"$dict_xdxf\" $lang_from"; }
-    printYellow("Running system command:\"$ConvertCommand\"\n");
-    system($ConvertCommand);
+    unless( $CreateTwoHalfPocketBookdictionaries ){
+        if( $language_dir ne "" ){ $lang_from = $language_dir ;}
+        if( $OperatingSystem eq "linux"){ $ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$BaseDir/$dict_xdxf\" $lang_from"; }
+        else{ $ConvertCommand = "converter.exe \"$dict_xdxf\" $lang_from"; }
+        printYellow("Running system command:\"$ConvertCommand\"\n");
+        system($ConvertCommand);
+    }
+    else{
+        my $HalfLengthXDXF = int( scalar(@xdxf_reconstructed)/2 );
+        info("Current half length is $HalfLengthXDXF");
+        while( $xdxf_reconstructed[$HalfLengthXDXF] !~ m~^<ar>~  ){ print($xdxf_reconstructed[$HalfLengthXDXF]); $HalfLengthXDXF++; }
+        info( "The array index $HalfLengthXDXF and the following lines are:\n$xdxf_reconstructed[$HalfLengthXDXF]$xdxf_reconstructed[$HalfLengthXDXF+1]$xdxf_reconstructed[$HalfLengthXDXF+2]");
+        my @FirstHalf = splice(@xdxf_reconstructed, 0, $HalfLengthXDXF);
+        info("scalar \@FirstHalf = ". scalar @FirstHalf);
+        push @FirstHalf, $lastline_xdxf;
+        my $FirstHalfName = $dict_xdxf;
+        $FirstHalfName =~ s~reconstructed~reconstructed.1sfHalf~;
+        array2File($FirstHalfName, @FirstHalf);
+        my @SecondHalf = @xdxf_reconstructed;
+        my $index = 0;
+        my @start;
+        while( $FirstHalf[$index] !~ m~<ar>~){
+            push @start, $FirstHalf[$index];
+            $index++;
+        }
+        unshift @SecondHalf, @start;
+        my $SecondHalfName = $dict_xdxf;
+        $SecondHalfName =~ s~reconstructed~reconstructed.2ndHalf~;
+
+        array2File($SecondHalfName, @SecondHalf);
+        if( $language_dir ne "" ){ $lang_from = $language_dir ;}
+        if( $OperatingSystem eq "linux"){ $ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$BaseDir/$FirstHalfName\" $lang_from"; }
+        else{ $ConvertCommand = "converter.exe \"$FirstHalfName\" $lang_from"; }
+        printYellow("Running system command:\"$ConvertCommand\"\n");
+        system($ConvertCommand);
+        if( $OperatingSystem eq "linux"){ $ConvertCommand = "WINEDEBUG=-all wine converter.exe \"$BaseDir/$SecondHalfName\" $lang_from"; }
+        else{ $ConvertCommand = "converter.exe \"$SecondHalfName\" $lang_from"; }
+        printYellow("Running system command:\"$ConvertCommand\"\n");
+        system($ConvertCommand);
+    }
 }
 my $Renamed = join('', $FileName=~m~^(.+?)\.[^.]+$~);
 rename $Renamed.".xdxf", $Renamed.".backup.xdxf" if $isTestingOn;
