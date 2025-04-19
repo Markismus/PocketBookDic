@@ -9,6 +9,8 @@ use Exporter;
 our @ISA = ('Exporter');
 our @EXPORT = ( 
     '$BaseDir',
+
+    '$CVSDeliminator',
     '$cycle_dotprinter',
     '$cycles_per_dot',
     '$DocType',
@@ -147,5 +149,8 @@ our @xml_start = (
                 # '<dicttype></dicttype>'."\n",
                 '</info>'."\n");                                                        #[10]
 our $lastline_xml = "</stardict>\n";
+
+# Deliminator for CSV files, usually ",",";" or "\t"(tab).
+our $CVSDeliminator = ",";
 
 1;
