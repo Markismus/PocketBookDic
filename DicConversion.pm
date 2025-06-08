@@ -67,6 +67,9 @@ our @EXPORT = (
     '$LowFrequencyCriterium',
     '$isSkipKnownStylingTags',
     '$MinimumSetPercentage',
+    '$MinimumNodes',
+    '$useStoredCatches',
+    '$isParsedTreeReused',
 );
 # Because this control variable is used both in convertIMG2Text and convertHTML2XDXF it has poll position.
 our $isConvertImagesUsingOCR          = 1;  # Try to identify images as symbols whenever possible.
@@ -909,6 +912,402 @@ sub convertABBYY2XDXF{
     foreach(@FailingExtraForms){debugV($_);}
     $isABBYConverted = 1;
     return( @xdxf_start, @articles, "</xdxf>" );}
+
+our $MinimumNodes           = 10;             #Minimum number of nodes
+our $useStoredCatches       = 1;
+our $isParsedTreeReused     = 1;
+our $isParsedConverterReuse = 1;  # Controls the check for already generated xdxf-file
+our $isPrintRecurseTree     = 1;
+our $isParsedConverted      = 0; # Global variable that gets set to 1 if convertParsed2XDXF returns an xdxf-array.
+our $isRemoveTextLess       = 0;
+
+sub convertParsed2XDXF{
+    # Usage: @xdxf = convertParsed2XDXF( $html );
+    info ( "Entering convertParsed2XDXF.");
+    if( $isTestingOn ){
+        info("Testing is on.");
+        $isParsedConverterReuse = 0;
+        $isParsedTreeReused = 1;
+        $useStoredCatches = 1;
+    }
+    info ( "\$isParsedConverterReuse is '$isParsedConverterReuse'");
+    info ( "\$isParsedTreeReused is '$isParsedTreeReused'");
+    info ( "\$useStoredCatches is '$useStoredCatches'");
+
+    sub changeMBPTags{
+        my $html = shift;
+        $html =~ s~<mbp:pagebreak\s*/>~<div style="page-break-after: always;"></div>~g;
+        $html =~ s~<mbp:frameset>~<div class="frameset">~g;
+        $html =~ s~</mbp:frameset>~</div>~g;
+        if( $html =~ m~(<mbp:[^>]*>)~ ){ die "Found another mbp-tag: $1."; }
+        return $html;
+    }
+
+    if( $isParsedConverterReuse ){
+        my $XDXFFileName = $FileName;
+        $XDXFFileName =~ s~\.\w+$~~;
+        $XDXFFileName .= ".xdxf";
+        if( -e $XDXFFileName ){
+            info("Reusing xdxf data.");
+            $isParsedConverted = 1;
+            return ( file2Array( $XDXFFileName ) );
+        }
+    }
+    else{ info("Not reusing converted data."); }
+
+    use HTML::TreeBuilder 5 -weak;
+    my $tree = HTML::TreeBuilder->new;
+    if( $isParsedTreeReused and -e $FileName.'.tree' ){
+        $tree = retrieve ( $FileName.'.tree' );
+        info( "Retrieved tree from '".$FileName.".tree'"); }
+    else{
+        my $html = shift;
+        $html = changeMBPTags( $html );
+        $html = convertNonBreakableSpacetoNumberedSequence4Strings( $html );
+        $html = convertNumberedSequencesToChar4Strings( $html );
+        # $html = mergeConsecutiveIdenticallyAttributedSpans( $html );
+        # $html = mergeConsecutiveBoldSpans( $html );
+        # $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
+        # $tree->parse_file($FileName);
+        $tree->no_space_compacting(1);
+        $tree->ignore_unknown(0);
+        $tree->parse_content( $html );
+        debugV( "tree '$tree'");
+        # tree 'HTML::TreeBuilder=HASH(0x562d600afcf0)'
+        unless( $tree =~ m~HTML::TreeBuilder=HASH~ ){
+            unlink $FileName . '.tree';
+            die2("\$tree not a HTML::TreeBuilder hash. \$tree='$tree'\n Deleted old tree-file. Rerun script.");
+        }
+        store( $tree, $FileName.'.tree' );
+        $tree->elementify();
+        debugV( "tree '$tree'");
+        info("End parsing");
+    }
+
+    my $root = $tree->root;
+    my @contents = $root->content_list;
+    debug("root tag: ", $root->tag);
+
+    # This displays the contents of $node and any children it may
+    # have. The variable $depth is the indentation used.
+    sub recurse{
+        my ($node, $depth, $size_of_parent_contents, $maxdepth, $Parent_with_maximum_children, $Maximum_number_of_children, $print) = @_;
+        printGreen( "." ) unless $print;
+        if( $depth > $maxdepth){ return; }
+        # Print indentation according to the level of recursion.
+        print "  " x $depth if $print;
+        # If $node is a reference, then it is an HTML::Element.
+        if (ref $node) {
+            # Print the tag associated with $node, for example "html" or
+            # "li".
+            my $parent_node  = $node->parent();
+            my @parent_children = () ;
+            if( ref $parent_node ){ @parent_children = $parent_node->content_list; }
+            # $node->content_list () returns a list of child nodes of
+            # $node, which we store in @children.
+            my @children    = $node->content_list();
+            printGreen( $node->tag (), "\t") if $print;
+            print("brethern: ") if $print;
+            print scalar @parent_children if $print;
+            print(" children: ") if $print;
+            print scalar @children," ","\n" if $print;
+
+            my @children = $node->content_list();
+            my $number_of_children = scalar @children;
+            # shortcut for rather large containers.
+            if ( $number_of_children > 1000){ return $node; }
+            if( $number_of_children > $Maximum_number_of_children ){
+                $Maximum_number_of_children = $number_of_children;
+                $Parent_with_maximum_children = $node;
+            }
+            for my $child_node (@children) {
+                $Parent_with_maximum_children = recurse ($child_node, $depth + 1, scalar @children, $maxdepth, $Parent_with_maximum_children, $Maximum_number_of_children, $print );
+            }
+        }
+        else {
+            # If $node is not a reference, then it is just a piece of text
+            # from the HTML file.
+            printItalics( $node, "\n" ) if $print;
+        }
+        return($Parent_with_maximum_children);
+    }
+    my @Catch = ();
+    if( -e $FileName.'.catched' and $useStoredCatches){
+        @Catch = @{retrieve ( $FileName.'.catched' )};
+        info( "Retrieved \@Catch from '".$FileName.".catched'"); }
+    else{
+        my $number_of_children_root = $root->content_list;
+        # First one gives numbers without dealing with pruning.
+        my $Parent_with_maximum_children = '';
+
+        while( $root ne $Parent_with_maximum_children){
+            $Parent_with_maximum_children = recurse(
+                $root, # node from which you start recursing
+                0,     # starting depth
+                $number_of_children_root,
+                99,     # maximum depth
+                $root,  # Parent_with_maximum_children
+                0,      # Maximum_number_of_children
+                $isPrintRecurseTree);     # Print or not print
+            debug( $Parent_with_maximum_children );
+            debug( $Parent_with_maximum_children->tag() );
+            debug( scalar $Parent_with_maximum_children->content_list );
+            $Parent_with_maximum_children->detach();
+            push @Catch, $Parent_with_maximum_children;
+        }
+        store( \@Catch, $FileName.'.catched' ) || die "Can't store to $FileName.catches" ;
+    }
+
+    info("Analyzing catches");
+    my $MaxChildren=0;
+    foreach my $c(@Catch){
+        info_t( $c->tag()," seen ", scalar $c->content_list, " times.");
+        if( scalar $c->content_list > $MaxChildren ){
+            $MaxChildren = $c->content_list;
+        }
+    }
+    my $Significance = 40;
+    my %Catch;
+    sub registerPair{
+        my ( $Key, $Definition ) = @_;
+
+        if( ref $Key ){ $Key = $Key->as_text(); }
+        $Key    =~ s~^\s+~~;
+        $Key    =~ s~\s+$~~;
+
+        my $tag= tagNode($Definition);
+        if( ref $Definition ){ $Definition = $Definition->as_HTML('&<>'); }
+        $Definition     =~ s~\<$tag[^>]*\>~~;
+        if( defined( $Definition ) ){ $Definition = escapeHTMLString($Definition); }
+
+        if( $Key ne '' and $Definition ne ''){ 
+            $Catch{ $Key }  = $Definition; 
+            info("Found key '$Key'");
+        }
+    }
+    sub tagNode{
+        my $Node = shift;
+        if( ref $Node and $Node->tag() !~ m~b|i|font~ ){ return $Node->tag(); }
+        else{ return "txt";}
+    }
+
+    foreach my $Catch( @Catch ){
+        debug( $Catch->tag() );
+        debug( scalar $Catch->content_list );
+        if( ( scalar $Catch->content_list < $MinimumNodes) or
+            (scalar $Catch->content_list < ($MaxChildren / $Significance))
+            ){
+            info("Skipped '".$Catch->tag()."', because it containes less than $MinimumNodes nodes or has less 1/$Significance of the maximum number.");
+            next;
+        }
+
+        my @Contents = $Catch->content_list;
+        my @Nodes;
+        my %AlreadySaid;
+        foreach my $Content( @Contents ){
+            if( !(ref $Content) or (ref $Content and ( $Content->as_text =~ m~\w|[*!@#$%^&(){}|+-=]~ or $Content->as_HTML eq '<br />') ) ){
+                push @Nodes, $Content;
+            }
+            else{
+                my $String = $Content->as_HTML(',.&');
+                unless( $AlreadySaid{$String} ){ info( "Omitted: '",$String, "'"); $AlreadySaid{$String} = 1;}
+            }
+        }
+        info( "Reduced size of contents from ", scalar $Catch->content_list," to ", scalar @Nodes );
+        # Are there separator nodes?
+        # Are there tag patterns?
+        #     div 635 1
+        #       h2 1 0
+        #     dt 635 1
+        #       Aba
+        #     dd 635 1
+        #       A loose, usually black robe worn by Fremen women and Bene Gesserit sisters.
+        #     hr 635 0
+        #     div 635 1
+        #       h2 1 0
+        #     dt 635 1
+        #       Abomination
+        #     dd 635 1
+        #       Bene Gesserit term for one who is pre-born and thus susceptible to being taken over by the ancestral personalities in Other Memory.
+        #     hr 635 0
+        #     div 635 1
+        #       h2 1 0
+        #     dt 635 1
+        #       Ajidamal
+        #     dd 635 1
+
+        ## Generate patterns
+        my ( @Patterns_from_start, @Patterns_from_end );
+        foreach my $Node(@Nodes){ $Patterns_from_start[0] .= tagNode($Node); }
+        while( $Patterns_from_start[0] =~ s~txttxt~txt~g ){;}
+        $Patterns_from_end[0] = $Patterns_from_start[0];
+
+        my $MaxPatLength = 10;
+        for( my $pattern_length = 1; $pattern_length <= $MaxPatLength; $pattern_length++ ){
+            for( my $i = 0; $i < $pattern_length; $i++){
+                $Patterns_from_start[$pattern_length] .= tagNode($Nodes[$i]);
+                my $j = - $i - 1;
+                $Patterns_from_end[$pattern_length] = tagNode($Nodes[$j]) . $Patterns_from_end[$pattern_length];
+            }
+        }
+        info_t("\@Patterns from start");
+        foreach( @Patterns_from_start ){ info_t($_); }
+        info_t("\@Patterns from end");
+        foreach( @Patterns_from_end ){ info_t($_); }
+
+        ## Match Patterns
+        my @CheckResults;
+
+        for( my $start_length = 1; $start_length <= $MaxPatLength; $start_length++ ){
+            my $Check   = $Patterns_from_start[0];
+            my $Start   = $Patterns_from_start[$start_length];
+            my $End;
+            my $end_length = 0;
+            my $from_start_matches = 0;
+            my $from_end_matches = 0;
+            my $combination_matches = 0;
+            while( $Check =~ s~^($Start)~~ ){ $from_start_matches++; }
+            if( length($Check) == 0 ){ push @CheckResults, { "start" => $Start, "start_length" => $start_length, "end" => $End, "end_length" => $end_length, "from_start_matches" => $from_start_matches, "from_end_matches" => $from_end_matches, "combination_matches" => $combination_matches }; next; }
+            for( $end_length = 1; $end_length <= $MaxPatLength; $end_length++ ){
+                my $Check2 = $Check;
+                $End = $Patterns_from_end[$end_length];
+                while( $Check2 =~ s~^($End)~~ ){ $from_end_matches++; }
+                if( length($Check2) == 0 ){ push @CheckResults, { "start" => $Start, "start_length" => $start_length, "end" => $End, "end_length" => $end_length, "from_start_matches" => $from_start_matches, "from_end_matches" => $from_end_matches, "combination_matches" => $combination_matches }; next; }
+                my $Combination ='';
+                if( $from_start_matches != 0 ){ $Combination .= $Start x $from_start_matches; }
+                if( $from_end_matches   != 0 ){ $Combination .= $End x $from_end_matches;}
+                while( $Combination ne '' and $Check2 =~ s~^$Combination~~ ){ $combination_matches++; }
+                if( length($Check2) == 0 ){ push @CheckResults, { "start" => $Start, "start_length" => $start_length, "end" => $End, "end_length" => $end_length, "from_start_matches" => $from_start_matches, "from_end_matches" => $from_end_matches, "combination_matches" => $combination_matches }; next; }
+            }
+        }
+        ## Analyze found patterns
+        unless( scalar @CheckResults ){
+            warn "Current Catch doesn't hold patterns that are indicative for key-definition pairs. ";
+            next;
+            }
+        print( Dumper( @CheckResults ) );
+
+        my $MostMatches = 0;
+        my $IndexWithMostMatches = 0;
+        for( my $i = 0; $i <= $#CheckResults; $i++ ){
+            my %Result = %{ $CheckResults[$i] };
+            if( $Result{"combination_matches"} > $MostMatches ){
+                $MostMatches = $Result{"combination_matches"};
+                $IndexWithMostMatches = $i;
+            }
+            elsif ( ($Result{"combination_matches"}) == $MostMatches ){
+                $IndexWithMostMatches = $IndexWithMostMatches . "," . $i;
+            }
+        }
+        if( $IndexWithMostMatches =~ m~,~ ){
+            # multiple combination_matches
+            my @BestIndexes = split( /,/, $IndexWithMostMatches );
+            my @FilteredResults;
+            foreach( @BestIndexes ){ push @FilteredResults, $CheckResults[$_]; }
+            my $MostMatchesFiltered = 0;
+            my $IndexWithMostMatchesFiltered = 0;
+            for( my $i = 0; $i <= $#FilteredResults; $i++ ){
+                my %Result = %{ $FilteredResults[$i] };
+                if( ($Result{"from_end_matches"}+$Result{"from_start_matches"}) > $MostMatchesFiltered ){
+                    $MostMatchesFiltered = $Result{"from_end_matches"}+$Result{"from_start_matches"};
+                    $IndexWithMostMatchesFiltered = $i;
+                }
+            }
+            $IndexWithMostMatches = $IndexWithMostMatchesFiltered;
+        }
+
+        my %Best = %{$CheckResults[$IndexWithMostMatches]};
+        info("Found best match to be:");
+        print( Dumper( %Best ) );
+        info("The list of contents can be seen as:");
+        foreach( keys %Best ){
+            unless(defined $Best{$_}){$Best{$_} ="''"; }
+        }
+        info("( ",$Best{"start"}," x ",$Best{"from_start_matches"}," ",$Best{"end"}," x ",$Best{"from_end_matches"}," ) x ", $Best{"combination_matches"} + 1 );
+
+        if( $Best{"start_length"} == 1 and $Best{"end_length"} == 1){
+            # $Nodes[0]->tag() followed by $Nodes[-1] found as pattern.
+            if( ((ref $Nodes[0] and $Nodes[0]->as_text =~ m~\w~) or !(ref $Nodes[0])) and
+                ((ref $Nodes[-1] and $Nodes[-1]->as_text =~ m~\w~ ) or !(ref $Nodes[-1])) ){
+                # And both have letters in it.
+                while(@Nodes){
+                    my $Key         = shift @Nodes;
+                    my $Definition  = shift @Nodes;
+                    registerPair( $Key, $Definition );
+
+                }
+            }
+            elsif( $Best{"end"} eq "txt" ){
+                while( @Nodes ){
+                    my $Key = shift @Nodes;
+
+                    my $Definition = '';
+                    while( tagNode($Nodes[0]) eq "txt" and @Nodes){
+                        my $DefPart = shift @Nodes;
+                        debug( $DefPart ) if $isDebugVerbose;
+                        if( ref $DefPart ){ $DefPart = $DefPart->as_HTML('&<>'); }
+                        $Definition .= $DefPart;
+                        printGreen($DefPart,"\n") if $isDebugVerbose;
+                    }
+
+                    registerPair( $Key, $Definition );
+                }
+            }
+            else{ die "No pattern interpretation available"; }
+        }
+        elsif( $Best{"start_length"} == 1 and $Best{"start_length"} > (1000 x $Best{"end_length"}) ){
+            # $Nodes[0]->tag() found as pattern.
+            foreach my $Node(@Nodes){
+                if ( $Node->tag() eq $Best{"start"} ){
+                    my @Children = $Node->content_list;
+                    my $warning = 1;
+                    while( @Children ){
+                        my $Child = shift @Children;
+                        # test if there is text for key or skip
+                        if( (   ref $Child and
+                                $Child->as_text() =~ m~\w~ and
+                                $Child = $Child->as_text() ) or
+                            !(ref $Child) ){
+                            # Current child has text, rest forms definition
+                            my $Key = $Child;
+
+                            my $Definition = '';
+                            foreach my $DefParts (@Children){
+                                if( ref $DefParts ){ $DefParts = $DefParts->as_HTML('&<>'); }
+                                $Definition .= $DefParts;
+                            }
+
+                            registerPair( $Key, $Definition );
+                            $warning = 0;
+                            last;
+                        }
+                    }
+                    if( $warning ){ die "No key/definition interpretation for this node."; }
+                }
+                else{ info("Omitting node with tag ", $Node->tag()); }
+            }
+        }
+        else{ die "No pattern interpretation available"; }
+    }
+    my @xdxf = convertHASHtoXDXF( \%Catch );
+    my $XDXFFileName = $FileName;
+    $XDXFFileName =~ s~\.\w+$~~;
+    $XDXFFileName .= ".xdxf";
+    array2File( $XDXFFileName, @xdxf );
+    $isParsedConverted = 1;
+    return( @xdxf);}
+
+sub convertHASHtoXDXF{
+    my %Hash = %{ $_[0] };
+    my @xdxf = @xdxf_start;
+    foreach(sort keys %Hash){
+        if( $_ eq ''){next; }
+        push @xdxf, "<ar><head><k>$_</k></head><def>$Hash{$_}</def></ar>\n";
+    }
+    push @xdxf, $lastline_xdxf;
+    if( $isTestingOn ){ array2File( "test_HASHConversion".__LINE__.".xdxf", @xdxf ); }
+    return(@xdxf);}
+
 sub convertCVStoXDXF{
     my @cvs = @_;
     my @xdxf = @xdxf_start;
