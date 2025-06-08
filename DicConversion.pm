@@ -1948,40 +1948,58 @@ sub convertRAWML2XDXF{
     return(@xdxf);}
 sub convertRAWMLUsingManualCuts{
     my $rawml = shift;
-    debug( "FileName is $FileName");
+    info("Length of rawml given is: ", length $rawml);
+    info( "FileName is '$FileName'");
     my @Name = split(/\//, $FileName);
-    debug( "Name is $Name[-1]");
+    info( "Name is '$Name[-1]'");
     my %DictInfo;
     if( defined $DictInfo4FileName{$Name[-1]} ){
         %DictInfo = %{$DictInfo4FileName{$Name[-1]}};
     }
-    else{ 
+    else{
         foreach(keys %DictInfo4FileName){ debug ( "key in DictInfo4FileName is: '$_'"); }
         return undef;
     }
-    
+
     if( $DictInfo{"Split"} ne ""){
-        info("Manual information on handling dicionary available");
+        info("Manual information on handling dictionary available");
         if( $DictInfo{"Start"} ne "" ){
-            if( $rawml =~ s~^$DictInfo{"Start"}~~ ){
+            if( $rawml =~ s~^$DictInfo{"Start"}~~s or
+                $rawml =~ s~^(?<removal>.+?)(?<keep>$DictInfo{"Start"})~$+{"keep"}~ ){
                 debug("Removed start of rawml");
             }
-            else{ debug("Failed to remove start rawml with regex:\n".$DictInfo{"Start"});
-            $rawml =~ m~^((?:(?!$DictInfo{"Split"})).+)$DictInfo{"Split"}~s ;
-            my $Start = $1;
-            debug("Rawml until first split:\n'$Start'\n");
-        }
+            elsif( $rawml =~ m~$DictInfo{"Start"}(?<rest>.+)~s ){
+                $rawml = $+{rest};
+                debug("Removed start of rawml");
+            }
+            elsif( $rawml =~ m~$DictInfo{"Start"}~ ){ debug("Matched \$DictInfo{\"Start\"}: ".$DictInfo{"Start"}); }
+            else{
+                debug("Failed to remove start rawml with regex:\n".$DictInfo{"Start"});
+                debug("Length of rawml at line ".__LINE__." is: ", length $rawml);
+                $rawml =~ m~^(?<start>(?:(?!$DictInfo{"Split"})).+)$DictInfo{"Split"}~s ;
+                my $Start = $+{start};
+                debug("Rawml until first split:\n'$Start'\n");
+                if ( length $Start > 10 and $rawml =~ s~^\Q$Start\E~~s ){ info ("Removed start with split function.") }
+            }
         }
         if ($DictInfo{"End"} ne ""){
             if( $rawml =~ s~$DictInfo{"End"}$~~s ){
                 debug("Removed end of rawml");
             }
-            else{ debug("Failed to remove rawml"); }
+            else{ debug("Failed to remove end of rawml"); }
+        }
+        if ( $DictInfo{"Junk"} =~ m~^ARRAY~){
+            info( "\$DictInfo{\"Junk\"} is ".$DictInfo{"Junk"} );
+            foreach( @{ $DictInfo{"Junk"} } ){
+                if( $rawml =~ s~$_~~sg ){ info("Removing '$_'"); }
+                else{ debug( "Failed to remove '$_'"); }
+            };
+
         }
         my @articles = split(/$DictInfo{"Split"}/, $rawml );
         unless (@articles ){ debug("No articles found"); }
-        else{ 
-            debug ("Number of articles found: ". scalar @articles); 
+        else{
+            debug ("Number of articles found: ". scalar @articles);
             debug ( "\$articles[0]\n$articles[0]");
             debug ( "\$articles[1]\n$articles[1]");
             debug ( "\$articles[2]\n$articles[2]" );
@@ -1992,21 +2010,22 @@ sub convertRAWMLUsingManualCuts{
             $CVSDeliminator = "||||";
             foreach(@articles){
                 $counter++;
+                my $Start = $DictInfo{"KeyTagStart"};
+                my $End   = $DictInfo{"KeyTagEnd"};
                 info("article:\n$_") if $counter < $MaxCount;
-                info("KeyTagStart is:\n".$DictInfo{"KeyTagStart"}) if $counter < $MaxCount;
-                info("KeyTagEnd is:\n".$DictInfo{"KeyTagEnd"}) if $counter < $MaxCount;
-                m~$DictInfo{"KeyTagStart"}(?<key>(?:(?![^<])).+?)$DictInfo{"KeyTagEnd"}(?<description>.+)~s;
+                info("KeyTagStart is:\n".$Start) if $counter < $MaxCount;
+                info("KeyTagEnd is:\n".$End) if $counter < $MaxCount;
+                m~$Start(?<key>(?:(?![^<])).+?)$End(?<description>.+)~s;
                 my $Key = $+{"key"};
                 my $Definition = $+{"description"};
                 my @keydes = split( $DictInfo{"KeyTagEnd"}, $_);
-                unless( $Key and $Definition ){
-                    debug("Regex match didn't work. Trying splitting.") if $counter < $MaxCount;
+                unless( defined($Key) and defined($Definition) ){
                     $keydes[0] =~ s~$DictInfo{"KeyTagStart"}~~;
                     $Key =  shift @keydes;
-                    $Key =~ s~^\s+~~g;
-                    $Key =~ s~\s+$~~g;
                     $Definition = join('', @keydes);
                 }
+                $Key =~ s~^\s+~~g;
+                $Key =~ s~\s+$~~g;
                 info("Key is '$Key'") if $counter < $MaxCount;
                 info("Definition is '$Definition'") if $counter < $MaxCount;
                 push @csv, $Key.$CVSDeliminator.$Definition;
