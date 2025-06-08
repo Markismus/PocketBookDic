@@ -46,6 +46,7 @@ our @EXPORT = (
     'printMagenta',
     'printRed',
     'printYellow',
+    'printItalics',
     'shortenStrings4Debug',
     'waitForIt',
 );
@@ -119,6 +120,7 @@ sub printGreen   { print color('green')     if $OperatingSystem eq "linux"; prin
 sub printMagenta { print color('magenta')   if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printRed     { print color('red')       if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
 sub printYellow  { print color('yellow')    if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
+sub printItalics  { print color('italic')    if $OperatingSystem eq "linux"; print @_; print color('reset') if $OperatingSystem eq "linux"; }
 
 sub shortenStrings4Debug{
     my $String = join('', @_);
