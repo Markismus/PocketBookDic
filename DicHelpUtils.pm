@@ -35,6 +35,7 @@ our @EXPORT = (
     '$HTMLcodes',
     '$PossibleTags',
     '$isEscapeHTMLCharacters',
+    '$isRemoveBreakTag',
 
     'filterXDXFforEntitites',
     'fixPrefixes',
@@ -74,7 +75,7 @@ our @EXPORT = (
     'roman',
     'sortroman',
 );
-
+our $isRemoveBreakTag = 0;
 sub changeFileExtension{
     my $FileName = shift;
     my $Extention2 = shift;
@@ -437,6 +438,7 @@ sub removeBloatFromString{
 }
 sub removeBreakTag{
     my $xdxf = shift;
+    unless( $isRemoveBreakTag ){ return $xdxf; }
     while( my $count = $xdxf =~ s~(\w+)-<br ?/?>(\w+)~$1$2~sg ){ info_t("...removed $count break-tags inside hyphenated words."); }
     while( my $count = $xdxf =~ s~([\w,.;:'"\])!\?]+)<br ?/?>(\w+|<)~$1 $2~sg ){ info_t("...removed $count break-tags between words."); }
     while( my $count = $xdxf =~ s~(<br[^>]*>)~~sg ){ info_t("...removed $count break-tags."); }

@@ -154,6 +154,7 @@ if( $Just4Koreader and !$Just4PocketBook){
     $ForceConvertNumberedSequencesToChar = 1;
     $ForceConvertBlockquote2Div = 0;
     $isEscapeHTMLCharacters = 1;
+    $isRemoveBreakTag = 0
 }
 if( $Just4PocketBook and !$Just4Koreader){
     # Controls for Stardict dictionary creation and Koreader Stardict compatability
@@ -178,5 +179,6 @@ if( $Just4PocketBook and !$Just4Koreader){
     $ForceConvertNumberedSequencesToChar = 1;
     $ForceConvertBlockquote2Div = 1;
     $isEscapeHTMLCharacters = 0;
+    $isRemoveBreakTag = 0;
 }
 1;
