@@ -75,845 +75,6 @@ our @EXPORT = (
 # Because this control variable is used both in convertIMG2Text and convertHTML2XDXF it has poll position.
 our $isConvertImagesUsingOCR          = 1;  # Try to identify images as symbols whenever possible.
 
-# Control variables for the conversion of ABBYY-generated HTML.
-our @ABBYY_CSS; # Becomes defined by sub convertABBYY2XDXF
-our $isABBYYWordlistNeeded   = 1; # Controls creation of an ABBYYWordlist.txt file.
-our $isABBYYAllCleared       = 0; # Controls creation of a hash-file.
-our $isABBYYConverterReuse   = 0; # Controls the check for already generated xdxf-file
-our $isABBYConverted         = 0; # Global variable that gets set to 1 if convertABBYY2XDXF returns an xdxf-array.
-# Conversion pauses during keywords
-our @ABBYYConverterPauseFor = (
-# E.g.,
-    # 'égard',
-    # 'ète',
-    # 'unipolaire',
-    # 'germain, e'
-);
-# Manual overrule. Conversion checks whether keyword is allowed and passes it without further tests.
-our @ABBYYConverterAllowedKeys = (
-# E.g.,
-    # q~corbeille-d’argent~,
-    # q~crespelé, e~,
-    # q~cul-rond~,
-    # q~desquels, desquelles~,
-    # q~duquel~,
-    # q~fœhn~,
-    # q~giboyeux, euse~,
-    # q~glacial, e, als~,
-    # q~hydro-. V~,
-    # q~inaliénablement~,
-    # q~in aliéné, e~,
-    # q~laquelle~,
-    # q~melliflu, e~,
-    # q~peu chère~,
-    # q~pick-nick n.m.~,
-);
-
-sub convertABBYY2XDXF{
-    # Usage: @xdxf = convertABBYY2XDXF( $html );
-    if( $isABBYYConverterReuse ){
-        my $XDXFFileName = $FileName;
-        $XDXFFileName =~ s~\.\w+$~~;
-        $XDXFFileName .= ".xdxf";
-        if( -e $XDXFFileName ){
-            $isABBYConverted = 1;
-            return ( file2Array( $XDXFFileName ) );
-        }
-    }
-    use HTML::TreeBuilder 5 -weak; # Ensure weak references in use
-    my $html = shift;
-    if( $html =~ m~<style type="text/css">(?<css>((?!</style>).)+)</style>~s ){
-        push @ABBYY_CSS, $+{css};
-    }
-    info("Start parsing dictionary '$FileName'");
-    my $tree = HTML::TreeBuilder->new; # empty tree
-    if( -e $FileName.'.tree' ){
-        $tree = retrieve ( $FileName.'.tree' );
-        info( "Retrieved tree from '".$FileName.".tree'"); }
-    else{
-        $html = convertNonBreakableSpacetoNumberedSequence4Strings( $html );
-        $html = convertNumberedSequencesToChar4Strings( $html );
-        $html = mergeConsecutiveIdenticallyAttributedSpans( $html );
-        $html = mergeConsecutiveBoldSpans( $html );
-        $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
-        $tree->parse( $html );
-    }
-    debugV( "tree '$tree'");
-    # tree 'HTML::TreeBuilder=HASH(0x562d600afcf0)'
-
-    unless( $tree =~ m~HTML::TreeBuilder=HASH~ ){
-        unlink $FileName . '.tree';
-        die2("\$tree not a HTML::TreeBuilder hash. \$tree='$tree'\n Deleted old tree-file. Rerun script.");
-    }
-    store( $tree, $FileName.'.tree' );
-    info("End parsing");
-
-    info("Starting look_down for body-tag");
-    my $body = $tree->look_down('_tag', 'body');
-    info("Found body-tag");
-
-    my $counter = 0;
-    our ( @articles, $article, @ImpossibleKeywords, %ImpossibleKeywords, @FailingExtraForms );
-    sub addArticle{
-        my $TagBlock = shift;
-        infoVV("Entering addArticle.");
-        my $html = asHTML($TagBlock);
-        my @check = checkAddedHTML4StartArticle( $html );
-        if( scalar @check == 3 ){
-            addArticle( $check[0]);
-            pushArticle();
-            setArticle( $check[1], $check[2] );
-        }
-        elsif( defined $article ){
-            $article .= $html;
-            infoVV("Added to article:\n'$html'");
-        }
-        else{
-            infoV("No defined article, so nothing to add to.");
-            infoV("Ignored content:\n'$html'");
-        }
-    }
-    sub asHTML{
-        my $content = shift;
-        unless( $content =~ m~^HTML::Element=HASH~ ){
-            warn "Not an HTML::Element object!";
-            debug("'$content'");
-            return( $content );
-        }
-        return(
-            # removeBreakTag(
-                $content->as_HTML('<>&', "    ", {})
-            # )
-        );
-    }
-    sub checkAddedHTML4StartArticle{
-        # Usage: @checks = checkAddedHTML4StartArticle( $html );
-        # The sub returns either an array of scalar 3 or of 1;
-        # If it returns 3 values, they are the start of the article before the break, the new keyword and the start of the new article.
-        # If it returns 1 value, it is just the given html-string.
-        infoVV("Entering checkAddedHTML4StartArticle");
-        my $html = shift;
-        infoVV("noshorthtml given:\n$html");
-        # Sometimes ABBY doesn't generate a new paragraph, but breaks the current to start a new lemma.
-        # So the criterium is a <br>-tag followed by a span-bold.
-        # <p><span class="font0" style="font-weight:bold;">unipolaire </span><span class="font2">[ynipoler] adj. (de wm-2etde<br></span><span class="font2" style="font-style:italic;">polaire ;</span><span class="font2"> 1845, Bescherelle, au sens 1 ; sens 2,<br>1877, Littré). </span><span class="font0" style="font-weight:bold;">1. </span><span class="font2">Qui n’a qu’un pôle élec-<br>trique : </span><span class="font2" style="font-style:italic;">Appareil, interrupteur unipolaire.<br></span><span class="font0" style="font-weight:bold;">|| 2. </span><span class="font2">Se dit d’un neurone dont le corps cel-<br>lulaire porte un seul prolongement, comme<br>les neurones en T des ganglions spinaux,<br></span><span class="font0" style="font-weight:bold;">unique </span><span class="font2">[ynik] adj. (lat. </span><span class="font2" style="font-style:italic;">unicus,</span><span class="font2"> unique,<br>seul, sans égal, de </span><span class="font2" style="font-style:italic;">unus,</span><span class="font2"> un [seul] ; fin du<br>xv<sup>e</sup> s., Molinet, au sens 1 </span><span class="font2" style="font-style:italic;">[seul et unique,<br></span><span class="font2">1751, </span><span class="font2" style="font-style:italic;">Encyclopédie —</span><span class="font2"> discours prélimi-<br>naire; </span><span class="font2" style="font-style:italic;">...fils... unique,</span><span class="font2"> 1668, Molière] ; sens2,<br>1876, Larousse [art. </span><span class="font2" style="font-style:italic;">voie —</span><span class="font2"> sur une route,<br>xx<sup>e</sup> s. ; </span><span class="font2" style="font-style:italic;">sens unique,</span><span class="font2"> janv. 1914, </span><span class="font2" style="font-style:italic;">la Science et<br>la Vie,</span><span class="font2"> p. 31] ; sens 3,1640, Corneille ; sens 4,<br>av. 1696, La Bruyère ; sens 5,1758, Diderot).</span></p>
-        ## Break is removed prior to running checkAddedHTML4StartArticle due to asHTML
-        ## htm-file content
-        # <span class="font20" style="font-weight:bold;"> : 3 </span><span class="font29" style="font-style:italic;">calomnie, fiel; 4 noirceur,perfidie.<br></span><span class="font4" style="font-weight:bold;">venir </span><span class="font29">[vonir] v. intr. (lat. </span>
-        ## Given to checkAddedHTML4StartArticle
-        # <span class="font20" style="font-weight:bold;"> : 3 </span><span class="font29" style="font-style:italic;">calomnie, fiel; 4 noirceur,perfidie. </span><span class="font4" style="font-weight:bold;">venir </span><span class="font29">[vonir] v. intr. (lat. </span>
-        my @BreakBoldSpans = $html =~ m~(<br[^>]*></span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
-        if( scalar @BreakBoldSpans == 0 ){ infoVV("No break followed by bold span found."); }
-        else{
-            my $NumberOfBreaks = scalar @BreakBoldSpans;
-            my $Break = "break";
-            $Break .= 's' if $NumberOfBreaks > 1;
-            infoV("Found $NumberOfBreaks $Break followed by span tag, that has bold styling.");
-            infoV("\@BreakBoldSpans:");
-            foreach(@BreakBoldSpans){debug_t("'$_'");}
-        }
-
-        # However, sometimes it is just a bold-span after a comma. I am going to assume that the misinterpreted '.' forces ABBY to continue the paragraph.
-        # So the criterium is a ',' followed by a span-bold
-        # If a keyword is found, the comma should be corrected to a point.
-        # <p><span class="font20" style="font-weight:bold;">♦ En guise de </span><span class="font29">loc. prép. (v. 1050, </span><span class="font29" style="font-style:italic;">Vie de saint Alexis,</span><span class="font29"> au sens de « à la façon de » ; sens actuel, 1651, Scarron). Pour servir de, pour jouer le même rôle que : </span><span class="font29" style="font-style:italic;">On étend des haïks en guise de nappes</span><span class="font29"> (Fromentin), </span><span class="font4" style="font-weight:bold;">guitare </span><span class="font29">[gitar] n. f. (anc. provenç. </span>
-        # However, sometimes it's just another form:
-        # <span class="font4" style="font-weight:bold;">1.</span><span class="font4" style="font-weight:bold;"> que </span><span class="font29">[ka], </span><span class="font4" style="font-weight:bold;">qu* </span><span class="font29">[k (devant voyelle)] conj.<br>(lat. </span>
-        # So skip if the comma is preceded by ']' and spaces: (?:(?<!\]\s{0,20}),)
-        my @CommaBoldSpans = $html =~ m~((?:(?<!\]\s{0,20}),)\s*</span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
-        if( scalar @CommaBoldSpans == 0 ){ infoVV("No comma followed by bold span found."); }
-        else{
-            my $NumberOfBreaks = scalar @CommaBoldSpans;
-            my $Break = "comma";
-            $Break .= '\'s' if $NumberOfBreaks > 1;
-            infoV("Found $NumberOfBreaks $Break followed by span tag, that has bold styling.");
-            infoV("\@CommaBoldSpans:");
-            foreach(@CommaBoldSpans){debug_t("'$_'");}
-        }
-
-
-        foreach my $PossibleKeySpan( @BreakBoldSpans, @CommaBoldSpans  ){
-            infoVV("PossibleKeySpan: '$PossibleKeySpan'");
-            $html =~ m~\Q$PossibleKeySpan\E~s;
-            # my $BeforeBreak = $`.'</span>';
-            my $BeforeBreak = $`;
-            my $AfterBreak = $';
-            if( $PossibleKeySpan =~ s~^<br[^>]*></span>~~ ){$BeforeBreak .= '</span>'; }
-            elsif( $PossibleKeySpan =~ s~^,\s*</span>~~ ){  $BeforeBreak .= '.</span>'; }
-            debug_t("BeforeBreak: '$BeforeBreak'");
-            debug_t("AfterBreak: '$AfterBreak'");
-            debug_t("PossibleKeySpan: '$PossibleKeySpan'");
-            unless( $PossibleKeySpan =~ m~^<span[^>]+>(?<key>((?!</?span>).)+)</span>~s ){ warn "Regex didn't work for:'$PossibleKeySpan'"; next; }
-            my $KeyAfterBreak = cleanKey($+{key});
-            infoVV("Possible key after break is '$KeyAfterBreak'");
-            if( followsKeywordinPlainText( stripTags( $AfterBreak ) ) ){
-                # Found another keyword.
-                info("Found another keyword '$KeyAfterBreak'. Returning three values");
-                return ( $BeforeBreak, $KeyAfterBreak, $PossibleKeySpan.$AfterBreak );
-            }
-            else{
-                info_t("No keyword found");
-                debug_t("Plain text after break:\n'".stripTags( $AfterBreak )."'");
-            }
-        }
-        return ($html);
-    }
-    sub checkExtraForms{
-        my $PossibleKey = shift;
-        my $html = asHTML( shift );
-        if( $PossibleKey =~ m~,~){
-            $PossibleKey = $`;
-            my $ExtraForm = cleanKey($');
-            my @ExtraForms = split(/,/, $ExtraForm);
-            pushArticle();
-            foreach my $Form( @ExtraForms){
-                $Form = cleanKey( $Form );
-                $Form =~ s~^-~~;
-                $Form =~ s~ ~~;
-                $Form =~ s~\s*\[~~;
-                # Sometimes the given key is a sentence.
-                my $Key = $PossibleKey;
-                my @Key = split(/ /, $Key);
-                $Key = $Key[-1];
-                if( $Form =~ m~(?<MaleEnd>\w+)(?<FormEnd>e)$~){
-                    my $MaleEnd = $+{"MaleEnd"};
-                    my $FormEnd = $+{"FormEnd"};
-                    if( $Key =~ m~$MaleEnd$~ ){ $Form = $FormEnd; }
-                }
-                if( $Form eq 'e' or
-                    $Form eq 'ë' or
-                    0 ){
-                     pushReferenceArticle( $PossibleKey.$Form, $PossibleKey );
-                }
-                elsif(
-                    $Form eq 'es' or
-                    $Form eq 'gue' or
-                    $Form =~ m~^(e|i)sse$~ or
-                    $Form eq 'uë' or
-                    $Form eq 'ite' or
-                    $Form eq 'ote' or
-                    $Form eq 'a' or
-                    0 ){
-                     pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 1 )) .$Form, $PossibleKey );
-                }
-                elsif(
-                    $Form eq 'aux' or
-                    $Form eq 'ère' or
-                    $Form eq 'als' or
-                    $Form eq 'aque' or
-                    $Form eq 'ouse' or
-                    $Form eq 'igné' or
-                    $Form eq 'use' or
-                    $Form eq 'ca' or
-                    $Form eq 'ique' or
-                    $Form =~ m~(î|i|ï)(v|n)e~ or
-                    $Form =~ m~^(e|o|i|a)(tt|ll|nn)e$~ or
-                    $Form =~ m~(è|e|é)t(è|e|é)~ or
-                    $Form eq 'ées' or
-                    $Form eq 'aude' or
-                    0 ){
-                     pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 2 )) .$Form, $PossibleKey );
-                }
-                elsif(
-                    $Form eq 'eu se' or
-                    $Form eq 'euse' or
-                    $Form eq 'eresse' or
-                    $Form eq 'elles' or
-                    $Form eq 'ante' or
-                    $Form eq "ienne" or
-                    $Form eq "ière" or
-                    $Form eq "eille" or
-                    $Form eq "oute" or
-                    0 ){
-                    pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 3 )) .$Form, $PossibleKey );
-                }
-                elsif(
-                    $Form eq "douce" or
-                    $Form =~ m~tr(î|i)ce~ or
-                    $Form eq "turque" or
-                    $Form eq "grecque" or
-                    0 ){
-                    pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 4 )) .$Form, $PossibleKey );
-                }
-                elsif( $Form =~ m~^\Q$Key\E~ or $Key =~ m~^\Q$Form\E~ ){
-                    # E.g. adonc, adoncques
-                    pushReferenceArticle( $Form, $PossibleKey );
-                }
-                elsif(
-                    substr($Form,-3, 3) eq substr($Key, -3, 3) or
-                    substr($Form, 0, 2) eq substr($Key, 0, 2)
-                    ){
-                    # E.g. aiche, èche
-                    pushReferenceArticle( $Form, $PossibleKey );
-                }
-                elsif(
-                    $Form !~ m~^\Q$Key\E~ and
-                    substr($Form,-3, 3) ne substr($Key, -3, 3) and
-                    length($Form) > length($Key)
-                    ){
-                    # Treating it as an unknown plural. E.g auquel, auxquels, auxquelles
-                    pushReferenceArticle( $Form, $PossibleKey );
-                }
-                elsif( length($Form) == length($Key) ){
-                    # E.g. lez, lès
-                    pushReferenceArticle( $Form, $PossibleKey );
-                }
-                else{
-                    push @FailingExtraForms, $PossibleKey."____".$Form;
-                    debug(length($Form));
-                    warn "Not a known variant of form for '$PossibleKey': '$Form'.";
-                    debug("last 3 letters of '$PossibleKey': ". substr($PossibleKey, -3, 3) );
-                    debug("last 3 letters of '$Form': ". substr($Form, -3, 3) );
-                }
-            }
-        }
-
-        # Sometimes the extra forms are in different spans with for instance bold styling.
-        my @CommaBoldSpansPrecededByBracket = $html =~ m~(\]\s{0,20},\s*</span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
-        if( @CommaBoldSpansPrecededByBracket > 0 ){
-            foreach my $CommaBoldSpansPrecededByBracket( @CommaBoldSpansPrecededByBracket ){
-                $CommaBoldSpansPrecededByBracket =~ s~\]\s{0,20},\s*</span>~~;
-                infoVV("CommaBoldSpansPrecededByBracket: '$CommaBoldSpansPrecededByBracket'");
-                $html =~ m~\Q$CommaBoldSpansPrecededByBracket\E~s;
-                my $AfterBreak = $';
-                debug_t("noshortAfterBreak: '$AfterBreak'");
-                unless( $CommaBoldSpansPrecededByBracket =~ m~^<span[^>]+>(?<key>((?!</?span>).)+)</span>~s ){ warn "Regex didn't work for:'$CommaBoldSpansPrecededByBracket'"; next; }
-                my $ExtraFrom = cleanKey($+{key});
-                infoVV("Possible extra form after break is '$ExtraFrom'");
-                if( followsKeywordinPlainText( stripTags( $AfterBreak ) ) ){
-                    # Found another form.
-                    info("Found another form '$ExtraFrom' for '$PossibleKey'.");
-                    pushArticle();
-                    pushReferenceArticle( $ExtraFrom, $PossibleKey );
-                }
-                else{
-                    info_t("No other form found");
-                    debug_t("Plain text after break:\n'".stripTags( $AfterBreak )."'");
-                }
-            }
-        }
-
-        return $PossibleKey;
-    }
-    sub cleanKey{
-        my $Key = $_[0];
-        $Key =~ s~<br ?/?>~~gs;
-        $Key =~ s~\[[^\]]*\]~~g;
-        $Key =~ s~\]\s*$~~g;
-        $Key =~ s~\)$~~g;
-        $Key =~ s~^\+~~;
-        $Key =~ s~^\.~~;
-        $Key =~ s~\s+$~~g;
-        $Key =~ s~^\s+~~g;
-        $Key =~ s~,+$~~g;
-        $Key =~ s~^\^~~g;
-        $Key =~ s~^\*~~g;
-        # Changes (imitable in limitable, but will not change (K) into lK)
-        $Key =~ s~^\(([^)]+)$~l$1~;
-        # Sometimes causes entire keys to be deleted, e.g. <span class="font4" style="font-weight:bold;">(K) , </span>
-        # $Key =~ s~\([^)]*\)?~~g;
-        # Remove numerical prefixes, so that reconstructXDXF can put the descriptions in the same article.
-        $Key =~ s~^\d\.? ~~g;
-        $Key =~ s~(\w+)(n\.(m\.)?)$~$1 $2~;
-        # Correct OCR, e.g. cambré» e
-        $Key =~ s~» ~, ~;
-        $Key =~ s~\*$~'~;
-        $Key =~ s~<sup>((?!</?sup>).)+</sup>~*~;
-        $Key =~ s~<sub>((?!</?sub>).)+</sub>~~;
-        $Key =~ s~<a[^>]*>((?:(?!</?a[^>]*>).)*)</a>~$1~g;
-        if( $Key eq '' ){ return $_[0]; }
-        else{ return $Key; }
-    }
-    our %PauseFor;
-    foreach( @ABBYYConverterPauseFor ){ $PauseFor{ $_ } =  1; }
-    our %AllowedKeys;
-    foreach( @ABBYYConverterAllowedKeys ){ $AllowedKeys{ $_ } =  1; }
-    our $Pre = '! |\(|\([^)]+\)(\.|,)? +|\? ';
-    our @AllowedFollowers = (
-        '^<span[^>]*>('.$Pre.')?\[',
-        '^<span[^>]*>\((devant|Acad|\d{4}, )',
-        '^<span[^>]*>n\. ?(m|f|V)?\.?',
-        '^<span[^>]*>\(marque déposée\)',
-        '^<span[^>]*>('.$Pre.')?adj\.',
-        '^<span[^>]*>v\. (pr|(in)?tr)\.',
-        '^<span[^>]*>('.$Pre.')?adv\.( V\.)?',
-        'pers. sing. de',
-        '^<span[^>]*>('.$Pre.')?(pron|prép|interj|intr|loc|préf|conj)\.',
-        '^<span[^>]*>('.$Pre.')?((A|a)brév\.|Abréviation|(S|s)igle|symbole)',
-        '^<span[^>]*>pr\. rei\. V\.',
-        '^<span[^>]*>éléments? tirés? du',
-        '^<span[^>]*>((m|f)\. )?V\.',
-        '^\d\. Premier élément',
-        '^premiers? éléments?',
-        '^<span[^>]*>v. impers,',
-        '^<span[^>]*>part, passé\.',
-        '^<span[^>]*>\(rarem.',
-        );
-    our $AllowedFollowersRegex = shift @AllowedFollowers;
-    foreach(@AllowedFollowers){ $AllowedFollowersRegex .= "|".$_; }
-    our $AllowedFollowersPlainTextRegex = $AllowedFollowersRegex;
-    $AllowedFollowersPlainTextRegex =~ s~<span\[\^>\]\*>~~sg;
-
-    sub followsKeyword{
-        # Returns value of criterium
-        # Is given een HTML::ELement containing a span-block
-        my $content = shift;
-        infoVV("followsKeyword is given '$content'") if 0;
-        unless( $content =~ m~^HTML::Element=HASH~ ){ return 0; }
-        return ( $content->tag eq "span" and asHTML( $content ) =~ m~$AllowedFollowersRegex~ );}
-    sub followsKeywordinPlainText{
-        # Returns value of criterium
-        # Is given a contents-range of HTML::Element
-        my $content;
-        foreach( @_ ){
-            if( m~^HTML::Element=HASH~ ){ $content .= $_->as_text; }
-            else{ $content .= stripTags($_);}
-        }
-        return ( $content !~ m~^HTML::Element=HASH~ and $content =~ m~$AllowedFollowersPlainTextRegex~ );}
-    sub moreKeywords{
-        my $content = shift;
-        return(
-            $content =~ m~^HTML::Element~ and
-            $content->tag eq "span" and
-            (
-                $content->as_HTML('<>&', "  ", {}) =~ m~<span[^>]*>($Pre)?ou~ or
-                $content->as_HTML('<>&', "  ", {}) =~ m~<span[^>]*>($Pre)?plur\.~ or
-                $content->as_HTML('<>&', "  ", {}) =~ m~<span[^>]*>($Pre)?anc\.~
-            )
-        );}
-    sub pushArticle{ if( defined $article ){
-        $article .= '</def></ar>'."\n";
-        # Allow no tags in Possible key.
-        unless( $article =~ m~<k>(?<key>.+)</k>~ ){ die2("regex doesn't work for '$article'"); }
-        my $Key = $+{"key"};
-        if($Key =~ m~[<>]+~){ die2( "'<'or '>' found in key '$Key'."); }
-        infoV("Pushing article '$article'");
-        push @articles, $article;
-        $article = undef; } }
-    sub pushReferenceArticle{
-        my $ReferringKey = shift;
-        my $Referent = shift;
-        infoV("Pushing referring key '$ReferringKey'");
-        # E.g. <ar><head><k>abaissante</k></head><def>abaissant</def></ar>
-        my $article = '<ar><head><k>'.$ReferringKey.'</k></head><def>'.$Referent.'</def></ar>'."\n";
-        push @articles, $article;}
-    sub setArticle{
-        infoVV("Entering setArticle");
-        my $HeadK = shift;
-        my $Def = shift;
-        infoVV("HeadK: '$HeadK'");
-        infoVV("Def: '$Def'");
-        pushArticle();
-        my @Check = checkAddedHTML4StartArticle( $Def );
-        if( scalar @Check == 3 ){
-            setArticle( $HeadK, $Check[0] );
-            pushArticle();
-            setArticle( $Check[1], $Check[2] );
-        }
-        else{ $article = '<ar><head><k>'.$HeadK .'</k></head><def>' . $Def; }}
-        my @ContentBodyList = ( $body->content_list );
-    TAGBLOCK: for( my $counter = 0; $counter < scalar @ContentBodyList; $counter++){
-        # foreach my $TagBlock ( @ContentBodyList ){
-        my $TagBlock = $ContentBodyList[$counter];
-        if( $TagBlock =~ m~^HTML::Element~ ){
-            debugV( "[$counter] tag: '".$TagBlock->tag."'");
-            # If tagblock contains an ul with li-blocks, splice the consecutive contents as tagblocks in @ContentBodyList at position $counter+1.
-            # Will this work?
-            if( $TagBlock->tag eq 'ul'){
-                my @content = $TagBlock->content_list();
-                my $index = 0;
-                my @li_content;
-                foreach( @content ){
-                    debugV("[$index] '$_', tag '".$_->tag."'"); $index++;
-                    unless( $_->tag eq "li" ){
-                        die2("Found unexpected block within ul-block:\n'".asHTML($TagBlock)."'");
-                    }
-                    push @li_content, $_->content_list();
-                }
-                splice @ContentBodyList, ($counter + 1), 0, @li_content;
-                next TAGBLOCK;
-            }
-            if( $TagBlock->tag eq 'p'){
-                my @content = $TagBlock->content_list();
-                if( scalar @content == 0){ infoVV("No content.Skipping."); next TAGBLOCK;}
-                unless( $content[0] =~ m~^HTML::Element=HASH~ ){
-                    if( $content[0] !~ m~<|>~ ){
-                        # Plain text. An p-subblock appears unencapsulated
-                        infoVV("Found plain text.");
-                        unless( defined $article ){
-                            debug("$content[0]");
-                            foreach(@content){ debug( asHTML( $_ ) ); }
-                            die2("Found plain text outside of article.");
-                        }
-                        addArticle( $TagBlock );
-                        next TAGBLOCK;
-                    }
-                    else{ die2("Unknown p-block."); }
-                }
-                my $asHtml = removeBreakTag( asHTML( $content[0] ) );
-                debugV( "'$asHtml'");
-
-                if( scalar @content == 1){
-                    if( $content[0]->tag eq "span" and
-                        $asHtml =~ m~<span[^>]*>(\w)</span>~){
-                        # Chapter title, e.g. 'a':
-                        # <p><span class="font34" style="font-weight:bold;">a</span></p>
-                        # However, this is not a chapter title:
-                        # <p><span class="font24" style="font-weight:bold;">■ &nbsp;&nbsp;<sup>1</sup> &nbsp;&nbsp;■ <sub>t</sub> i &nbsp;&nbsp;ii. &nbsp;■</span></p>
-                        # <p><span class="font3" style="font-weight:bold;">A</span></p>
-                        # <p><span class="font29">On procède de façon analogue quand on<br>dit : </span><span class="font29" style="font-style:italic;">Henri IV est mort en 1610 ;</span><span class="font29"> on donne<br>alors une indication de date, et c’est en ce<br>sens restreint que l’on prend, en linguis-<br>tique, le mot </span><span class="font29" style="font-style:italic;">temps.</span></p>
-                        # Obviously the difference is in class, font34 vs font3.
-                        # If one doesn't want to discriminate based on class, always a lofty goal, how can one furnish a criterion?
-                        # For instance, the current article should be of a different letter and one lower in the alphabet.
-                        # This can be done with ord() for the ascii values.
-                        # However, when facing the comparison of é and f this breaks down.
-                        # Unicode has pre-composed characters and their canonical equivalents.
-                        # The decomposition (into an equivalent sequence) changes characters into a combination of a base character and an accent. Then the base characters can be compared as before with the ord( ascii character ).
-                        # The module Unicode::Normalize contains functions to convert between the two.
-                        my $PossibleChapterTitle = $1;
-                        if( scalar @articles == 0 ){ next TAGBLOCK; }
-                        unless( defined $article ){ die2("Unexpected result."); }
-                        unless( $article =~ m~<k>([^<]+)</k>~){ die2("Regex doesn't work."); }
-                        my $CurrentKey = $1;
-                        unless( defined $CurrentKey ){ die2("CurrentKey is not defined:\n'$article'\n$articles[-1]"); }
-                        if( ord($CurrentKey) + 1 == ord( $PossibleChapterTitle ) ){
-                            # Finish previous article?
-                            infoVV("Found chapter title. Skipping.");
-                            pushArticle();
-                        }
-                        else{
-                            addArticle( $TagBlock );
-                        }
-                        next TAGBLOCK;
-                    }
-                    # <p><span class="font20" style="font-weight:bold;text-decoration:underline;">| Sa | Sé ~~]</span></p>
-                    # <span class="font27" style="font-weight:bold;font-style:italic;">HISTOIRE DE £’ « E MUET »</span>'
-                    if( $content[0]->tag eq "span" and
-                        (
-                            $asHtml =~ m~style="font-weight:bold;"~ or
-                            (
-                                $asHtml =~ m~font-style:italic;"~ and
-                                $asHtml =~ m~<span[^>]*>[«»’,;:'./()|\\\h\?\!\-[\]\p{Uppercase}]+</span>~
-                            ) or
-                            $asHtml =~ m~font-variant:small-caps;~ or
-                            $asHtml =~ m~text-decoration:underline~ or
-                            (
-                                # Bold letters starting with a word all in capitals
-                                $asHtml =~ m~font-weight:bold;~ and
-                                # <span class="font27" style="font-weight:bold;font-style:italic;">1. LEXIQUE ET VOCABULAIRE</span>
-                                $asHtml =~ m~<span[^>]*>(\d\. )?[«»’,;:'./()|\\\h\?\!\-[\]\p{Upper}]+ ~
-                            )
-                        )
-                        ){
-                        # Single entry in @contents. Probably a title in an article
-                        infoVV("Found a title.");
-                        addArticle( $TagBlock );
-                        next TAGBLOCK;
-                    }
-                    # <p><span class="font29" style="font-weight:bold;font-style:italic;">l’ami de monpère/un ami de mon<br>père.</span></p>
-                    # <span class="font17" style="font-weight:bold;font-style:italic;">chies      chat Jean *</span>
-                    # <span class="font1" style="font-weight:bold;font-style:italic;">On le voit s’annoncer de loin par les traits de feu qu'il lance devant lui. L'incendie augmente, l’Orient paraît tout en flammes : à leur éclat, on attend l’astre longtemps avant qu'il se montre; à chaque instant on croit le noir paraître; on le voit enfin. Un point brillant part comme un éclair, et remplit aussitôt l’espace; le voile des ténèbres s’efface et tombe (Jean-Jacques Rousseau).</span>
-                    # <span class="font29" style="font-weight:bold;font-style:italic;">aimeft)           plaist</span>
-                    if( $content[0]->tag eq "span" and
-                        (
-                            $asHtml !~ m~style="~ or
-                            # <span class="font27" style="font-weight:bold;font-style:italic;">« QUI », « QUEL », «OÙ », etc.</span>
-                            $asHtml =~ m~^<span[^>]*>[«»’,;:'./()|\\\?\!\-[\]]+~ or
-                            (
-                                (
-                                    # <span class="font29" style="font-weight:bold;font-style:italic;">Où l’indécis | ( au précis | se joint</span>
-                                    # <span class="font28" style="font-weight:bold;font-style:italic;">Sur les humides bords | | des royau\mes du vent a                      a</span>
-                                    $asHtml =~ m~font-style:italic;"~ and
-                                    $asHtml =~ m~^<span[^>]*>\p{Uppercase}[«»’,;:'./()|\\\d\h\?\!\-[\]\p{Lower}\p{Uppercase}]+</span>~
-                                ) or
-                                $asHtml =~ m~style="font-style:italic;"~ or
-                                (
-                                    $asHtml =~ m~style="font-weight:bold;~ and
-                                    $asHtml =~ m~^<span[^>]*>[«»’,;:'./()|\\\h\?\!\-[\]\p{Lower}]+</span>~
-                                ) or
-                                (
-                                    $asHtml =~ m~style="font-weight:bold;~ and
-                                    $asHtml =~ m~^<span[^>]*>[[«»’,;:'./()|\\\h\?\!\-[\]\p{lower}]+ ~
-                                )
-                            )
-
-                        )
-                            ){
-                        # Simple p-block, just add it to article.
-                        infoVV("Found a simple p-block.");
-                        addArticle( $TagBlock );
-                        next TAGBLOCK;
-                    }
-                    if( $content[0]->tag eq "a"){
-                        # Bookmark
-                        infoVV("Found a bookmark a-block.");
-                        addArticle( $TagBlock );
-                        next TAGBLOCK;
-                    }
-                    # Unknown instance
-                    warn "One content entry: No clue";
-                    die;
-                }
-                if( scalar @content > 1 ){
-                    if( $content[0]->tag eq "span" and
-                        $asHtml =~ m~style="font-weight:bold;"~ and
-                        $asHtml =~ m~<span[^>]*>(?<key>((?!</?span>).)+)</span>~ ){
-                        my $PossibleKey = cleanKey( $+{"key"} );
-                        if( $PossibleKey =~ m~^(♦|•|\||[ILVX]+\.|\d?°|—|■|«)~ ){
-                            infoVV("Subkey '$PossibleKey' starting with '$1' found.");
-                            addArticle( $TagBlock );
-                            next TAGBLOCK;
-                        }
-                        unless( defined $PossibleKey and $PossibleKey ne '' ){ die2( "Possible key is not defined are empty for '$asHtml" ); }
-                        my $CorrectMissingBracket = 0;
-                        my $temp = undef;
-                        my $SecondKey = undef;
-                        my $ThirdKey = undef;
-                        if( exists $PauseFor{ $PossibleKey } ){
-                            debug("as_HTML: '". asHTML( $TagBlock )."'");
-                            debug("as_text: '".$TagBlock->as_text."'");
-                            debug("AFPTregex: '$AllowedFollowersPlainTextRegex'");
-                            debug("AFregex: '$AllowedFollowersRegex'");
-                            print "Press ENTER to continu.";
-                            <STDIN>;
-                        }
-                        if( $content[1] =~ m~^HTML::Element~ and
-                            (
-                                followsKeyword( $content[1] ) or
-                                followsKeywordinPlainText( @content[1..$#content] ) or
-                                $AllowedKeys{ $PossibleKey } or
-                                # Bracket appears in the same span as keyword
-                                $PossibleKey =~ s~\s*\[\s*~~ or
-                                # Missing left bracket in text
-                                (
-                                    asHTML( $content[1] ) =~ m~^<span[^>]*>\^?(\w+\]|\w+, -\w+\])~ and
-                                    $CorrectMissingBracket = 1
-                                ) or
-                                # Categorization appears in the same span as keyword
-                                (
-                                    $PossibleKey =~ s~\s+((n|V|adj)\.\s*)$~~ and
-                                    $temp = $1 . $content[1]->as_text and
-                                    $temp =~ m~^($AllowedFollowersPlainTextRegex)~
-                                )
-                            )
-                            ){
-                            # Key followed by bracket fullfills criterium
-                            pushArticle();
-                            # Check for extra forms
-                            infoVV("Found start of new article with key '$PossibleKey'.");
-                            my $TBaHtml = asHTML( $TagBlock );
-                            if( $CorrectMissingBracket ){
-                                unless ( $TBaHtml =~ s~^(?<start><p><span[^>]*>((?!</?span>).)+</span><span[^>]*>)\^?(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
-                                    warn "Regex didn't work for '$TBaHtml'";
-                                    die;
-                                }
-                            }
-                            $PossibleKey = checkExtraForms( $PossibleKey, $TagBlock );
-                            setArticle( $PossibleKey, $TBaHtml );
-                            if( exists $PauseFor{ $PossibleKey } ){
-                                debug("Article: '$article'");
-                                print "At line ".__LINE__.". Press ENTER to continu.";
-                                <STDIN>;
-                            }
-                            next TAGBLOCK;
-                        }
-                        # Two keys separated by ou
-                        # E.g. <p><span class="font2" style="font-weight:bold;">abadir </span><span class="font11">ou </span><span class="font2" style="font-weight:bold;">abbadir </span><span class="font11">[abadir] n. m. (origine<br>inconnue ; 1690, Furetière). Nom donné à<br>une pierre sacrée chez les Phéniciens et<br>considérée comme venant du ciel : </span>
-                        # E.g. <p><span class="font2" style="font-weight:bold;">aïeul, e, </span><span class="font11">plur. </span><span class="font2" style="font-weight:bold;">aïeuls, es </span><span class="font11">[ajœl] n. (lat.<br>pop. </span><span class="font11" style="font-style:italic;">*aviolus,</span><span class="font11"> dimin. du lat. class. </span>
-                        elsif(
-                            $content[1] =~ m~^HTML::Element~ and
-                            $content[2] =~ m~^HTML::Element~ and
-                            moreKeywords( $content[1] ) and
-                            (
-                                (
-                                    asHTML( $content[2] ) =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ and
-                                    $temp = $+{keysecond} and
-                                    $temp =~ m~\s*\[\s*$~
-                                ) or
-                                (
-                                    $content[3] =~ m~^HTML::Element~ and
-                                    (
-                                        followsKeyword( $content[3] ) or
-                                        followsKeywordinPlainText( @content[3..$#content] )
-                                    )
-
-                                ) or
-                                # Missing left bracket in text
-                                (
-                                    $content[3] =~ m~^HTML::Element~ and
-                                    asHTML( $content[3] ) =~ m~^<span[^>]*>\^?(\w+\])~ and
-                                    $CorrectMissingBracket = 1
-                                )
-                            ) and
-                            $content[2]->tag eq "span" and
-                            asHTML( $content[2] ) =~ m~style="font-weight:bold;"~ and
-                            asHTML( $content[2] ) =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ ){
-                            # Key followed another key by bracket fullfills criterium
-                            my $SecondKey = cleanKey( $+{"keysecond"} );
-                            $SecondKey =~ s~\s*\[\s*$~~;
-                            pushArticle();
-                            $PossibleKey = checkExtraForms( $PossibleKey, $TagBlock );
-                            $SecondKey = checkExtraForms( $SecondKey, $TagBlock );
-                            my $TBaHtml = asHTML( $TagBlock );
-                            if( $CorrectMissingBracket ){
-                                # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
-                                unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)\^?(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
-                                    warn "Regex didn't work for '$TBaHtml'";
-                                    die;
-                                }
-                            }
-                            infoVV("Found start of new article with key '$PossibleKey'.");
-                            infoVV("Also found another form of this key '$SecondKey'.");
-                            # E.g. <ar><head><k>abaissante</k></head><def>abaissant</def></ar>
-                            pushReferenceArticle( $SecondKey, $PossibleKey);
-                            setArticle( $PossibleKey, $TBaHtml );
-                            if( exists $PauseFor{ $PossibleKey } ){
-                                debug("Article: '$article'");
-                                print "Press ENTER to continu.";
-                                <STDIN>;
-                            }
-                            next TAGBLOCK;
-                        }
-                        # Three keys separated by ou
-                        # E.g. <p><span class="font4" style="font-weight:bold;">copayer, </span><span class="font29">ou </span><span class="font4" style="font-weight:bold;">copaïer, </span><span class="font29">ou </span><span class="font4" style="font-weight:bold;">copahier </span><span class="font29">[kopaje] n. m. (du tupi-guarani </span><span class="font29" style="font-style:italic;">copaïba, </span><span class="font29">arbre qui produit le copahu, par changement de suff. ; 1783, </span><span class="font29" style="font-style:italic;">Encycl. méthodique, </span><span class="font29">écrit </span><span class="font29" style="font-style:italic;">copaïer; copayer,</span><span class="font29"> 1835, Acad. ; </span><span class="font29" style="font-style:italic;">copahier,</span><span class="font29"> 1866, Larousse). Arbre à suc résineux et balsamique, d’Amérique et d’Afrique tropicales.</span></p>
-                        elsif( scalar @content >= 6 and
-                            $content[1] =~ m~^HTML::Element~ and
-                            $content[2] =~ m~^HTML::Element~ and
-                            $content[3] =~ m~^HTML::Element~ and
-                            $content[4] =~ m~^HTML::Element~ and
-                            $content[5] =~ m~^HTML::Element~ and
-                            $content[6] =~ m~^HTML::Element~ and
-                            # $content[1]->tag eq "span" and
-                            # $content[1]->as_HTML('<>&', " ", {}) =~ m~<span[^>]*>(! |\()?ou~ or
-                            # $content[1]->as_HTML('<>&', " ", {}) =~ m~<span[^>]*>(! |\()?plur\.~ or
-                            # $content[1]->as_HTML('<>&', " ", {}) =~ m~<span[^>]*>(! |\()?anc\.~
-                            moreKeywords( $content[1] ) and
-                            moreKeywords( $content[3] ) and
-                            (
-                                (
-                                    asHTML( $content[2] ) =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ and
-                                    $SecondKey = $+{keysecond} and
-                                    $SecondKey =~ m~\s*\[\s*$~ and
-                                    asHTML( $content[4] ) =~ m~<span[^>]*>(?<keythird>((?!</?span>).)+)</span>~ and
-                                    $ThirdKey = $+{keythird} and
-                                    $ThirdKey =~ m~\s*\[\s*$~
-                                ) or
-                                (
-                                    $content[5] =~ m~^HTML::Element~ and
-                                    (
-                                        followsKeyword( $content[5] ) or
-                                        followsKeywordinPlainText( @content[5..$#content] )
-                                    )
-
-                                ) or
-                                # Missing left bracket in text
-                                (
-                                    $content[5] =~ m~^HTML::Element~ and
-                                    asHTML( $content[5] ) =~ m~^<span[^>]*>\^?([\w\^]+\])~ and
-                                    $CorrectMissingBracket = 1
-                                )
-                            ) and
-                            $content[2]->tag eq "span" and
-                            asHTML( $content[2] ) =~ m~style="font-weight:bold;"~ and
-                            $content[4]->tag eq "span" and
-                            asHTML( $content[4] ) =~ m~style="font-weight:bold;"~
-                            ){
-                            # Key followed two keys by bracket fullfills criterium
-                            $SecondKey = cleanKey( $SecondKey );
-                            $SecondKey =~ s~\s*\[\s*$~~;
-                            $ThirdKey = cleanKey( $ThirdKey );
-                            $ThirdKey =~ s~\s*\[\s*$~~;
-                            pushArticle();
-                            $PossibleKey = checkExtraForms( $PossibleKey, $TagBlock );
-                            $SecondKey = checkExtraForms( $SecondKey, $TagBlock );
-                            $ThirdKey = checkExtraForms( $ThirdKey, $TagBlock );
-                            my $TBaHtml = asHTML( $TagBlock );
-                            if( $CorrectMissingBracket ){
-                                # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
-                                unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)\^?(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
-                                    warn "Regex didn't work for '$TBaHtml'";
-                                    die;
-                                }
-                            }
-                            infoVV("Found start of new article with key '$PossibleKey'.");
-                            infoVV("Also found another form of this key '$SecondKey'.");
-                            pushReferenceArticle( $SecondKey, $PossibleKey );
-                            pushReferenceArticle( $ThirdKey,  $PossibleKey );
-                            setArticle( $PossibleKey, $TBaHtml );
-                            if( exists $PauseFor{ $PossibleKey } ){
-                                debug("Article: '$article'");
-                                print "Press ENTER to continu.";
-                                <STDIN>;
-                            }
-                            next TAGBLOCK;
-                        }
-                        else{
-                            # Criterium not met. Current block taken as a continuation of previous article.
-                            infoVV("Found a possible key '$PossibleKey', but it wasn't followed by one of the allowed symbols.");
-                            push @ImpossibleKeywords, $PossibleKey;
-                            $ImpossibleKeywords{ $PossibleKey } = asHTML( $TagBlock );
-                            addArticle( $TagBlock );
-                            if( exists $PauseFor{ $PossibleKey } ){
-                                debug("Article: '$article'");
-                                print "Press ENTER to continu.";
-                                <STDIN>;
-                            }
-                            next TAGBLOCK;
-                        }
-                    }
-                    else{
-                        # Criterium not met. Current block taken as a continuation of previous article.
-                        addArticle( $TagBlock );
-                        next TAGBLOCK;
-                    }
-                }
-            }
-            else{
-                # Add block to article
-                addArticle( $TagBlock );
-                next TAGBLOCK;
-            }
-
-        }
-        else{ debugV("[$counter] '$_'");}
-    }
-    pushArticle();
-    debugV("Keywords that didn't fit in the criteria.");
-    my $HashStorageAlreadyClearedImpossibleKeywords = "StorageAlreadyClearedImpossibleKeywords.hash";
-    my %StorageAlreadyClearedImpossibleKeywords;
-    if( -e $HashStorageAlreadyClearedImpossibleKeywords ){
-        %StorageAlreadyClearedImpossibleKeywords = %{ retrieve( $HashStorageAlreadyClearedImpossibleKeywords ) };
-    }
-    my $None = 1;
-    my @CurrentlyShown;
-    my @CurrentlyShownWithDescription;
-    foreach(@ImpossibleKeywords){
-        if( exists $StorageAlreadyClearedImpossibleKeywords{ $_} ){ next; }
-        else{
-            push @CurrentlyShownWithDescription, $_."________".$ImpossibleKeywords{$_}."\n\n";
-            push @CurrentlyShown,$_;
-            debugV( $CurrentlyShownWithDescription[-1] );
-            $StorageAlreadyClearedImpossibleKeywords{ $_ } =  1;
-            $None = 0;
-        }
-    }
-
-    if( $None ){ debugV("None") ; }
-    if( $isABBYYAllCleared ){ store(\%StorageAlreadyClearedImpossibleKeywords, $HashStorageAlreadyClearedImpossibleKeywords); }
-    my $ABBYYWordlist = 'ABBYYWordlist.txt';
-    array2File( $ABBYYWordlist, @articles) if $isABBYYWordlistNeeded;
-    debugV("Summary CurrentlyShown:");
-    my $ABBYYImpossibleKeyWordList = 'ABBYYImpossibleKeyWordList.txt';
-    my $ABBYYImpossibleKeyWordListWithDescription = 'ABBYYImpossibleKeyWordListWithDescription.txt';
-    my @ImpossibleKeywordList;
-    foreach(sort @CurrentlyShown){ debugV($_); push @ImpossibleKeywordList, $_, "\n"; }
-    array2File( $ABBYYImpossibleKeyWordList, @ImpossibleKeywordList);
-    array2File( $ABBYYImpossibleKeyWordListWithDescription, @CurrentlyShownWithDescription );
-    debugV("FailingExtraForms:");
-    foreach(@FailingExtraForms){debugV($_);}
-    $isABBYConverted = 1;
-    return( @xdxf_start, @articles, "</xdxf>" );}
-
 our $MinimumNodes           = 10;             #Minimum number of nodes
 our $useStoredCatches       = 1;
 our $isParsedTreeReused     = 1;
@@ -1835,9 +996,9 @@ sub convertRAWML2XDXF{
     my $rawml = join('',@_);
     my $xdxfCuts = convertRAWMLUsingManualCuts( $rawml );
     if( defined $xdxfCuts ){ return @{ $xdxfCuts }; }
-    
     my $xdxf_try =  generateXDXFTagBased( $rawml );
     if( $xdxf_try ){ return (@{ $xdxf_try }); }
+
     my @xdxf = @xdxf_start;
     # Snippet Rawml
     #<html><head><guide><reference title="Dictionary Search" type="search" onclick="index_search()"/></guide></head><body><mbp:pagebreak/><p>Otwarty słownik hiszpańsko-polski</p> <p>Baza tłumaczeń: 2010 Jerzy Kazojć – CC-BY-SA</p> <p>Baza odmian: Athame – GPL3</p> <mbp:pagebreak/><mbp:frameset> <mbp:pagebreak/><h3> a </h3> ku, na, nad, o, po, przy, u, w, za <hr/> <h3> abacero </h3> sklepikarz <hr/> <h3> ábaco </h3> abakus, liczydło <hr/> <h3> abad </h3> opat <hr/> <h3> abadejo </h3> dorsz <hr/> <h3> abadía </h3> opactwo <hr/> <h3> abajo </h3> dolny <hr/> <h3> abalanzar </h3> równoważyć <hr/> <h3> abalanzarse </h3> rzucać, rzucić <hr/> <h3> abalear </h3> przesiewać, wiać <hr/> <h3> abanar </h3> chwiać, potrząsać, trząść, wstrząsać <hr/> <h3> abanderado </h3> chorąży, lider <hr/> <h3> abandonado </h3> opuszczony, porzucony <hr/> <h3> abandonar </h3> opuścić, opuszczać, porzucać, porzucić, pozostawiać, zaniechać, zostawiać, zrezygnować <hr/>
@@ -2999,5 +2160,845 @@ sub generateXDXFTagBased{
     }
     else{ debug( "No articles found with sub generateXDXFTagBased(), yet"); }
     return ( $Info{ "xdxf"} )}
+
+
+# Control variables for the conversion of ABBYY-generated HTML.
+our @ABBYY_CSS; # Becomes defined by sub convertABBYY2XDXF
+our $isABBYYWordlistNeeded   = 1; # Controls creation of an ABBYYWordlist.txt file.
+our $isABBYYAllCleared       = 0; # Controls creation of a hash-file.
+our $isABBYYConverterReuse   = 0; # Controls the check for already generated xdxf-file
+our $isABBYConverted         = 0; # Global variable that gets set to 1 if convertABBYY2XDXF returns an xdxf-array.
+# Conversion pauses during keywords
+our @ABBYYConverterPauseFor = (
+# E.g.,
+    # 'égard',
+    # 'ète',
+    # 'unipolaire',
+    # 'germain, e'
+);
+# Manual overrule. Conversion checks whether keyword is allowed and passes it without further tests.
+our @ABBYYConverterAllowedKeys = (
+# E.g.,
+    # q~corbeille-d’argent~,
+    # q~crespelé, e~,
+    # q~cul-rond~,
+    # q~desquels, desquelles~,
+    # q~duquel~,
+    # q~fœhn~,
+    # q~giboyeux, euse~,
+    # q~glacial, e, als~,
+    # q~hydro-. V~,
+    # q~inaliénablement~,
+    # q~in aliéné, e~,
+    # q~laquelle~,
+    # q~melliflu, e~,
+    # q~peu chère~,
+    # q~pick-nick n.m.~,
+);
+
+sub convertABBYY2XDXF{
+    # Usage: @xdxf = convertABBYY2XDXF( $html );
+    if( $isABBYYConverterReuse ){
+        my $XDXFFileName = $FileName;
+        $XDXFFileName =~ s~\.\w+$~~;
+        $XDXFFileName .= ".xdxf";
+        if( -e $XDXFFileName ){
+            $isABBYConverted = 1;
+            return ( file2Array( $XDXFFileName ) );
+        }
+    }
+    use HTML::TreeBuilder 5 -weak; # Ensure weak references in use
+    my $html = shift;
+    if( $html =~ m~<style type="text/css">(?<css>((?!</style>).)+)</style>~s ){
+        push @ABBYY_CSS, $+{css};
+    }
+    info("Start parsing dictionary '$FileName'");
+    my $tree = HTML::TreeBuilder->new; # empty tree
+    if( -e $FileName.'.tree' ){
+        $tree = retrieve ( $FileName.'.tree' );
+        info( "Retrieved tree from '".$FileName.".tree'"); }
+    else{
+        $html = convertNonBreakableSpacetoNumberedSequence4Strings( $html );
+        $html = convertNumberedSequencesToChar4Strings( $html );
+        $html = mergeConsecutiveIdenticallyAttributedSpans( $html );
+        $html = mergeConsecutiveBoldSpans( $html );
+        $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
+        $tree->parse( $html );
+    }
+    debugV( "tree '$tree'");
+    # tree 'HTML::TreeBuilder=HASH(0x562d600afcf0)'
+
+    unless( $tree =~ m~HTML::TreeBuilder=HASH~ ){
+        unlink $FileName . '.tree';
+        die2("\$tree not a HTML::TreeBuilder hash. \$tree='$tree'\n Deleted old tree-file. Rerun script.");
+    }
+    store( $tree, $FileName.'.tree' );
+    info("End parsing");
+
+    info("Starting look_down for body-tag");
+    my $body = $tree->look_down('_tag', 'body');
+    info("Found body-tag");
+
+    my $counter = 0;
+    our ( @articles, $article, @ImpossibleKeywords, %ImpossibleKeywords, @FailingExtraForms );
+    sub addArticle{
+        my $TagBlock = shift;
+        infoVV("Entering addArticle.");
+        my $html = asHTML($TagBlock);
+        my @check = checkAddedHTML4StartArticle( $html );
+        if( scalar @check == 3 ){
+            addArticle( $check[0]);
+            pushArticle();
+            setArticle( $check[1], $check[2] );
+        }
+        elsif( defined $article ){
+            $article .= $html;
+            infoVV("Added to article:\n'$html'");
+        }
+        else{
+            infoV("No defined article, so nothing to add to.");
+            infoV("Ignored content:\n'$html'");
+        }
+    }
+    sub asHTML{
+        my $content = shift;
+        unless( $content =~ m~^HTML::Element=HASH~ ){
+            warn "Not an HTML::Element object!";
+            debug("'$content'");
+            return( $content );
+        }
+        return(
+            # removeBreakTag(
+                $content->as_HTML('<>&', "    ", {})
+            # )
+        );
+    }
+    sub checkAddedHTML4StartArticle{
+        # Usage: @checks = checkAddedHTML4StartArticle( $html );
+        # The sub returns either an array of scalar 3 or of 1;
+        # If it returns 3 values, they are the start of the article before the break, the new keyword and the start of the new article.
+        # If it returns 1 value, it is just the given html-string.
+        infoVV("Entering checkAddedHTML4StartArticle");
+        my $html = shift;
+        infoVV("noshorthtml given:\n$html");
+        # Sometimes ABBY doesn't generate a new paragraph, but breaks the current to start a new lemma.
+        # So the criterium is a <br>-tag followed by a span-bold.
+        # <p><span class="font0" style="font-weight:bold;">unipolaire </span><span class="font2">[ynipoler] adj. (de wm-2etde<br></span><span class="font2" style="font-style:italic;">polaire ;</span><span class="font2"> 1845, Bescherelle, au sens 1 ; sens 2,<br>1877, Littré). </span><span class="font0" style="font-weight:bold;">1. </span><span class="font2">Qui n’a qu’un pôle élec-<br>trique : </span><span class="font2" style="font-style:italic;">Appareil, interrupteur unipolaire.<br></span><span class="font0" style="font-weight:bold;">|| 2. </span><span class="font2">Se dit d’un neurone dont le corps cel-<br>lulaire porte un seul prolongement, comme<br>les neurones en T des ganglions spinaux,<br></span><span class="font0" style="font-weight:bold;">unique </span><span class="font2">[ynik] adj. (lat. </span><span class="font2" style="font-style:italic;">unicus,</span><span class="font2"> unique,<br>seul, sans égal, de </span><span class="font2" style="font-style:italic;">unus,</span><span class="font2"> un [seul] ; fin du<br>xv<sup>e</sup> s., Molinet, au sens 1 </span><span class="font2" style="font-style:italic;">[seul et unique,<br></span><span class="font2">1751, </span><span class="font2" style="font-style:italic;">Encyclopédie —</span><span class="font2"> discours prélimi-<br>naire; </span><span class="font2" style="font-style:italic;">...fils... unique,</span><span class="font2"> 1668, Molière] ; sens2,<br>1876, Larousse [art. </span><span class="font2" style="font-style:italic;">voie —</span><span class="font2"> sur une route,<br>xx<sup>e</sup> s. ; </span><span class="font2" style="font-style:italic;">sens unique,</span><span class="font2"> janv. 1914, </span><span class="font2" style="font-style:italic;">la Science et<br>la Vie,</span><span class="font2"> p. 31] ; sens 3,1640, Corneille ; sens 4,<br>av. 1696, La Bruyère ; sens 5,1758, Diderot).</span></p>
+        ## Break is removed prior to running checkAddedHTML4StartArticle due to asHTML
+        ## htm-file content
+        # <span class="font20" style="font-weight:bold;"> : 3 </span><span class="font29" style="font-style:italic;">calomnie, fiel; 4 noirceur,perfidie.<br></span><span class="font4" style="font-weight:bold;">venir </span><span class="font29">[vonir] v. intr. (lat. </span>
+        ## Given to checkAddedHTML4StartArticle
+        # <span class="font20" style="font-weight:bold;"> : 3 </span><span class="font29" style="font-style:italic;">calomnie, fiel; 4 noirceur,perfidie. </span><span class="font4" style="font-weight:bold;">venir </span><span class="font29">[vonir] v. intr. (lat. </span>
+        my @BreakBoldSpans = $html =~ m~(<br[^>]*></span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
+        if( scalar @BreakBoldSpans == 0 ){ infoVV("No break followed by bold span found."); }
+        else{
+            my $NumberOfBreaks = scalar @BreakBoldSpans;
+            my $Break = "break";
+            $Break .= 's' if $NumberOfBreaks > 1;
+            infoV("Found $NumberOfBreaks $Break followed by span tag, that has bold styling.");
+            infoV("\@BreakBoldSpans:");
+            foreach(@BreakBoldSpans){debug_t("'$_'");}
+        }
+
+        # However, sometimes it is just a bold-span after a comma. I am going to assume that the misinterpreted '.' forces ABBY to continue the paragraph.
+        # So the criterium is a ',' followed by a span-bold
+        # If a keyword is found, the comma should be corrected to a point.
+        # <p><span class="font20" style="font-weight:bold;">♦ En guise de </span><span class="font29">loc. prép. (v. 1050, </span><span class="font29" style="font-style:italic;">Vie de saint Alexis,</span><span class="font29"> au sens de « à la façon de » ; sens actuel, 1651, Scarron). Pour servir de, pour jouer le même rôle que : </span><span class="font29" style="font-style:italic;">On étend des haïks en guise de nappes</span><span class="font29"> (Fromentin), </span><span class="font4" style="font-weight:bold;">guitare </span><span class="font29">[gitar] n. f. (anc. provenç. </span>
+        # However, sometimes it's just another form:
+        # <span class="font4" style="font-weight:bold;">1.</span><span class="font4" style="font-weight:bold;"> que </span><span class="font29">[ka], </span><span class="font4" style="font-weight:bold;">qu* </span><span class="font29">[k (devant voyelle)] conj.<br>(lat. </span>
+        # So skip if the comma is preceded by ']' and spaces: (?:(?<!\]\s{0,20}),)
+        my @CommaBoldSpans = $html =~ m~((?:(?<!\]\s{0,20}),)\s*</span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
+        if( scalar @CommaBoldSpans == 0 ){ infoVV("No comma followed by bold span found."); }
+        else{
+            my $NumberOfBreaks = scalar @CommaBoldSpans;
+            my $Break = "comma";
+            $Break .= '\'s' if $NumberOfBreaks > 1;
+            infoV("Found $NumberOfBreaks $Break followed by span tag, that has bold styling.");
+            infoV("\@CommaBoldSpans:");
+            foreach(@CommaBoldSpans){debug_t("'$_'");}
+        }
+
+
+        foreach my $PossibleKeySpan( @BreakBoldSpans, @CommaBoldSpans  ){
+            infoVV("PossibleKeySpan: '$PossibleKeySpan'");
+            $html =~ m~\Q$PossibleKeySpan\E~s;
+            # my $BeforeBreak = $`.'</span>';
+            my $BeforeBreak = $`;
+            my $AfterBreak = $';
+            if( $PossibleKeySpan =~ s~^<br[^>]*></span>~~ ){$BeforeBreak .= '</span>'; }
+            elsif( $PossibleKeySpan =~ s~^,\s*</span>~~ ){  $BeforeBreak .= '.</span>'; }
+            debug_t("BeforeBreak: '$BeforeBreak'");
+            debug_t("AfterBreak: '$AfterBreak'");
+            debug_t("PossibleKeySpan: '$PossibleKeySpan'");
+            unless( $PossibleKeySpan =~ m~^<span[^>]+>(?<key>((?!</?span>).)+)</span>~s ){ warn "Regex didn't work for:'$PossibleKeySpan'"; next; }
+            my $KeyAfterBreak = cleanKey($+{key});
+            infoVV("Possible key after break is '$KeyAfterBreak'");
+            if( followsKeywordinPlainText( stripTags( $AfterBreak ) ) ){
+                # Found another keyword.
+                info("Found another keyword '$KeyAfterBreak'. Returning three values");
+                return ( $BeforeBreak, $KeyAfterBreak, $PossibleKeySpan.$AfterBreak );
+            }
+            else{
+                info_t("No keyword found");
+                debug_t("Plain text after break:\n'".stripTags( $AfterBreak )."'");
+            }
+        }
+        return ($html);
+    }
+    sub checkExtraForms{
+        my $PossibleKey = shift;
+        my $html = asHTML( shift );
+        if( $PossibleKey =~ m~,~){
+            $PossibleKey = $`;
+            my $ExtraForm = cleanKey($');
+            my @ExtraForms = split(/,/, $ExtraForm);
+            pushArticle();
+            foreach my $Form( @ExtraForms){
+                $Form = cleanKey( $Form );
+                $Form =~ s~^-~~;
+                $Form =~ s~ ~~;
+                $Form =~ s~\s*\[~~;
+                # Sometimes the given key is a sentence.
+                my $Key = $PossibleKey;
+                my @Key = split(/ /, $Key);
+                $Key = $Key[-1];
+                if( $Form =~ m~(?<MaleEnd>\w+)(?<FormEnd>e)$~){
+                    my $MaleEnd = $+{"MaleEnd"};
+                    my $FormEnd = $+{"FormEnd"};
+                    if( $Key =~ m~$MaleEnd$~ ){ $Form = $FormEnd; }
+                }
+                if( $Form eq 'e' or
+                    $Form eq 'ë' or
+                    0 ){
+                     pushReferenceArticle( $PossibleKey.$Form, $PossibleKey );
+                }
+                elsif(
+                    $Form eq 'es' or
+                    $Form eq 'gue' or
+                    $Form =~ m~^(e|i)sse$~ or
+                    $Form eq 'uë' or
+                    $Form eq 'ite' or
+                    $Form eq 'ote' or
+                    $Form eq 'a' or
+                    0 ){
+                     pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 1 )) .$Form, $PossibleKey );
+                }
+                elsif(
+                    $Form eq 'aux' or
+                    $Form eq 'ère' or
+                    $Form eq 'als' or
+                    $Form eq 'aque' or
+                    $Form eq 'ouse' or
+                    $Form eq 'igné' or
+                    $Form eq 'use' or
+                    $Form eq 'ca' or
+                    $Form eq 'ique' or
+                    $Form =~ m~(î|i|ï)(v|n)e~ or
+                    $Form =~ m~^(e|o|i|a)(tt|ll|nn)e$~ or
+                    $Form =~ m~(è|e|é)t(è|e|é)~ or
+                    $Form eq 'ées' or
+                    $Form eq 'aude' or
+                    0 ){
+                     pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 2 )) .$Form, $PossibleKey );
+                }
+                elsif(
+                    $Form eq 'eu se' or
+                    $Form eq 'euse' or
+                    $Form eq 'eresse' or
+                    $Form eq 'elles' or
+                    $Form eq 'ante' or
+                    $Form eq "ienne" or
+                    $Form eq "ière" or
+                    $Form eq "eille" or
+                    $Form eq "oute" or
+                    0 ){
+                    pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 3 )) .$Form, $PossibleKey );
+                }
+                elsif(
+                    $Form eq "douce" or
+                    $Form =~ m~tr(î|i)ce~ or
+                    $Form eq "turque" or
+                    $Form eq "grecque" or
+                    0 ){
+                    pushReferenceArticle( substr($PossibleKey, 0,( length($PossibleKey) - 4 )) .$Form, $PossibleKey );
+                }
+                elsif( $Form =~ m~^\Q$Key\E~ or $Key =~ m~^\Q$Form\E~ ){
+                    # E.g. adonc, adoncques
+                    pushReferenceArticle( $Form, $PossibleKey );
+                }
+                elsif(
+                    substr($Form,-3, 3) eq substr($Key, -3, 3) or
+                    substr($Form, 0, 2) eq substr($Key, 0, 2)
+                    ){
+                    # E.g. aiche, èche
+                    pushReferenceArticle( $Form, $PossibleKey );
+                }
+                elsif(
+                    $Form !~ m~^\Q$Key\E~ and
+                    substr($Form,-3, 3) ne substr($Key, -3, 3) and
+                    length($Form) > length($Key)
+                    ){
+                    # Treating it as an unknown plural. E.g auquel, auxquels, auxquelles
+                    pushReferenceArticle( $Form, $PossibleKey );
+                }
+                elsif( length($Form) == length($Key) ){
+                    # E.g. lez, lès
+                    pushReferenceArticle( $Form, $PossibleKey );
+                }
+                else{
+                    push @FailingExtraForms, $PossibleKey."____".$Form;
+                    debug(length($Form));
+                    warn "Not a known variant of form for '$PossibleKey': '$Form'.";
+                    debug("last 3 letters of '$PossibleKey': ". substr($PossibleKey, -3, 3) );
+                    debug("last 3 letters of '$Form': ". substr($Form, -3, 3) );
+                }
+            }
+        }
+
+        # Sometimes the extra forms are in different spans with for instance bold styling.
+        my @CommaBoldSpansPrecededByBracket = $html =~ m~(\]\s{0,20},\s*</span><span[^>]+?bold[^>]+>(?:(?!</?span>).)+</span>)~sg;
+        if( @CommaBoldSpansPrecededByBracket > 0 ){
+            foreach my $CommaBoldSpansPrecededByBracket( @CommaBoldSpansPrecededByBracket ){
+                $CommaBoldSpansPrecededByBracket =~ s~\]\s{0,20},\s*</span>~~;
+                infoVV("CommaBoldSpansPrecededByBracket: '$CommaBoldSpansPrecededByBracket'");
+                $html =~ m~\Q$CommaBoldSpansPrecededByBracket\E~s;
+                my $AfterBreak = $';
+                debug_t("noshortAfterBreak: '$AfterBreak'");
+                unless( $CommaBoldSpansPrecededByBracket =~ m~^<span[^>]+>(?<key>((?!</?span>).)+)</span>~s ){ warn "Regex didn't work for:'$CommaBoldSpansPrecededByBracket'"; next; }
+                my $ExtraFrom = cleanKey($+{key});
+                infoVV("Possible extra form after break is '$ExtraFrom'");
+                if( followsKeywordinPlainText( stripTags( $AfterBreak ) ) ){
+                    # Found another form.
+                    info("Found another form '$ExtraFrom' for '$PossibleKey'.");
+                    pushArticle();
+                    pushReferenceArticle( $ExtraFrom, $PossibleKey );
+                }
+                else{
+                    info_t("No other form found");
+                    debug_t("Plain text after break:\n'".stripTags( $AfterBreak )."'");
+                }
+            }
+        }
+
+        return $PossibleKey;
+    }
+    sub cleanKey{
+        my $Key = $_[0];
+        $Key =~ s~<br ?/?>~~gs;
+        $Key =~ s~\[[^\]]*\]~~g;
+        $Key =~ s~\]\s*$~~g;
+        $Key =~ s~\)$~~g;
+        $Key =~ s~^\+~~;
+        $Key =~ s~^\.~~;
+        $Key =~ s~\s+$~~g;
+        $Key =~ s~^\s+~~g;
+        $Key =~ s~,+$~~g;
+        $Key =~ s~^\^~~g;
+        $Key =~ s~^\*~~g;
+        # Changes (imitable in limitable, but will not change (K) into lK)
+        $Key =~ s~^\(([^)]+)$~l$1~;
+        # Sometimes causes entire keys to be deleted, e.g. <span class="font4" style="font-weight:bold;">(K) , </span>
+        # $Key =~ s~\([^)]*\)?~~g;
+        # Remove numerical prefixes, so that reconstructXDXF can put the descriptions in the same article.
+        $Key =~ s~^\d\.? ~~g;
+        $Key =~ s~(\w+)(n\.(m\.)?)$~$1 $2~;
+        # Correct OCR, e.g. cambré» e
+        $Key =~ s~» ~, ~;
+        $Key =~ s~\*$~'~;
+        $Key =~ s~<sup>((?!</?sup>).)+</sup>~*~;
+        $Key =~ s~<sub>((?!</?sub>).)+</sub>~~;
+        $Key =~ s~<a[^>]*>((?:(?!</?a[^>]*>).)*)</a>~$1~g;
+        if( $Key eq '' ){ return $_[0]; }
+        else{ return $Key; }
+    }
+    our %PauseFor;
+    foreach( @ABBYYConverterPauseFor ){ $PauseFor{ $_ } =  1; }
+    our %AllowedKeys;
+    foreach( @ABBYYConverterAllowedKeys ){ $AllowedKeys{ $_ } =  1; }
+    our $Pre = '! |\(|\([^)]+\)(\.|,)? +|\? ';
+    our @AllowedFollowers = (
+        '^<span[^>]*>('.$Pre.')?\[',
+        '^<span[^>]*>\((devant|Acad|\d{4}, )',
+        '^<span[^>]*>n\. ?(m|f|V)?\.?',
+        '^<span[^>]*>\(marque déposée\)',
+        '^<span[^>]*>('.$Pre.')?adj\.',
+        '^<span[^>]*>v\. (pr|(in)?tr)\.',
+        '^<span[^>]*>('.$Pre.')?adv\.( V\.)?',
+        'pers. sing. de',
+        '^<span[^>]*>('.$Pre.')?(pron|prép|interj|intr|loc|préf|conj)\.',
+        '^<span[^>]*>('.$Pre.')?((A|a)brév\.|Abréviation|(S|s)igle|symbole)',
+        '^<span[^>]*>pr\. rei\. V\.',
+        '^<span[^>]*>éléments? tirés? du',
+        '^<span[^>]*>((m|f)\. )?V\.',
+        '^\d\. Premier élément',
+        '^premiers? éléments?',
+        '^<span[^>]*>v. impers,',
+        '^<span[^>]*>part, passé\.',
+        '^<span[^>]*>\(rarem.',
+        );
+    our $AllowedFollowersRegex = shift @AllowedFollowers;
+    foreach(@AllowedFollowers){ $AllowedFollowersRegex .= "|".$_; }
+    our $AllowedFollowersPlainTextRegex = $AllowedFollowersRegex;
+    $AllowedFollowersPlainTextRegex =~ s~<span\[\^>\]\*>~~sg;
+
+    sub followsKeyword{
+        # Returns value of criterium
+        # Is given een HTML::ELement containing a span-block
+        my $content = shift;
+        infoVV("followsKeyword is given '$content'") if 0;
+        unless( $content =~ m~^HTML::Element=HASH~ ){ return 0; }
+        return ( $content->tag eq "span" and asHTML( $content ) =~ m~$AllowedFollowersRegex~ );}
+    sub followsKeywordinPlainText{
+        # Returns value of criterium
+        # Is given a contents-range of HTML::Element
+        my $content;
+        foreach( @_ ){
+            if( m~^HTML::Element=HASH~ ){ $content .= $_->as_text; }
+            else{ $content .= stripTags($_);}
+        }
+        return ( $content !~ m~^HTML::Element=HASH~ and $content =~ m~$AllowedFollowersPlainTextRegex~ );}
+    sub moreKeywords{
+        my $content = shift;
+        return(
+            $content =~ m~^HTML::Element~ and
+            $content->tag eq "span" and
+            (
+                $content->as_HTML('<>&', "  ", {}) =~ m~<span[^>]*>($Pre)?ou~ or
+                $content->as_HTML('<>&', "  ", {}) =~ m~<span[^>]*>($Pre)?plur\.~ or
+                $content->as_HTML('<>&', "  ", {}) =~ m~<span[^>]*>($Pre)?anc\.~
+            )
+        );}
+    sub pushArticle{ if( defined $article ){
+        $article .= '</def></ar>'."\n";
+        # Allow no tags in Possible key.
+        unless( $article =~ m~<k>(?<key>.+)</k>~ ){ die2("regex doesn't work for '$article'"); }
+        my $Key = $+{"key"};
+        if($Key =~ m~[<>]+~){ die2( "'<'or '>' found in key '$Key'."); }
+        infoV("Pushing article '$article'");
+        push @articles, $article;
+        $article = undef; } }
+    sub pushReferenceArticle{
+        my $ReferringKey = shift;
+        my $Referent = shift;
+        infoV("Pushing referring key '$ReferringKey'");
+        # E.g. <ar><head><k>abaissante</k></head><def>abaissant</def></ar>
+        my $article = '<ar><head><k>'.$ReferringKey.'</k></head><def>'.$Referent.'</def></ar>'."\n";
+        push @articles, $article;}
+    sub setArticle{
+        infoVV("Entering setArticle");
+        my $HeadK = shift;
+        my $Def = shift;
+        infoVV("HeadK: '$HeadK'");
+        infoVV("Def: '$Def'");
+        pushArticle();
+        my @Check = checkAddedHTML4StartArticle( $Def );
+        if( scalar @Check == 3 ){
+            setArticle( $HeadK, $Check[0] );
+            pushArticle();
+            setArticle( $Check[1], $Check[2] );
+        }
+        else{ $article = '<ar><head><k>'.$HeadK .'</k></head><def>' . $Def; }}
+        my @ContentBodyList = ( $body->content_list );
+    TAGBLOCK: for( my $counter = 0; $counter < scalar @ContentBodyList; $counter++){
+        # foreach my $TagBlock ( @ContentBodyList ){
+        my $TagBlock = $ContentBodyList[$counter];
+        if( $TagBlock =~ m~^HTML::Element~ ){
+            debugV( "[$counter] tag: '".$TagBlock->tag."'");
+            # If tagblock contains an ul with li-blocks, splice the consecutive contents as tagblocks in @ContentBodyList at position $counter+1.
+            # Will this work?
+            if( $TagBlock->tag eq 'ul'){
+                my @content = $TagBlock->content_list();
+                my $index = 0;
+                my @li_content;
+                foreach( @content ){
+                    debugV("[$index] '$_', tag '".$_->tag."'"); $index++;
+                    unless( $_->tag eq "li" ){
+                        die2("Found unexpected block within ul-block:\n'".asHTML($TagBlock)."'");
+                    }
+                    push @li_content, $_->content_list();
+                }
+                splice @ContentBodyList, ($counter + 1), 0, @li_content;
+                next TAGBLOCK;
+            }
+            if( $TagBlock->tag eq 'p'){
+                my @content = $TagBlock->content_list();
+                if( scalar @content == 0){ infoVV("No content.Skipping."); next TAGBLOCK;}
+                unless( $content[0] =~ m~^HTML::Element=HASH~ ){
+                    if( $content[0] !~ m~<|>~ ){
+                        # Plain text. An p-subblock appears unencapsulated
+                        infoVV("Found plain text.");
+                        unless( defined $article ){
+                            debug("$content[0]");
+                            foreach(@content){ debug( asHTML( $_ ) ); }
+                            die2("Found plain text outside of article.");
+                        }
+                        addArticle( $TagBlock );
+                        next TAGBLOCK;
+                    }
+                    else{ die2("Unknown p-block."); }
+                }
+                my $asHtml = removeBreakTag( asHTML( $content[0] ) );
+                debugV( "'$asHtml'");
+
+                if( scalar @content == 1){
+                    if( $content[0]->tag eq "span" and
+                        $asHtml =~ m~<span[^>]*>(\w)</span>~){
+                        # Chapter title, e.g. 'a':
+                        # <p><span class="font34" style="font-weight:bold;">a</span></p>
+                        # However, this is not a chapter title:
+                        # <p><span class="font24" style="font-weight:bold;">■ &nbsp;&nbsp;<sup>1</sup> &nbsp;&nbsp;■ <sub>t</sub> i &nbsp;&nbsp;ii. &nbsp;■</span></p>
+                        # <p><span class="font3" style="font-weight:bold;">A</span></p>
+                        # <p><span class="font29">On procède de façon analogue quand on<br>dit : </span><span class="font29" style="font-style:italic;">Henri IV est mort en 1610 ;</span><span class="font29"> on donne<br>alors une indication de date, et c’est en ce<br>sens restreint que l’on prend, en linguis-<br>tique, le mot </span><span class="font29" style="font-style:italic;">temps.</span></p>
+                        # Obviously the difference is in class, font34 vs font3.
+                        # If one doesn't want to discriminate based on class, always a lofty goal, how can one furnish a criterion?
+                        # For instance, the current article should be of a different letter and one lower in the alphabet.
+                        # This can be done with ord() for the ascii values.
+                        # However, when facing the comparison of é and f this breaks down.
+                        # Unicode has pre-composed characters and their canonical equivalents.
+                        # The decomposition (into an equivalent sequence) changes characters into a combination of a base character and an accent. Then the base characters can be compared as before with the ord( ascii character ).
+                        # The module Unicode::Normalize contains functions to convert between the two.
+                        my $PossibleChapterTitle = $1;
+                        if( scalar @articles == 0 ){ next TAGBLOCK; }
+                        unless( defined $article ){ die2("Unexpected result."); }
+                        unless( $article =~ m~<k>([^<]+)</k>~){ die2("Regex doesn't work."); }
+                        my $CurrentKey = $1;
+                        unless( defined $CurrentKey ){ die2("CurrentKey is not defined:\n'$article'\n$articles[-1]"); }
+                        if( ord($CurrentKey) + 1 == ord( $PossibleChapterTitle ) ){
+                            # Finish previous article?
+                            infoVV("Found chapter title. Skipping.");
+                            pushArticle();
+                        }
+                        else{
+                            addArticle( $TagBlock );
+                        }
+                        next TAGBLOCK;
+                    }
+                    # <p><span class="font20" style="font-weight:bold;text-decoration:underline;">| Sa | Sé ~~]</span></p>
+                    # <span class="font27" style="font-weight:bold;font-style:italic;">HISTOIRE DE £’ « E MUET »</span>'
+                    if( $content[0]->tag eq "span" and
+                        (
+                            $asHtml =~ m~style="font-weight:bold;"~ or
+                            (
+                                $asHtml =~ m~font-style:italic;"~ and
+                                $asHtml =~ m~<span[^>]*>[«»’,;:'./()|\\\h\?\!\-[\]\p{Uppercase}]+</span>~
+                            ) or
+                            $asHtml =~ m~font-variant:small-caps;~ or
+                            $asHtml =~ m~text-decoration:underline~ or
+                            (
+                                # Bold letters starting with a word all in capitals
+                                $asHtml =~ m~font-weight:bold;~ and
+                                # <span class="font27" style="font-weight:bold;font-style:italic;">1. LEXIQUE ET VOCABULAIRE</span>
+                                $asHtml =~ m~<span[^>]*>(\d\. )?[«»’,;:'./()|\\\h\?\!\-[\]\p{Upper}]+ ~
+                            )
+                        )
+                        ){
+                        # Single entry in @contents. Probably a title in an article
+                        infoVV("Found a title.");
+                        addArticle( $TagBlock );
+                        next TAGBLOCK;
+                    }
+                    # <p><span class="font29" style="font-weight:bold;font-style:italic;">l’ami de monpère/un ami de mon<br>père.</span></p>
+                    # <span class="font17" style="font-weight:bold;font-style:italic;">chies      chat Jean *</span>
+                    # <span class="font1" style="font-weight:bold;font-style:italic;">On le voit s’annoncer de loin par les traits de feu qu'il lance devant lui. L'incendie augmente, l’Orient paraît tout en flammes : à leur éclat, on attend l’astre longtemps avant qu'il se montre; à chaque instant on croit le noir paraître; on le voit enfin. Un point brillant part comme un éclair, et remplit aussitôt l’espace; le voile des ténèbres s’efface et tombe (Jean-Jacques Rousseau).</span>
+                    # <span class="font29" style="font-weight:bold;font-style:italic;">aimeft)           plaist</span>
+                    if( $content[0]->tag eq "span" and
+                        (
+                            $asHtml !~ m~style="~ or
+                            # <span class="font27" style="font-weight:bold;font-style:italic;">« QUI », « QUEL », «OÙ », etc.</span>
+                            $asHtml =~ m~^<span[^>]*>[«»’,;:'./()|\\\?\!\-[\]]+~ or
+                            (
+                                (
+                                    # <span class="font29" style="font-weight:bold;font-style:italic;">Où l’indécis | ( au précis | se joint</span>
+                                    # <span class="font28" style="font-weight:bold;font-style:italic;">Sur les humides bords | | des royau\mes du vent a                      a</span>
+                                    $asHtml =~ m~font-style:italic;"~ and
+                                    $asHtml =~ m~^<span[^>]*>\p{Uppercase}[«»’,;:'./()|\\\d\h\?\!\-[\]\p{Lower}\p{Uppercase}]+</span>~
+                                ) or
+                                $asHtml =~ m~style="font-style:italic;"~ or
+                                (
+                                    $asHtml =~ m~style="font-weight:bold;~ and
+                                    $asHtml =~ m~^<span[^>]*>[«»’,;:'./()|\\\h\?\!\-[\]\p{Lower}]+</span>~
+                                ) or
+                                (
+                                    $asHtml =~ m~style="font-weight:bold;~ and
+                                    $asHtml =~ m~^<span[^>]*>[[«»’,;:'./()|\\\h\?\!\-[\]\p{lower}]+ ~
+                                )
+                            )
+
+                        )
+                            ){
+                        # Simple p-block, just add it to article.
+                        infoVV("Found a simple p-block.");
+                        addArticle( $TagBlock );
+                        next TAGBLOCK;
+                    }
+                    if( $content[0]->tag eq "a"){
+                        # Bookmark
+                        infoVV("Found a bookmark a-block.");
+                        addArticle( $TagBlock );
+                        next TAGBLOCK;
+                    }
+                    # Unknown instance
+                    warn "One content entry: No clue";
+                    die;
+                }
+                if( scalar @content > 1 ){
+                    if( $content[0]->tag eq "span" and
+                        $asHtml =~ m~style="font-weight:bold;"~ and
+                        $asHtml =~ m~<span[^>]*>(?<key>((?!</?span>).)+)</span>~ ){
+                        my $PossibleKey = cleanKey( $+{"key"} );
+                        if( $PossibleKey =~ m~^(♦|•|\||[ILVX]+\.|\d?°|—|■|«)~ ){
+                            infoVV("Subkey '$PossibleKey' starting with '$1' found.");
+                            addArticle( $TagBlock );
+                            next TAGBLOCK;
+                        }
+                        unless( defined $PossibleKey and $PossibleKey ne '' ){ die2( "Possible key is not defined are empty for '$asHtml" ); }
+                        my $CorrectMissingBracket = 0;
+                        my $temp = undef;
+                        my $SecondKey = undef;
+                        my $ThirdKey = undef;
+                        if( exists $PauseFor{ $PossibleKey } ){
+                            debug("as_HTML: '". asHTML( $TagBlock )."'");
+                            debug("as_text: '".$TagBlock->as_text."'");
+                            debug("AFPTregex: '$AllowedFollowersPlainTextRegex'");
+                            debug("AFregex: '$AllowedFollowersRegex'");
+                            print "Press ENTER to continu.";
+                            <STDIN>;
+                        }
+                        if( $content[1] =~ m~^HTML::Element~ and
+                            (
+                                followsKeyword( $content[1] ) or
+                                followsKeywordinPlainText( @content[1..$#content] ) or
+                                $AllowedKeys{ $PossibleKey } or
+                                # Bracket appears in the same span as keyword
+                                $PossibleKey =~ s~\s*\[\s*~~ or
+                                # Missing left bracket in text
+                                (
+                                    asHTML( $content[1] ) =~ m~^<span[^>]*>\^?(\w+\]|\w+, -\w+\])~ and
+                                    $CorrectMissingBracket = 1
+                                ) or
+                                # Categorization appears in the same span as keyword
+                                (
+                                    $PossibleKey =~ s~\s+((n|V|adj)\.\s*)$~~ and
+                                    $temp = $1 . $content[1]->as_text and
+                                    $temp =~ m~^($AllowedFollowersPlainTextRegex)~
+                                )
+                            )
+                            ){
+                            # Key followed by bracket fullfills criterium
+                            pushArticle();
+                            # Check for extra forms
+                            infoVV("Found start of new article with key '$PossibleKey'.");
+                            my $TBaHtml = asHTML( $TagBlock );
+                            if( $CorrectMissingBracket ){
+                                unless ( $TBaHtml =~ s~^(?<start><p><span[^>]*>((?!</?span>).)+</span><span[^>]*>)\^?(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
+                                    warn "Regex didn't work for '$TBaHtml'";
+                                    die;
+                                }
+                            }
+                            $PossibleKey = checkExtraForms( $PossibleKey, $TagBlock );
+                            setArticle( $PossibleKey, $TBaHtml );
+                            if( exists $PauseFor{ $PossibleKey } ){
+                                debug("Article: '$article'");
+                                print "At line ".__LINE__.". Press ENTER to continu.";
+                                <STDIN>;
+                            }
+                            next TAGBLOCK;
+                        }
+                        # Two keys separated by ou
+                        # E.g. <p><span class="font2" style="font-weight:bold;">abadir </span><span class="font11">ou </span><span class="font2" style="font-weight:bold;">abbadir </span><span class="font11">[abadir] n. m. (origine<br>inconnue ; 1690, Furetière). Nom donné à<br>une pierre sacrée chez les Phéniciens et<br>considérée comme venant du ciel : </span>
+                        # E.g. <p><span class="font2" style="font-weight:bold;">aïeul, e, </span><span class="font11">plur. </span><span class="font2" style="font-weight:bold;">aïeuls, es </span><span class="font11">[ajœl] n. (lat.<br>pop. </span><span class="font11" style="font-style:italic;">*aviolus,</span><span class="font11"> dimin. du lat. class. </span>
+                        elsif(
+                            $content[1] =~ m~^HTML::Element~ and
+                            $content[2] =~ m~^HTML::Element~ and
+                            moreKeywords( $content[1] ) and
+                            (
+                                (
+                                    asHTML( $content[2] ) =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ and
+                                    $temp = $+{keysecond} and
+                                    $temp =~ m~\s*\[\s*$~
+                                ) or
+                                (
+                                    $content[3] =~ m~^HTML::Element~ and
+                                    (
+                                        followsKeyword( $content[3] ) or
+                                        followsKeywordinPlainText( @content[3..$#content] )
+                                    )
+
+                                ) or
+                                # Missing left bracket in text
+                                (
+                                    $content[3] =~ m~^HTML::Element~ and
+                                    asHTML( $content[3] ) =~ m~^<span[^>]*>\^?(\w+\])~ and
+                                    $CorrectMissingBracket = 1
+                                )
+                            ) and
+                            $content[2]->tag eq "span" and
+                            asHTML( $content[2] ) =~ m~style="font-weight:bold;"~ and
+                            asHTML( $content[2] ) =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ ){
+                            # Key followed another key by bracket fullfills criterium
+                            my $SecondKey = cleanKey( $+{"keysecond"} );
+                            $SecondKey =~ s~\s*\[\s*$~~;
+                            pushArticle();
+                            $PossibleKey = checkExtraForms( $PossibleKey, $TagBlock );
+                            $SecondKey = checkExtraForms( $SecondKey, $TagBlock );
+                            my $TBaHtml = asHTML( $TagBlock );
+                            if( $CorrectMissingBracket ){
+                                # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
+                                unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)\^?(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
+                                    warn "Regex didn't work for '$TBaHtml'";
+                                    die;
+                                }
+                            }
+                            infoVV("Found start of new article with key '$PossibleKey'.");
+                            infoVV("Also found another form of this key '$SecondKey'.");
+                            # E.g. <ar><head><k>abaissante</k></head><def>abaissant</def></ar>
+                            pushReferenceArticle( $SecondKey, $PossibleKey);
+                            setArticle( $PossibleKey, $TBaHtml );
+                            if( exists $PauseFor{ $PossibleKey } ){
+                                debug("Article: '$article'");
+                                print "Press ENTER to continu.";
+                                <STDIN>;
+                            }
+                            next TAGBLOCK;
+                        }
+                        # Three keys separated by ou
+                        # E.g. <p><span class="font4" style="font-weight:bold;">copayer, </span><span class="font29">ou </span><span class="font4" style="font-weight:bold;">copaïer, </span><span class="font29">ou </span><span class="font4" style="font-weight:bold;">copahier </span><span class="font29">[kopaje] n. m. (du tupi-guarani </span><span class="font29" style="font-style:italic;">copaïba, </span><span class="font29">arbre qui produit le copahu, par changement de suff. ; 1783, </span><span class="font29" style="font-style:italic;">Encycl. méthodique, </span><span class="font29">écrit </span><span class="font29" style="font-style:italic;">copaïer; copayer,</span><span class="font29"> 1835, Acad. ; </span><span class="font29" style="font-style:italic;">copahier,</span><span class="font29"> 1866, Larousse). Arbre à suc résineux et balsamique, d’Amérique et d’Afrique tropicales.</span></p>
+                        elsif( scalar @content >= 6 and
+                            $content[1] =~ m~^HTML::Element~ and
+                            $content[2] =~ m~^HTML::Element~ and
+                            $content[3] =~ m~^HTML::Element~ and
+                            $content[4] =~ m~^HTML::Element~ and
+                            $content[5] =~ m~^HTML::Element~ and
+                            $content[6] =~ m~^HTML::Element~ and
+                            # $content[1]->tag eq "span" and
+                            # $content[1]->as_HTML('<>&', " ", {}) =~ m~<span[^>]*>(! |\()?ou~ or
+                            # $content[1]->as_HTML('<>&', " ", {}) =~ m~<span[^>]*>(! |\()?plur\.~ or
+                            # $content[1]->as_HTML('<>&', " ", {}) =~ m~<span[^>]*>(! |\()?anc\.~
+                            moreKeywords( $content[1] ) and
+                            moreKeywords( $content[3] ) and
+                            (
+                                (
+                                    asHTML( $content[2] ) =~ m~<span[^>]*>(?<keysecond>((?!</?span>).)+)</span>~ and
+                                    $SecondKey = $+{keysecond} and
+                                    $SecondKey =~ m~\s*\[\s*$~ and
+                                    asHTML( $content[4] ) =~ m~<span[^>]*>(?<keythird>((?!</?span>).)+)</span>~ and
+                                    $ThirdKey = $+{keythird} and
+                                    $ThirdKey =~ m~\s*\[\s*$~
+                                ) or
+                                (
+                                    $content[5] =~ m~^HTML::Element~ and
+                                    (
+                                        followsKeyword( $content[5] ) or
+                                        followsKeywordinPlainText( @content[5..$#content] )
+                                    )
+
+                                ) or
+                                # Missing left bracket in text
+                                (
+                                    $content[5] =~ m~^HTML::Element~ and
+                                    asHTML( $content[5] ) =~ m~^<span[^>]*>\^?([\w\^]+\])~ and
+                                    $CorrectMissingBracket = 1
+                                )
+                            ) and
+                            $content[2]->tag eq "span" and
+                            asHTML( $content[2] ) =~ m~style="font-weight:bold;"~ and
+                            $content[4]->tag eq "span" and
+                            asHTML( $content[4] ) =~ m~style="font-weight:bold;"~
+                            ){
+                            # Key followed two keys by bracket fullfills criterium
+                            $SecondKey = cleanKey( $SecondKey );
+                            $SecondKey =~ s~\s*\[\s*$~~;
+                            $ThirdKey = cleanKey( $ThirdKey );
+                            $ThirdKey =~ s~\s*\[\s*$~~;
+                            pushArticle();
+                            $PossibleKey = checkExtraForms( $PossibleKey, $TagBlock );
+                            $SecondKey = checkExtraForms( $SecondKey, $TagBlock );
+                            $ThirdKey = checkExtraForms( $ThirdKey, $TagBlock );
+                            my $TBaHtml = asHTML( $TagBlock );
+                            if( $CorrectMissingBracket ){
+                                # We're mucking about with the whole p-block in html, because we can't really change the HTTP::Elements of $TagBlock
+                                unless ( $TBaHtml =~ s~^(?<start><p>(<span[^>]*>((?!</?span>).)+</span>){3}<span[^>]*>)\^?(?<end>\w+\]|\w+, -\w+\])~$+{"start"}\[$+{"end"}~s ){
+                                    warn "Regex didn't work for '$TBaHtml'";
+                                    die;
+                                }
+                            }
+                            infoVV("Found start of new article with key '$PossibleKey'.");
+                            infoVV("Also found another form of this key '$SecondKey'.");
+                            pushReferenceArticle( $SecondKey, $PossibleKey );
+                            pushReferenceArticle( $ThirdKey,  $PossibleKey );
+                            setArticle( $PossibleKey, $TBaHtml );
+                            if( exists $PauseFor{ $PossibleKey } ){
+                                debug("Article: '$article'");
+                                print "Press ENTER to continu.";
+                                <STDIN>;
+                            }
+                            next TAGBLOCK;
+                        }
+                        else{
+                            # Criterium not met. Current block taken as a continuation of previous article.
+                            infoVV("Found a possible key '$PossibleKey', but it wasn't followed by one of the allowed symbols.");
+                            push @ImpossibleKeywords, $PossibleKey;
+                            $ImpossibleKeywords{ $PossibleKey } = asHTML( $TagBlock );
+                            addArticle( $TagBlock );
+                            if( exists $PauseFor{ $PossibleKey } ){
+                                debug("Article: '$article'");
+                                print "Press ENTER to continu.";
+                                <STDIN>;
+                            }
+                            next TAGBLOCK;
+                        }
+                    }
+                    else{
+                        # Criterium not met. Current block taken as a continuation of previous article.
+                        addArticle( $TagBlock );
+                        next TAGBLOCK;
+                    }
+                }
+            }
+            else{
+                # Add block to article
+                addArticle( $TagBlock );
+                next TAGBLOCK;
+            }
+
+        }
+        else{ debugV("[$counter] '$_'");}
+    }
+    pushArticle();
+    debugV("Keywords that didn't fit in the criteria.");
+    my $HashStorageAlreadyClearedImpossibleKeywords = "StorageAlreadyClearedImpossibleKeywords.hash";
+    my %StorageAlreadyClearedImpossibleKeywords;
+    if( -e $HashStorageAlreadyClearedImpossibleKeywords ){
+        %StorageAlreadyClearedImpossibleKeywords = %{ retrieve( $HashStorageAlreadyClearedImpossibleKeywords ) };
+    }
+    my $None = 1;
+    my @CurrentlyShown;
+    my @CurrentlyShownWithDescription;
+    foreach(@ImpossibleKeywords){
+        if( exists $StorageAlreadyClearedImpossibleKeywords{ $_} ){ next; }
+        else{
+            push @CurrentlyShownWithDescription, $_."________".$ImpossibleKeywords{$_}."\n\n";
+            push @CurrentlyShown,$_;
+            debugV( $CurrentlyShownWithDescription[-1] );
+            $StorageAlreadyClearedImpossibleKeywords{ $_ } =  1;
+            $None = 0;
+        }
+    }
+
+    if( $None ){ debugV("None") ; }
+    if( $isABBYYAllCleared ){ store(\%StorageAlreadyClearedImpossibleKeywords, $HashStorageAlreadyClearedImpossibleKeywords); }
+    my $ABBYYWordlist = 'ABBYYWordlist.txt';
+    array2File( $ABBYYWordlist, @articles) if $isABBYYWordlistNeeded;
+    debugV("Summary CurrentlyShown:");
+    my $ABBYYImpossibleKeyWordList = 'ABBYYImpossibleKeyWordList.txt';
+    my $ABBYYImpossibleKeyWordListWithDescription = 'ABBYYImpossibleKeyWordListWithDescription.txt';
+    my @ImpossibleKeywordList;
+    foreach(sort @CurrentlyShown){ debugV($_); push @ImpossibleKeywordList, $_, "\n"; }
+    array2File( $ABBYYImpossibleKeyWordList, @ImpossibleKeywordList);
+    array2File( $ABBYYImpossibleKeyWordListWithDescription, @CurrentlyShownWithDescription );
+    debugV("FailingExtraForms:");
+    foreach(@FailingExtraForms){debugV($_);}
+    $isABBYConverted = 1;
+    return( @xdxf_start, @articles, "</xdxf>" );}
 
 1;
