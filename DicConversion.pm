@@ -923,7 +923,9 @@ our $isRemoveTextLess       = 0;
 
 sub convertParsed2XDXF{
     # Usage: @xdxf = convertParsed2XDXF( $html );
+    my $html = shift;
     info ( "Entering convertParsed2XDXF.");
+
     if( $isTestingOn ){
         info("Testing is on.");
         $isParsedConverterReuse = 0;
@@ -942,51 +944,6 @@ sub convertParsed2XDXF{
         if( $html =~ m~(<mbp:[^>]*>)~ ){ die "Found another mbp-tag: $1."; }
         return $html;
     }
-
-    if( $isParsedConverterReuse ){
-        my $XDXFFileName = $FileName;
-        $XDXFFileName =~ s~\.\w+$~~;
-        $XDXFFileName .= ".xdxf";
-        if( -e $XDXFFileName ){
-            info("Reusing xdxf data.");
-            $isParsedConverted = 1;
-            return ( file2Array( $XDXFFileName ) );
-        }
-    }
-    else{ info("Not reusing converted data."); }
-
-    use HTML::TreeBuilder 5 -weak;
-    my $tree = HTML::TreeBuilder->new;
-    if( $isParsedTreeReused and -e $FileName.'.tree' ){
-        $tree = retrieve ( $FileName.'.tree' );
-        info( "Retrieved tree from '".$FileName.".tree'"); }
-    else{
-        my $html = shift;
-        $html = changeMBPTags( $html );
-        $html = convertNonBreakableSpacetoNumberedSequence4Strings( $html );
-        $html = convertNumberedSequencesToChar4Strings( $html );
-        # $html = mergeConsecutiveIdenticallyAttributedSpans( $html );
-        # $html = mergeConsecutiveBoldSpans( $html );
-        # $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
-        # $tree->parse_file($FileName);
-        $tree->no_space_compacting(1);
-        $tree->ignore_unknown(0);
-        $tree->parse_content( $html );
-        debugV( "tree '$tree'");
-        # tree 'HTML::TreeBuilder=HASH(0x562d600afcf0)'
-        unless( $tree =~ m~HTML::TreeBuilder=HASH~ ){
-            unlink $FileName . '.tree';
-            die2("\$tree not a HTML::TreeBuilder hash. \$tree='$tree'\n Deleted old tree-file. Rerun script.");
-        }
-        store( $tree, $FileName.'.tree' );
-        $tree->elementify();
-        debugV( "tree '$tree'");
-        info("End parsing");
-    }
-
-    my $root = $tree->root;
-    my @contents = $root->content_list;
-    debug("root tag: ", $root->tag);
 
     # This displays the contents of $node and any children it may
     # have. The variable $depth is the indentation used.
@@ -1031,6 +988,51 @@ sub convertParsed2XDXF{
         }
         return($Parent_with_maximum_children);
     }
+
+    if( $isParsedConverterReuse ){
+        my $XDXFFileName = $FileName;
+        $XDXFFileName =~ s~\.\w+$~~;
+        $XDXFFileName .= ".xdxf";
+        if( -e $XDXFFileName ){
+            info("Reusing xdxf data.");
+            $isParsedConverted = 1;
+            return ( file2Array( $XDXFFileName ) );
+        }
+    }
+    else{ info("Not reusing converted data."); }
+
+    use HTML::TreeBuilder 5 -weak;
+    my $tree = HTML::TreeBuilder->new;
+    if( $isParsedTreeReused and -e $FileName.'.tree' ){
+        $tree = retrieve ( $FileName.'.tree' );
+        info( "Retrieved tree from '".$FileName.".tree'"); }
+    else{
+        $html = changeMBPTags( $html );
+        $html = convertNonBreakableSpacetoNumberedSequence4Strings( $html );
+        $html = convertNumberedSequencesToChar4Strings( $html );
+        # $html = mergeConsecutiveIdenticallyAttributedSpans( $html );
+        # $html = mergeConsecutiveBoldSpans( $html );
+        # $tree->p_strict(1); # https://metacpan.org/pod/HTML::TreeBuilder#p_strict
+        # $tree->parse_file($FileName);
+        $tree->no_space_compacting(1);
+        $tree->ignore_unknown(0);
+        $tree->parse_content( $html );
+        debugV( "tree '$tree'");
+        # tree 'HTML::TreeBuilder=HASH(0x562d600afcf0)'
+        unless( $tree =~ m~HTML::TreeBuilder=HASH~ ){
+            unlink $FileName . '.tree';
+            die2("\$tree not a HTML::TreeBuilder hash. \$tree='$tree'\n Deleted old tree-file. Rerun script.");
+        }
+        store( $tree, $FileName.'.tree' );
+        $tree->elementify();
+        debugV( "tree '$tree'");
+        info("End parsing");
+    }
+
+    my $root = $tree->root;
+    my @contents = $root->content_list;
+    debug("root tag: ", $root->tag);
+
     my @Catch = ();
     if( -e $FileName.'.catched' and $useStoredCatches){
         @Catch = @{retrieve ( $FileName.'.catched' )};

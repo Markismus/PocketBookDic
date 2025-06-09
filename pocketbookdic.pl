@@ -157,8 +157,9 @@ if( $UseXMLTidy ){
     @xdxf_reconstructed = tidyXMLArray( @xdxf_reconstructed);
 }
 # Save reconstructed XDXF-file
-my $dict_xdxf=$FileName;
+my $dict_xdxf = $FileName;
 if( $dict_xdxf !~ s~\.xdxf$~_reconstructed\.xdxf~ ){ die2("Filename substitution did not work for : '$dict_xdxf'"); }
+
 array2File($dict_xdxf, @xdxf_reconstructed);
 
 # Convert colors to hexvalues

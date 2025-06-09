@@ -132,7 +132,7 @@ our $Just4PocketBook = 1 ;
 our $CreateTwoHalfPocketBookdictionaries = 0; # 0 creates one whole, 1 creates two halves.
 
 if( $Just4Koreader and !$Just4PocketBook){
-    # Controls for Stardict dictionary creation and Koreader stardict compatabiltiy
+    # Controls for Stardict dictionary creation and Koreader Stardict compatability
     $isCreateStardictDictionary = 1; # Turns on Stardict text and binary dictionary creation.
     $SameTypeSequence = "h"; # Either "h" or "m" or "x".
     $updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
@@ -156,7 +156,7 @@ if( $Just4Koreader and !$Just4PocketBook){
     $isEscapeHTMLCharacters = 1;
 }
 if( $Just4PocketBook and !$Just4Koreader){
-    # Controls for Stardict dictionary creation and Koreader stardict compatabiltiy
+    # Controls for Stardict dictionary creation and Koreader Stardict compatability
     $isCreateStardictDictionary = 0; # Turns on Stardict text and binary dictionary creation.
     $SameTypeSequence = "h"; # Either "h" or "m" or "x".
     $updateSameTypeSequence = 1; # If the Stardict files give a sametypesequence value, update the initial value.
