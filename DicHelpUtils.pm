@@ -7,6 +7,7 @@ use strict;
 use Exporter;
 use Data::Compare;
 
+use Encode;
 use DicGlobals;
 use Dic2Screen;
 use DicRoman; 

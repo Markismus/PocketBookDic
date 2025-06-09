@@ -127,6 +127,7 @@ sub file2Array{
 
     my $content;
     # Try to interpret the content as UTF-8
+    # This approach has problems with escaped HTML code. HTML escape codes are also code page dependent and left uncorrected will give error's down the line. E.g. HTML::TreeBuilder unescapes &#150; which is '-' in CP1252 to control character \x{96} (hex(150)=96.)
     eval { my $text = decode('utf-8', $raw, Encode::FB_CROAK); $content = $text };
     # If this failed, interpret as windows-1252 (a superset of iso-8859-1 and ascii)
     if (!$content) {
