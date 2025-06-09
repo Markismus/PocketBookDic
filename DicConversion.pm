@@ -51,6 +51,7 @@ our @EXPORT = (
     '%ValidatedOCRedImages',
     '$ValidatedOCRedImagesHashFileName',
 
+    'convertParsed2XDXF',
     'convertRAWML2XDXF',
     'convertRAWMLUsingManualCuts',
     'convertStardictXMLtoXDXF',
@@ -1291,7 +1292,9 @@ sub convertParsed2XDXF{
         }
         else{ die "No pattern interpretation available"; }
     }
-    my @xdxf = convertHASHtoXDXF( \%Catch );
+    my @xdxf;
+    unless( scalar keys %Catch == 0 ){ @xdxf = convertHASHtoXDXF( \%Catch ); }
+    else{ @xdxf = convertRAWML2XDXF ( split(/^/, $html )); }
     my $XDXFFileName = $FileName;
     $XDXFFileName =~ s~\.\w+$~~;
     $XDXFFileName .= ".xdxf";
@@ -1473,8 +1476,8 @@ sub convertHTML2XDXF{
             return( convertABBYY2XDXF( $html ) );
         }
         else{
-        warn "No idx-entry tags found in html. Trying convertRAWML2XDXF";
-        return( convertRAWML2XDXF( $html ) );
+            warn "No idx-entry tags found in html. Trying convertParsed2XDXF";
+            return convertParsed2XDXF( $html );
         }
     }
 

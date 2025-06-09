@@ -369,7 +369,7 @@ sub loadXDXF{
         }
         elsif( $RAWMLConversion ){
             my @rawml = file2Array( $FileName );
-            @xdxf = convertRAWML2XDXF( @rawml );
+            @xdxf = convertParsed2XDXF( join( '', @rawml ));
             if( scalar @xdxf == (1+scalar @xdxf_start) ){ die2("Not able to handle the rawml-file. Quitting!"); }
         }
         # Check whether there is a saved reconstructed xdxf to get the language and name from.
