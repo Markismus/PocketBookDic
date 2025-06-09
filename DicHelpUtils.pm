@@ -583,20 +583,14 @@ sub tidyXMLArray{
     }
     elsif( $UseXMLBlockArray ){
         my $xml = join('', @_);
-        $xml =~ s~(?<!\n)(</?blockquote[^>]*>)~$1\n$2~sg;
-        $xml =~ s~(</?blockquote[^>]*>)(?>!\n)~$1\n$2~sg;
+        $xml =~ s~(?<!\n)(</?blockquote[^>]*>)~\n$2~sg;
+        $xml =~ s~(</?blockquote[^>]*>)(?>!\n)~$1\n~sg;
         $xml =~ s~\n\n~\n~sg;
         if(scalar @_ > 1){ return (split( /^/, $xml) ); }
         else{ return $xml;}
     }
     else{
-        my $xml = join('', @_);
-        $xml =~ s~(?!\n)(</?blockquote[^>]*>)~$1\n$2~sg;
-        $xml =~ s~(</?blockquote[^>]*>)(?!\n)~$1\n$2~sg;
-        $xml =~ s~\n\n~\n~sg;
-        push @XMLTidied, $xml;
-        if(scalar @_ > 1){ return (split( /^/, $xml) ); }
-        else{ return $xml;}
+        return @_;
     }}
 
 sub updateLocalPath{ $LocalPath = join('', $FileName=~ m~^(.+?/)[^/]+$~); }

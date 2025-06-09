@@ -205,7 +205,8 @@ sub cleanseAr{
 
         }
 
-
+        # filter out comments in definition
+        # while( $def =~ s~<!--(?<comment>((?!(-->|<!--)).)*)-->~~s ){debug ("Removed: '".$+{"comment"}."'");}
 
         if($remove_color_tags){
             # Removes all color from lemma description.
@@ -222,7 +223,7 @@ sub cleanseAr{
 
         $Content =~ s~\Q$def_old\E~$def~s;
     }
-    else{debug("Not well formed ar content!!\n\"$Content\"");}
+    else{ debug("Not well formed ar content!!\n\"$Content\""); $Content=''; }
 
     if ($isRemoveWaveReferences){
         # remove wav-files displaying
@@ -375,10 +376,10 @@ sub loadXDXF{
         # Check whether there is a saved reconstructed xdxf to get the language and name from.
         if(-e  "$LocalPath/$DictionaryName"."_reconstructed.xdxf"){
             my @saved_xdxf = file2Array("$LocalPath/$DictionaryName"."_reconstructed.xdxf");
-            if( $saved_xdxf[1] =~ m~<xdxf lang_from="[^"]+" lang_to="[^"]+" format="visual">~ ){
+            if( defined($saved_xdxf[1]) and $saved_xdxf[1] =~ m~<xdxf lang_from="[^"]+" lang_to="[^"]+" format="visual">~ ){
                 $xdxf[1] = $saved_xdxf[1];
             }
-            if( $saved_xdxf[2] =~ m~<full_name>[^<]+</full_name>~ ){
+            if( defined($saved_xdxf[2]) and $saved_xdxf[2] =~ m~<full_name>[^<]+</full_name>~ ){
                 $xdxf[2] = $saved_xdxf[2];
             }
         }
@@ -602,9 +603,10 @@ our $reformat_full_name  = 1 ; # Value 1 demands user input for full_name tag.
 our $reformat_xdxf       = 1 ; # Value 1 demands user input for xdxf tag.
 our $isMakePocketBookReady = 1;
 sub makePocketbookReady{
-    # returns xml-string unless $isMakePocketBookReady is false, than it returns @_.
-    unless( $isMakePocketBookReady ){ return @_; }
+    # returns xml-string.
     my $xml = join( '', @_ );
+    unless( $isMakePocketBookReady ){ return $xml; }
+    
     # https://www.mobileread.com/forums/showpost.php?p=3923645&postcount=15
     # ezdiy posted that only these tags are retained:
     # Str = "?xml";
@@ -653,6 +655,7 @@ sub makePocketbookReady{
             debug("Removed tag '$tag'.");
         }
     }
+    debug_t("length \$xml: ", length($xml));
     return ( $xml );
 }
 sub reconstructXDXF{
@@ -746,18 +749,24 @@ sub reconstructXDXF{
         chomp $article;
         # <head><k>accognoscundis</k></head><def><blockquote>accognosco</blockquote></def>
         $article =~ m~<head><k>(?<key>(?:(?!</k>).)+)</k></head><def>(?<def>(?:(?!</def>).)+)</def>~s;
-        if( exists $KnownKeys{$+{key}} ){
+        my $key = $+{key};
+        my $def = $+{def};
+        unless( defined($key) and defined($def) and $key ne '' and $def ne '' ){ next; }
+        # Remove spaces from key
+        $key =~ s~^\s+~~;
+        $key =~ s~\s+$~~;
+        if( exists $KnownKeys{$key} ){
             # Append definition to other definition.
-            my $CurrentDefinition = $+{def};
-            my $PreviousDefinition = $IndexedDefinitions[$KnownKeys{$+{key}}];
-            $IndexedDefinitions[$KnownKeys{$+{key}}] = fixPrefixes($PreviousDefinition, $CurrentDefinition);
+            my $CurrentDefinition = $def;
+            my $PreviousDefinition = $IndexedDefinitions[$KnownKeys{$key}];
+            $IndexedDefinitions[$KnownKeys{$key}] = fixPrefixes($PreviousDefinition, $CurrentDefinition);
 
             $ar_count--;
         }
         else{
-            $KnownKeys{$+{key}} = $ar_count;
-            $IndexedKeys[$ar_count] = $+{key};
-            $IndexedDefinitions[$ar_count] = $+{def};
+            $KnownKeys{$key} = $ar_count;
+            $IndexedKeys[$ar_count] = $key;
+            $IndexedDefinitions[$ar_count] = $def;
         }
     }
     # push @xdxf_reconstructed, "<ar>\n$article\n</ar>\n";
