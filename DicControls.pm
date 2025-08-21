@@ -96,11 +96,13 @@ $isConvertFont2Small         = 0 ;
 $isConvertFont2Span          = 0 ;
 $isConvertMMCFullText2Span   = 1 ;
 
+
 # Controls for convertImage2Base64
 $isConvertGIF2PNG            = 0 ; # Creates a dependency on Imagemagick "convert".
 
 # Controls for convertIMG2Text, the conversion of scanned text images to text.
-$isManualValidation = 1; # Manually validate OCRed images.
+$isConvertImagesUsingOCR          = 1;  # Try to identify images as symbols whenever possible.
+$isManualValidation               = 1; # Manually validate OCRed images.
 $isRemoveUnSubstitutedImageString = 1; # If not substitution for the imagestring was made, it can be removed or not.
 $isRemoveUnSourcedImageStrings    = 1; # Remove Imagestrings without a src file.
 
